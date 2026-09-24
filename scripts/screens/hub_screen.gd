@@ -19,6 +19,19 @@ const REPAIR_LINES := {
 var _canvas: Control
 var _room: HomeArt
 var _family: Sprite2D
+var _title: Label
+var _act: Label
+var _count: Label
+var _progress: ProgressBar
+var _top_shade: ColorRect
+var _bottom_shade: ColorRect
+var _bottom_title: Label
+var _bottom_text: Label
+var _stars: Label
+var _settings: Button
+var _shop: Button
+var _target: Button
+var _target_rect := Rect2()
 var _repair := ""
 var _button: Button
 var _time := 0.0
@@ -34,23 +47,16 @@ func open(args: Dictionary) -> void:
 	_canvas = Control.new()
 	_canvas.size = Vector2(720,1280)
 	add_child(_canvas)
-	_label("Vita",Rect2(34,23,400,72),56,Color("fff0ce"))
-	var settings := UiKit.button("Настройки", &"secondary")
-	settings.position = Vector2(475,39)
-	settings.custom_minimum_size = Vector2(167,56)
-	settings.size = Vector2(167,56)
-	settings.add_theme_font_size_override("font_size",23)
-	settings.pressed.connect(func() -> void: Router.popup(&"settings"))
-	_canvas.add_child(settings)
-	_label("АКТ 1  /  НАША КВАРТИРА",Rect2(38,124,460,28),21,Color("e7d9b6"))
-	_label("%d / %d" % [Home.completed(),10],Rect2(564,119,120,38),25,Color("fff0ce"))
-	var progress := ProgressBar.new()
-	progress.position = Vector2(38,165)
-	progress.size = Vector2(644,9)
-	progress.max_value = 10
-	progress.value = Home.completed()
-	progress.show_percentage = false
-	_canvas.add_child(progress)
+	_title = _label("Vita",Rect2(505,20,180,60),48,Color("fff0ce"))
+	_act = _label("АКТ 1  /  НАША КВАРТИРА",Rect2(20,52,440,28),21,Color("e7d9b6"))
+	_count = _label("%d / 10 ремонтов" % Home.completed(),Rect2(20,91,270,38),23,Color("fff0ce"))
+	_progress = ProgressBar.new()
+	_progress.position = Vector2(20,137)
+	_progress.size = Vector2(430,8)
+	_progress.max_value = 10
+	_progress.value = Home.completed()
+	_progress.show_percentage = false
+	_canvas.add_child(_progress)
 	_room = HomeArt.new()
 	for task in Home.TASKS:
 		if Profile.flag("home."+task.id) and task.id != _repair:
@@ -65,44 +71,48 @@ func open(args: Dictionary) -> void:
 	_canvas.add_child(_family)
 	_canvas.move_child(_room,0)
 	_canvas.move_child(_family,1)
-	var top_shade := ColorRect.new()
-	top_shade.color = Color(0.05,0.09,0.12,0.56)
-	top_shade.position = Vector2.ZERO
-	top_shade.size = Vector2(720,190)
-	top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.add_child(top_shade)
-	_canvas.move_child(top_shade,2)
-	var bottom_shade := ColorRect.new()
-	bottom_shade.color = Color(0.05,0.09,0.12,0.82)
-	bottom_shade.position = Vector2(0,1050)
-	bottom_shade.size = Vector2(720,230)
-	bottom_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.add_child(bottom_shade)
-	_canvas.move_child(bottom_shade,3)
-	var shop := UiKit.button("Магазин  ·  %d монет" % Profile.coins(), &"secondary")
-	shop.position = Vector2(348,1190)
-	shop.custom_minimum_size = Vector2(334,60)
-	shop.size = Vector2(334,60)
-	shop.add_theme_font_size_override("font_size",22)
-	shop.pressed.connect(func() -> void:
+	_top_shade = ColorRect.new()
+	_top_shade.color = Color(0.05,0.09,0.12,0.42)
+	_top_shade.size = Vector2(720,165)
+	_top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas.add_child(_top_shade)
+	_canvas.move_child(_top_shade,2)
+	_bottom_shade = ColorRect.new()
+	_bottom_shade.color = Color(0.05,0.09,0.12,0.78)
+	_bottom_shade.position = Vector2(0,1050)
+	_bottom_shade.size = Vector2(720,230)
+	_bottom_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas.add_child(_bottom_shade)
+	_canvas.move_child(_bottom_shade,3)
+	_settings = UiKit.icon_button(&"gear","",&"glass")
+	_settings.position = Vector2(614,170)
+	_settings.tooltip_text = "Настройки"
+	_settings.pressed.connect(func() -> void: Router.popup(&"settings"))
+	_canvas.add_child(_settings)
+	_shop = UiKit.icon_button(&"coin",str(Profile.coins()),&"glass")
+	_shop.position = Vector2(614,270)
+	_shop.tooltip_text = "Магазин · %d монет" % Profile.coins()
+	_shop.pressed.connect(func() -> void:
 		var popup := Router.popup(&"shop")
 		popup.closed.connect(func(result: Variant) -> void:
 			if result == true:
 				Router.go(&"hub")))
-	_canvas.add_child(shop)
-	_label("★ %d  ·  Акт 1" % Profile.stars_total(),Rect2(38,1200,285,38),23,Color("edcf88"))
+	_canvas.add_child(_shop)
+	_stars = _label("★ %d  ·  %d монет" % [Profile.stars_total(),Profile.coins()],Rect2(38,1200,350,38),23,Color("edcf88"))
 	var task := Home.next_task()
 	if task.is_empty() or not Game.has_level(str(task.get("level",""))):
-		_label("Здесь живёт счастье",Rect2(38,1070,644,52),34,Color("fff0ce"))
-		_label("Вы подарили семье уютный дом.",Rect2(38,1120,644,70),25,Color("c3d5ca"))
+		_bottom_title = _label("Здесь живёт счастье",Rect2(38,1070,644,52),34,Color("fff0ce"))
+		_bottom_text = _label("Вы подарили семье уютный дом.",Rect2(38,1120,644,70),25,Color("c3d5ca"))
 		_family.modulate = Color("fff0ca")
 	else:
 		var first_step := Home.completed() == 0
-		_label("Нажми на сломанный телевизор" if first_step else task.title,Rect2(38,1070,644,49),31,Color("fff0ce"))
-		_label("Спаси семью · получи монеты и звёзды" if first_step else task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
+		_bottom_title = _label("Нажми на сломанный телевизор" if first_step else task.title,Rect2(38,1070,644,49),31,Color("fff0ce"))
+		_bottom_text = _label("Спаси семью · получи монеты и звёзды" if first_step else task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
 		
 		var screen_rect: Rect2 = HomeArt.IMAGE_SLOTS[task.id]
 		var target := Button.new()
+		_target = target
+		_target_rect = screen_rect
 		target.position = screen_rect.position
 		target.size = screen_rect.size
 		target.flat = true
@@ -175,10 +185,31 @@ func _layout() -> void:
 	var view := get_viewport_rect().size
 	var safe := DisplayServer.get_display_safe_area()
 	var window := DisplayServer.window_get_size()
-	var top := maxf(0,safe.position.y)*view.y/maxf(1,window.y)
-	var k := minf(view.x/720.0,(view.y-top)/1280.0)
+	var k := view.x / 720.0
+	var h := view.y / k
+	var top := maxf(0,safe.position.y)*view.y/maxf(1,window.y)/k
+	var bottom := maxf(0,window.y-safe.end.y)*view.y/maxf(1,window.y)/k
+	_canvas.size = Vector2(720,h)
 	_canvas.scale = Vector2(k,k)
-	_canvas.position = Vector2((view.x-720*k)*0.5,top+(view.y-top-1280*k)*0.5)
+	_canvas.position = Vector2.ZERO
+	_room.scale.y = h / 1280.0
+	_family.position.y = 250.0 * h / 1280.0
+	_top_shade.size.y = top + 165
+	_title.position.y = top + 20
+	_act.position.y = top + 52
+	_count.position.y = top + 91
+	_progress.position.y = top + 137
+	_settings.position.y = top + 170
+	_shop.position.y = top + 270
+	_bottom_shade.position.y = h - bottom - 230
+	_bottom_title.position.y = h - bottom - 210
+	_bottom_text.position.y = h - bottom - 160
+	_stars.position.y = h - bottom - 73
+	if _target:
+		_target.position.y = _target_rect.position.y * _room.scale.y
+		_target.size.y = _target_rect.size.y * _room.scale.y
+		var button_y := _target_rect.position.y - 20 if Home.next_task().id == "tv" else _target_rect.get_center().y - 28
+		_button.position.y = clampf(button_y * _room.scale.y,top + 355,h - bottom - 300)
 
 
 func _label(text: String, rect: Rect2, px: int, color: Color) -> Label:

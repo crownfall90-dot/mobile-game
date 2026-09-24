@@ -1,6 +1,6 @@
 # Vita
 
-[Скачать тестовый APK первого акта 0.3.3 (Android 64-bit, 35,8 МиБ)](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.3-android-test/Vita-first-act-v0.3.3-arm64.apk)
+[Скачать тестовый APK первого акта 0.3.4 (Android 64-bit, 35,8 МиБ)](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.4-android-test/Vita-first-act-v0.3.4-arm64.apk)
 
 ![Стартовый экран Vita](docs/screenshots/vita-start.png)
 ![Квартира до ремонта](docs/screenshots/vita-studio-before.png)
@@ -41,7 +41,7 @@ godot --headless --path . -- --smoke
 звёзды и намеренно неверные порядки. Полная проверка `tools/verify.py` также
 перебирает все порядки штырей; занимает заметно больше времени.
 
-Идентификатор приложения `com.crownfall90.vita`. Версия 0.3.3 подписана тем же
+Идентификатор приложения `com.crownfall90.vita`. Версия 0.3.4 подписана тем же
 ключом, что 0.3.1, и устанавливается как обновление без удаления прогресса.
 Старая игра с
 `com.alchemytower.game` остаётся на телефоне отдельно: её не нужно удалять,
