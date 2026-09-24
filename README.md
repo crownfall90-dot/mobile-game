@@ -1,6 +1,6 @@
 # Vita
 
-[Скачать тестовый APK первого акта (Android 64-bit, 26,9 МиБ)](https://raw.githubusercontent.com/crownfall90-dot/mobile-game/codex/family-home/build/vita-first-act.apk)
+[Скачать тестовый APK первого акта (Android 64-bit, 26,9 МиБ)](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.0-android-test/Vita-first-act-v0.3.0-arm64.apk)
 
 Это сборка для проверки на телефоне. Все 10 ремонтов доступны, но шесть
 головоломок ещё предстоит усложнить, а работа на реальном устройстве пока
