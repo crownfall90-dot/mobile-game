@@ -5,6 +5,9 @@ extends Node2D
 const WORN_STUDIO = preload("res://art/home/studio_worn.png")
 const REPAIRED_STUDIO = preload("res://art/home/studio_repaired.png")
 const REPAIR_SHADER = preload("res://art/home/repair_mix.gdshader")
+const TEDDY = preload("res://art/home/teddy.png")
+# ponytail: Two aligned room plates keep the APK small, but regional blends can
+# show seams. Replace them with per-object layers if the final art needs it.
 
 const IMAGE_SLOTS := {
 	"tv": Rect2(566,397,154,210), "light": Rect2(300,0,120,166),
@@ -25,6 +28,7 @@ var repaired: Array[String] = []
 var highlight := ""
 var area := "flat"
 var _image: Sprite2D
+var _decor: Pen.Canvas
 
 
 func _ready() -> void:
@@ -39,6 +43,9 @@ func _ready() -> void:
 	mat.set_shader_parameter("restored",REPAIRED_STUDIO)
 	_image.material = mat
 	add_child(_image)
+	_decor = Pen.Canvas.new()
+	_decor.paint = _paint_overlay
+	add_child(_decor)
 
 
 func _draw() -> void:
@@ -49,10 +56,8 @@ func _draw() -> void:
 				mask |= 1 << i
 		if _image:
 			(_image.material as ShaderMaterial).set_shader_parameter("repair_mask",mask)
-		if highlight != "" and IMAGE_SLOTS.has(highlight):
-			Pen.begin(self)
-			Pen.loop(Pen.rrect(IMAGE_SLOTS[highlight].grow(5),16),Color("ffe7a1"),4)
-			Pen.end()
+		if _decor:
+			_decor.queue_redraw()
 		return
 	Pen.begin(self)
 	var warm := repaired.size() >= 2
@@ -109,6 +114,26 @@ func _draw() -> void:
 		Pen.glow(Vector2(354,414),Vector2(210,170),Color(1.0,0.87,0.59,0.06))
 	if highlight != "" and SLOTS.has(highlight):
 		Pen.loop(Pen.rrect(SLOTS[highlight].grow(7),16),Color("ffe7a1"),4)
+	Pen.end()
+
+
+func _paint_overlay(ci: CanvasItem) -> void:
+	Pen.begin(ci)
+	if Profile.owns("vita_plant"):
+		Pen.blob(Pen.rrect(Rect2(642,612,36,35),5),Color("ad7450"),1,Color("654a38"))
+		Pen.line(Vector2(660,612),Vector2(660,550),Color("4b7650"),4)
+		for p in [Vector2(646,579),Vector2(672,566),Vector2(647,553),Vector2(676,590)]:
+			Pen.soft(Pen.oval(p,Vector2(19,8),20,0.3),Color("558963"))
+	if Profile.owns("vita_teddy"):
+		ci.draw_texture_rect(TEDDY,Rect2(604,772,92,96),false)
+	if Profile.owns("vita_picture"):
+		Pen.blob(Pen.rrect(Rect2(491,212,55,68),4),Color("9b6b43"),2)
+		Pen.soft(Pen.rrect(Rect2(497,218,43,56),2),Color("f4e8cc"))
+		Pen.dot(Vector2(509,238),7,Color("c98f78"),1)
+		Pen.dot(Vector2(529,245),6,Color("d7a78c"),1)
+		Pen.line(Vector2(507,258),Vector2(531,258),Color("729481"),7)
+	if highlight != "" and IMAGE_SLOTS.has(highlight):
+		Pen.loop(Pen.rrect(IMAGE_SLOTS[highlight].grow(4),14),Color("ffe7a1"),3)
 	Pen.end()
 
 
