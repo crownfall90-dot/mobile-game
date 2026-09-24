@@ -205,9 +205,10 @@ func is_unlocked(id: String) -> bool:
 ## Первый открытый и не пройденный уровень, иначе последний.
 func current_level_id() -> String:
 	var ids := _level_ids()
-	for id in ids:
-		if is_unlocked(id) and not is_cleared(id):
-			return id
+	for i in ids.size():
+		# то же, что is_unlocked(), но без повторного запроса списка
+		if not is_cleared(ids[i]) and (i == 0 or is_cleared(ids[i - 1])):
+			return ids[i]
 	return ids[ids.size() - 1] if ids.size() > 0 else ""
 
 

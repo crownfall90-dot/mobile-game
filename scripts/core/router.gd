@@ -228,7 +228,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 			return
 		var top: Node = _stack.pop_back()
 		_names.pop_back()
-		top.queue_free()
+		_drop(top)
 		var prev: Node = _stack.back()
 		_screens.add_child(prev)
 		if prev.has_method(&"on_resume"):
@@ -250,7 +250,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 		_screens.remove_child(_stack.back())
 	else:
 		for s in _stack:
-			s.queue_free()
+			_drop(s)
 		_stack.clear()
 		_names.clear()
 	var node: Node = script.new()
@@ -261,6 +261,13 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 	if node.has_method(&"open"):
 		node.call(&"open", args)
 	screen_changed.emit(screen)
+
+
+## Старый экран уходит из дерева сразу: две камеры и два уровня не живут вместе ни кадра.
+func _drop(s: Node) -> void:
+	if s.is_inside_tree():
+		_screens.remove_child(s)
+	s.queue_free()
 
 
 func _fade_to(a: float) -> void:
