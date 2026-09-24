@@ -1,46 +1,81 @@
 extends Control
 
-var _progress: ProgressBar
+const SPLASH = preload("res://art/home/splash_outside.png")
+const TITLE_FONT = preload("res://art/fonts/Fredoka.ttf")
+
+var _canvas: Control
+var _bar: ColorRect
 var _elapsed := 0.0
 var _done := false
 
 
 func open(_args: Dictionary) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color("203b42")
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var col := VBoxContainer.new()
-	col.custom_minimum_size.x = 480
-	col.add_theme_constant_override("separation",24)
-	center.add_child(col)
-	var icon := TextureRect.new()
-	icon.texture = preload("res://icon.svg")
-	icon.custom_minimum_size = Vector2(190,190)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	col.add_child(icon)
-	for pair in [["Vita",88],["Каждой семье нужен дом",28],["Помоги маме и дочке начать заново",21]]:
-		var label := UiKit.label(pair[0],pair[1],Color("fff0ce"))
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(label)
-	_progress = ProgressBar.new()
-	_progress.custom_minimum_size.y = 12
-	_progress.show_percentage = false
-	col.add_child(_progress)
+	_canvas = Control.new()
+	_canvas.size = Vector2(720,1280)
+	add_child(_canvas)
+	var scene := TextureRect.new()
+	scene.texture = SPLASH
+	scene.size = Vector2(720,1280)
+	scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas.add_child(scene)
+	var title := UiKit.label("Vita",112,Color("fff4d6"))
+	var title_font := FontVariation.new()
+	title_font.base_font = TITLE_FONT
+	title_font.variation_opentype = {&"wght":700}
+	title_font.variation_embolden = 2.0
+	title.label_settings.font = title_font
+	title.position = Vector2(40,40)
+	title.size = Vector2(640,150)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.visible_characters = 0
+	title.modulate.a = 0.0
+	_canvas.add_child(title)
+	var title_in := create_tween().set_parallel()
+	title_in.tween_property(title,"visible_characters",4,0.95)
+	title_in.tween_property(title,"modulate:a",1.0,0.35)
+	var subtitle := UiKit.label("История одной семьи",30,Color("fff1d9"))
+	subtitle.position = Vector2(40,180)
+	subtitle.size = Vector2(640,46)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_canvas.add_child(subtitle)
+	var loading := UiKit.label("Загружаем наш дом...",26,Color("fff4d6"))
+	loading.position = Vector2(60,260)
+	loading.size = Vector2(600,45)
+	loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_canvas.add_child(loading)
+	var track := ColorRect.new()
+	track.color = Color("6b5848")
+	track.position = Vector2(110,315)
+	track.size = Vector2(500,18)
+	_canvas.add_child(track)
+	_bar = ColorRect.new()
+	_bar.color = Color("ffc660")
+	_bar.position = track.position
+	_bar.size = Vector2(0,18)
+	_canvas.add_child(_bar)
+	get_viewport().size_changed.connect(_layout)
+	_layout()
 
 
 func _process(delta: float) -> void:
-	if _progress == null or _done:
+	if _bar == null or _done:
 		return
 	_elapsed += delta
 	var ready_audio := Sfx.prepare(4)
-	_progress.value = minf(95,_elapsed/1.6*100)
-	if ready_audio and _elapsed >= 1.6:
+	_bar.size.x = 500.0 * minf(0.95,_elapsed / 1.8)
+	if ready_audio and _elapsed >= 1.8:
 		_done = true
-		_progress.value = 100
+		_bar.size.x = 500
 		Router.go(&"hub")
+
+
+func _layout() -> void:
+	if _canvas == null:
+		return
+	var view := get_viewport_rect().size
+	var k := minf(view.x / 720.0,view.y / 1280.0)
+	_canvas.scale = Vector2(k,k)
+	_canvas.position = (view - Vector2(720,1280) * k) * 0.5

@@ -4,13 +4,14 @@ extends Hero
 
 const FAMILY_WORN = preload("res://art/home/family_worn.png")
 const FAMILY_HAPPY = preload("res://art/home/family_happy.png")
+const FAMILY_CLOTHED = preload("res://art/home/family_clothed.png")
 
 var stage := 0
 
 
 func _paint(ci: CanvasItem) -> void:
 	_drawn_k = Pen.pixel_scale(self)
-	var picture: Texture2D = FAMILY_HAPPY if stage >= 2 else FAMILY_WORN
+	var picture: Texture2D = FAMILY_CLOTHED if stage == 3 else (FAMILY_HAPPY if stage >= 2 else FAMILY_WORN)
 	var height := 148.0
 	var width := height * picture.get_width() / picture.get_height()
 	ci.draw_texture_rect(picture,Rect2(-width * 0.5,-height,width,height),false)

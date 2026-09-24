@@ -2,6 +2,19 @@ extends Control
 
 const FAMILY_WORN = preload("res://art/home/family_worn.png")
 const FAMILY_HAPPY = preload("res://art/home/family_happy.png")
+const FAMILY_CLOTHED = preload("res://art/home/family_clothed.png")
+const REPAIR_LINES := {
+	"tv":"Дочка: «Мама, мультики снова работают!»",
+	"light":"Мама: «Теперь вечерами будет светло.»",
+	"window":"Дочка: «Больше не дует!»",
+	"bed":"Мама: «Сегодня мы выспимся.»",
+	"sofa":"Дочка: «Почитаем сказку вместе?»",
+	"kitchen":"Мама: «Приготовим тёплый ужин.»",
+	"bath":"Дочка: «Вода снова тёплая!»",
+	"toilet":"Мама: «Вот и здесь стало удобно.»",
+	"walls":"Дочка: «Как красиво вокруг!»",
+	"floor":"Мама: «Наш дом наконец-то уютный.»",
+}
 
 var _canvas: Control
 var _room: HomeArt
@@ -44,7 +57,7 @@ func open(args: Dictionary) -> void:
 			_room.repaired.append(task.id)
 	_canvas.add_child(_room)
 	_family = Sprite2D.new()
-	_family.texture = FAMILY_HAPPY if Home.stage() >= 2 else FAMILY_WORN
+	_family.texture = FAMILY_CLOTHED if Home.stage() == 3 else (FAMILY_HAPPY if Home.stage() >= 2 else FAMILY_WORN)
 	_family.centered = false
 	var sprite_scale := 750.0 / _family.texture.get_height()
 	_family.scale = Vector2(sprite_scale,sprite_scale)
@@ -84,8 +97,9 @@ func open(args: Dictionary) -> void:
 		_label("Вы подарили семье уютный дом.",Rect2(38,1120,644,70),25,Color("c3d5ca"))
 		_family.modulate = Color("fff0ca")
 	else:
-		_label(task.title,Rect2(38,1070,644,49),32,Color("fff0ce"))
-		_label(task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
+		var first_step := Home.completed() == 0
+		_label("Нажми на сломанный телевизор" if first_step else task.title,Rect2(38,1070,644,49),31,Color("fff0ce"))
+		_label("Спаси семью · получи монеты и звёзды" if first_step else task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
 		
 		var screen_rect: Rect2 = HomeArt.IMAGE_SLOTS[task.id]
 		var target := Button.new()
@@ -135,7 +149,7 @@ func _animate_repair() -> void:
 	var fx := Fx.new()
 	_room.add_child(fx)
 	fx.burst(HomeArt.IMAGE_SLOTS[_repair].get_center(),Color("ffe5a3"),25,200,5,300,0.9)
-	Router.toast("Дома стало немного счастливее")
+	Router.toast(REPAIR_LINES.get(_repair,"Дома стало немного счастливее"))
 	await get_tree().create_timer(0.9).timeout
 	_room.highlight = str(Home.next_task().get("id","")) if Home.completed() < 10 else ""
 	_room.queue_redraw()
@@ -152,7 +166,7 @@ func _process(delta: float) -> void:
 	if _family:
 		_family.offset.y = sin(_time*1.5)*3.0
 	if _button:
-		_button.modulate = Color.WHITE.lerp(Color("ffdc95"),(sin(_time*3.0)+1.0)*0.15)
+		_button.modulate = Color.WHITE.lerp(Color("ffdc95"),(sin(_time*3.0)+1.0)*0.35)
 
 
 func _layout() -> void:
