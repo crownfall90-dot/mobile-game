@@ -9,6 +9,9 @@ static func run() -> void:
 	profile.save_path = temp
 	profile.reset_progress()
 	assert(Home.completed() == 0)
+	for i in 10:
+		var slot: Rect2 = HomeArt.IMAGE_SLOTS[Home.TASKS[i].id]
+		assert(Rect2(Vector2.ZERO,Vector2(720,1280)).encloses(slot))
 	assert(Home.finish("home_02",true) == "")
 	assert(Home.finish("home_01",false) == "")
 	assert(Home.finish("home_01",true) == "tv")

@@ -1,8 +1,11 @@
 extends Control
 
+const FAMILY_WORN = preload("res://art/home/family_worn.png")
+const FAMILY_HAPPY = preload("res://art/home/family_happy.png")
+
 var _canvas: Control
 var _room: HomeArt
-var _family: FamilyHero
+var _family: Sprite2D
 var _repair := ""
 var _button: Button
 var _time := 0.0
@@ -18,19 +21,18 @@ func open(args: Dictionary) -> void:
 	_canvas = Control.new()
 	_canvas.size = Vector2(720,1280)
 	add_child(_canvas)
-	_label("Vita",Rect2(34,43,400,72),56,Color("fff0ce"))
-	_label("ИСТОРИЯ О СЕМЬЕ",Rect2(38,111,310,32),18,Color("a8c3be"))
+	_label("Vita",Rect2(34,23,400,72),56,Color("fff0ce"))
 	var settings := UiKit.button("Настройки", &"secondary")
-	settings.position = Vector2(483,60)
-	settings.custom_minimum_size = Vector2(199,66)
-	settings.size = Vector2(199,66)
+	settings.position = Vector2(475,39)
+	settings.custom_minimum_size = Vector2(167,56)
+	settings.size = Vector2(167,56)
 	settings.add_theme_font_size_override("font_size",23)
 	settings.pressed.connect(func() -> void: Router.popup(&"settings"))
 	_canvas.add_child(settings)
-	_label("АКТ 1  /  НАША КВАРТИРА",Rect2(38,173,460,28),21,Color("e7d9b6"))
-	_label("%d / %d" % [Home.completed(),10],Rect2(564,168,120,38),25,Color("fff0ce"))
+	_label("АКТ 1  /  НАША КВАРТИРА",Rect2(38,124,460,28),21,Color("e7d9b6"))
+	_label("%d / %d" % [Home.completed(),10],Rect2(564,119,120,38),25,Color("fff0ce"))
 	var progress := ProgressBar.new()
-	progress.position = Vector2(38,214)
+	progress.position = Vector2(38,165)
 	progress.size = Vector2(644,9)
 	progress.max_value = 10
 	progress.value = Home.completed()
@@ -41,11 +43,29 @@ func open(args: Dictionary) -> void:
 		if Profile.flag("home."+task.id) and task.id != _repair:
 			_room.repaired.append(task.id)
 	_canvas.add_child(_room)
-	_family = FamilyHero.new()
-	_family.stage = Home.stage()
-	_family.setup(Vector2(363,867),false)
-	_family.scale = Vector2(1.5,1.5)
+	_family = Sprite2D.new()
+	_family.texture = FAMILY_HAPPY if Home.stage() >= 2 else FAMILY_WORN
+	_family.centered = false
+	var sprite_scale := 750.0 / _family.texture.get_height()
+	_family.scale = Vector2(sprite_scale,sprite_scale)
+	_family.position = Vector2(360.0 - _family.texture.get_width() * sprite_scale * 0.5,250)
 	_canvas.add_child(_family)
+	_canvas.move_child(_room,0)
+	_canvas.move_child(_family,1)
+	var top_shade := ColorRect.new()
+	top_shade.color = Color(0.05,0.09,0.12,0.56)
+	top_shade.position = Vector2.ZERO
+	top_shade.size = Vector2(720,190)
+	top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas.add_child(top_shade)
+	_canvas.move_child(top_shade,2)
+	var bottom_shade := ColorRect.new()
+	bottom_shade.color = Color(0.05,0.09,0.12,0.82)
+	bottom_shade.position = Vector2(0,1050)
+	bottom_shade.size = Vector2(720,230)
+	bottom_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas.add_child(bottom_shade)
+	_canvas.move_child(bottom_shade,3)
 	var shop := UiKit.button("Магазин  ·  %d монет" % Profile.coins(), &"secondary")
 	shop.position = Vector2(348,1190)
 	shop.custom_minimum_size = Vector2(334,60)
@@ -60,25 +80,26 @@ func open(args: Dictionary) -> void:
 	_label("★ %d  ·  Акт 1" % Profile.stars_total(),Rect2(38,1200,285,38),23,Color("edcf88"))
 	var task := Home.next_task()
 	if task.is_empty() or not Game.has_level(str(task.get("level",""))):
-		_label("Здесь живёт счастье",Rect2(38,1050,644,52),34,Color("fff0ce"))
-		_label("Вы подарили семье уютный дом.",Rect2(38,1110,644,70),25,Color("c3d5ca"))
-		_family.celebrate()
+		_label("Здесь живёт счастье",Rect2(38,1070,644,52),34,Color("fff0ce"))
+		_label("Вы подарили семье уютный дом.",Rect2(38,1120,644,70),25,Color("c3d5ca"))
+		_family.modulate = Color("fff0ca")
 	else:
-		_label(task.title,Rect2(38,1050,644,49),32,Color("fff0ce"))
-		_label(task.text,Rect2(38,1105,644,64),24,Color("c3d5ca"))
+		_label(task.title,Rect2(38,1070,644,49),32,Color("fff0ce"))
+		_label(task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
 		
-		var rect: Rect2 = HomeArt.SLOTS[task.id]
+		var screen_rect: Rect2 = HomeArt.IMAGE_SLOTS[task.id]
 		var target := Button.new()
-		target.position = rect.position
-		target.size = rect.size
+		target.position = screen_rect.position
+		target.size = screen_rect.size
 		target.flat = true
 		target.tooltip_text = "Починить: " + task.name
 		target.pressed.connect(_play)
 		_canvas.add_child(target)
 		_button = UiKit.button("Починить", &"primary")
-		_button.position = Vector2(clampf(rect.get_center().x-90,40,500),rect.position.y-51)
-		_button.custom_minimum_size = Vector2(180,60)
-		_button.size = Vector2(180,60)
+		var button_y := screen_rect.position.y-20 if task.id == "tv" else screen_rect.get_center().y-28
+		_button.position = Vector2(clampf(screen_rect.get_center().x-75,18,480),clampf(button_y,195,980))
+		_button.custom_minimum_size = Vector2(150,56)
+		_button.size = Vector2(150,56)
 		_button.add_theme_font_size_override("font_size",24)
 		_button.pressed.connect(_play)
 		_canvas.add_child(_button)
@@ -105,12 +126,15 @@ func _animate_repair() -> void:
 	await get_tree().create_timer(0.55).timeout
 	_room.repaired.append(_repair)
 	_room.queue_redraw()
-	_family.celebrate()
+	var y := _family.position.y
+	var jump := create_tween()
+	jump.tween_property(_family,"position:y",y-14,0.17)
+	jump.tween_property(_family,"position:y",y,0.23)
 	Sfx.play(&"restore")
 	Sfx.haptic(40)
 	var fx := Fx.new()
 	_room.add_child(fx)
-	fx.burst(HomeArt.SLOTS[_repair].get_center(),Color("ffe5a3"),25,200,5,300,0.9)
+	fx.burst(HomeArt.IMAGE_SLOTS[_repair].get_center(),Color("ffe5a3"),25,200,5,300,0.9)
 	Router.toast("Дома стало немного счастливее")
 	await get_tree().create_timer(0.9).timeout
 	_room.highlight = str(Home.next_task().get("id","")) if Home.completed() < 10 else ""
@@ -125,6 +149,8 @@ func _play() -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	if _family:
+		_family.offset.y = sin(_time*1.5)*3.0
 	if _button:
 		_button.modulate = Color.WHITE.lerp(Color("ffdc95"),(sin(_time*3.0)+1.0)*0.15)
 
