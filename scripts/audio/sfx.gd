@@ -19,8 +19,10 @@ var _order: Array = []
 var _prep := 0
 var _prepared := false
 var _job_buf := PackedFloat32Array()
-var _job_layers: Array = []
+var _job_steps: Array = []
+var _job_state := PackedFloat64Array()
 var _job_step := 0
+var _step_us := 0                # сколько длился последний шаг: следующий, скорее всего, такой же
 var _players: Array[AudioStreamPlayer] = []
 var _next_player := 0
 var _last_ms := {}               # id -> время последнего запуска, мс
@@ -66,34 +68,37 @@ func _ready() -> void:
 	_read_settings()
 
 
-## Зовётся каждый кадр загрузки, пока не вернёт true. Считает слои по одному,
-## чтобы кадр не выходил за budget_ms.
+## Зовётся каждый кадр загрузки, пока не вернёт true. Выполняет короткие шаги
+## Bank.steps() (куски слоёв по ~2048 сэмплов) и останавливается, если следующий шаг
+## уже не влезет в budget_ms.
 func prepare(budget_ms: int) -> bool:
 	if not _enabled or _prepared:
 		return true
 	var deadline := Time.get_ticks_usec() + budget_ms * 1000
+	var worked := false
 	while _prep < _order.size():
 		var id: StringName = _order[_prep]
-		if _streams.has(id):
-			_prep += 1
-			_job_layers = []
-			_job_step = 0
-			continue
 		if _job_step == 0:
+			if _streams.has(id):
+				_prep += 1
+				continue
 			_job_buf = Synth.buffer(Bank.TABLE[id][0])
-			_job_layers = Bank.layers(id)
-		while _job_step < _job_layers.size():
-			Bank.apply(_job_buf, _job_layers[_job_step])
-			_job_step += 1
-			if Time.get_ticks_usec() >= deadline:
+			_job_steps = Bank.steps(id)
+			_job_state = PackedFloat64Array()
+		while _job_step < _job_steps.size():
+			var t0 := Time.get_ticks_usec()
+			if worked and t0 + _step_us > deadline:
 				return false
-		_streams[id] = Synth.to_stream(_job_buf)
+			Bank.run(_job_buf, _job_steps[_job_step], _job_state)
+			_job_step += 1
+			_step_us = Time.get_ticks_usec() - t0
+			worked = true
+		if not _streams.has(id):   # play() мог уже синтезировать его сам
+			_streams[id] = Synth.encode(_job_buf)
 		_job_buf = PackedFloat32Array()
-		_job_layers = []
+		_job_steps = []
 		_job_step = 0
 		_prep += 1
-		if Time.get_ticks_usec() >= deadline:
-			break
 	if _prep < _order.size():
 		return false
 	_prepared = true

@@ -1,14 +1,26 @@
 extends RefCounted
 ## Таблица звуков DESIGN §12: рецепты, громкость, троттлинг, «лесенки».
-## Рецепт — список слоёв [вид, аргументы Synth без буфера...]; Sfx.prepare() считает их
-## по одному, чтобы кадр загрузки не превышал бюджет. «Треугольник» — ring() с h3 = 1/9.
+## Рецепт — список слоёв [вид, аргументы Synth без буфера...]. steps() режет слои на куски
+## по CHUNK сэмплов и добавляет выравнивание пика, а Sfx.prepare() выполняет эти шаги по
+## одному, чтобы кадр загрузки не превышал бюджет. «Треугольник» — ring() с h3 = 1/9.
 
 const Synth := preload("res://scripts/audio/synth.gd")
 const TONE := 0
 const RING := 1
 const NOISE := 2
 const DC := 3
+const PEAK := 4
+const GAIN := 5
 const TRI := 1.0 / 9.0
+const CHUNK := 2048              # сэмплов слоя на шаг: здесь ~0,5 мс, на слабом телефоне ~2 мс
+const PEAK_DB := -3.0
+## Необязательные аргументы Synth по видам слоя (после обязательных), чтобы дописать from/to/st.
+const REQUIRED := {TONE: 5, RING: 4, NOISE: 3}
+const DEFAULTS := {
+	TONE: [0.001, 0.0, 0.0, 0.0, Synth.RELEASE],
+	RING: [0.0, 0.0015],
+	NOISE: [0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 1],
+}
 
 ## id -> [длина, с; громкость, дБ; троттлинг, мс; лесенка — высоту задаёт вызов, без случайной]
 const TABLE := {
@@ -41,19 +53,46 @@ const RELIC_HZ: Array[float] = [1046.5, 1174.7, 1318.5, 1568.0, 1760.0]   # C6 D
 const WIN_HZ: Array[float] = [523.25, 659.26, 783.99, 1046.5]            # C5 E5 G5 C6
 
 
-## Звук целиком — для play() до конца prepare().
+## Звук целиком — для play() до конца prepare(). Те же шаги, поэтому звук тот же.
 static func render(id: StringName) -> AudioStreamWAV:
 	if not TABLE.has(id):
 		return null
 	var b := Synth.buffer(TABLE[id][0])
-	for layer in layers(id):
-		apply(b, layer)
-	return Synth.to_stream(b)
+	var st := PackedFloat64Array()
+	for step: Array in steps(id):
+		run(b, step, st)
+	return Synth.encode(b)
 
 
-static func apply(b: PackedFloat32Array, layer: Array) -> void:
-	var args := [b] + layer.slice(1)
-	match layer[0]:
+## Шаги синтеза: куски слоёв [вид, аргументы, from, to], затем хвост и пик по кускам.
+static func steps(id: StringName) -> Array:
+	var size := int(ceil(float(TABLE[id][0]) * Synth.RATE))
+	var out := []
+	for layer: Array in layers(id):
+		var kind: int = layer[0]
+		if kind == DC:
+			out.append([DC, [], 0, size])
+			continue
+		var args := layer.slice(1)
+		var defaults: Array = DEFAULTS[kind]
+		args.append_array(defaults.slice(args.size() - int(REQUIRED[kind])))
+		var i0 := int(float(args[0]) * Synth.RATE)
+		var dur: float = 4.6 * float(args[3]) if kind == RING else float(args[1])
+		var n := mini(int(dur * Synth.RATE), size - i0)
+		for from in range(0, n, CHUNK):
+			out.append([kind, args, from, mini(from + CHUNK, n)])
+	for kind: int in [PEAK, GAIN]:
+		for from in range(0, size, CHUNK * 4):
+			out.append([kind, [], from, mini(from + CHUNK * 4, size)])
+	return out
+
+
+## Один шаг. st переносит состояние слоя от куска к куску, а потом — найденный пик.
+static func run(b: PackedFloat32Array, step: Array, st: PackedFloat64Array) -> void:
+	var from: int = step[2]
+	var to: int = step[3]
+	var args: Array = [b] + step[1] + [from, to, st]
+	match step[0]:
 		TONE:
 			Synth.tone.callv(args)
 		RING:
@@ -62,6 +101,14 @@ static func apply(b: PackedFloat32Array, layer: Array) -> void:
 			Synth.noise.callv(args)
 		DC:
 			Synth.dc_block(b)
+		PEAK:
+			if from == 0:
+				Synth.fade_end(b)
+				st.resize(1)
+				st[0] = 0.0
+			st[0] = maxf(st[0], Synth.peak(b, from, to))
+		GAIN:
+			Synth.gain(b, db_to_linear(PEAK_DB) / maxf(st[0], 1e-9), from, to)
 
 
 ## tone: at, dur, f0, f1, amp, atk, tau, vib_hz, vib
