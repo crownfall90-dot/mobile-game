@@ -139,15 +139,37 @@ static func vgrad(r: Rect2, top: Color, bottom: Color) -> void:
 		PackedColorArray([top, top, bottom, bottom]))
 
 
-## Радиальное свечение: веер треугольников от яркого центра к прозрачному краю.
+## Радиальное свечение: сетка треугольников от яркого центра через средний круг к прозрачному краю.
 static func glow(p: Vector2, r: Vector2, c: Color, n := 24) -> void:
-	var pts := PackedVector2Array([p])
-	var cols := PackedColorArray([c])
-	var edge := Color(c, 0.0)
-	for i in n + 1:
-		pts.append(p + Vector2.from_angle(TAU * i / n) * r)
+	var pts := PackedVector2Array([p * k])
+	var cols := PackedColorArray([col(c)])
+	var idx := PackedInt32Array()
+	var mid := col(Color(c, c.a * 0.4))
+	var edge := col(Color(c, 0.0))
+	for i in n:
+		var d := Vector2.from_angle(TAU * i / n) * r
+		pts.append((p + d * 0.45) * k)
+		pts.append((p + d) * k)
+		cols.append(mid)
 		cols.append(edge)
-	grad(pts, cols)
+		var a := 1 + i * 2
+		var b := 1 + ((i + 1) % n) * 2
+		idx.append_array(PackedInt32Array([0, a, b, a, a + 1, b + 1, a, b + 1, b]))
+	RenderingServer.canvas_item_add_triangle_array(_ci.get_canvas_item(), idx, pts, cols)
+
+
+## Огонёк из трёх язычков: красный, оранжевый, светлая сердцевина. sway качает вершину.
+static func flame(c: Vector2, r: float, h: float, sway: float) -> void:
+	for layer in 3:
+		var f := 1.0 - layer * 0.3
+		var pts := PackedVector2Array()
+		for i in 16:
+			var a := TAU * i / 16.0
+			var up := cos(a) > 0.0
+			var y := -cos(a) * (h * f - r * f if up else r * f)
+			var x := r * f * sin(a) * pow(absf(sin(a * 0.5)), 1.3)
+			pts.append(c + Vector2(x + sway * f * pow(maxf(0.0, -y) / h, 2.0), y - r * 0.2 - layer * r * 0.15))
+		soft(pts, [Color("ff5a1f"), Color("ffb02e"), Color("fff1b8")][layer])
 
 
 static func text(font: Font, p: Vector2, s: String, size: int, c: Color, outline := 0) -> void:
