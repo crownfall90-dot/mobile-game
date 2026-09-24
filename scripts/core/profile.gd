@@ -4,12 +4,14 @@ extends Node
 ##
 ## Файл user://save.json пишется атомарно: сначала save.tmp, прошлый файл
 ## копируется в save.bak, затем save.tmp переименовывается поверх save.json.
+## Недописанный save.tmp (диск полон) не заменяет save.json: запись повторяется позже.
 ## Если save.json не читается, берём save.bak.
 
 signal changed(key: StringName)
 
 const VERSION := 2
 const SAVE_DELAY := 0.5
+const RETRY_DELAY := 5.0        # запись не удалась (диск полон): повтор через столько секунд
 const OLD_SAVE := "user://progress.cfg"
 ## Старые уровни по индексу из progress.cfg: level_001 стал f1_05.
 const OLD_LEVELS: PackedStringArray = ["f1_05"]
@@ -434,20 +436,38 @@ func _write() -> void:
 	if not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)
 	var tmp := _tmp_path()
+	var text := JSON.stringify(data)
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		push_error("Profile: cannot write %s (%s)" % [tmp, error_string(FileAccess.get_open_error())])
+		_retry_later()
 		return
-	f.store_string(JSON.stringify(data))
+	var stored := f.store_string(text) and f.get_error() == OK
 	f.close()
+	# Полный диск (частый случай на дешёвых телефонах) даёт недописанный save.tmp, а ошибка
+	# буферизованной записи всплывает только при закрытии. Поэтому читаем файл обратно:
+	# недописанный save.tmp не должен стать save.json и потом затереть собой save.bak.
+	if not stored or FileAccess.get_file_as_string(tmp) != text:
+		push_error("Profile: %s was not written completely (disk full?), keeping the old save" % tmp)
+		DirAccess.remove_absolute(tmp)
+		_retry_later()
+		return
 	# битый save.json не должен затереть хорошую копию
 	if _main_ok and FileAccess.file_exists(save_path):
 		DirAccess.copy_absolute(save_path, _bak_path())
 	var err := DirAccess.rename_absolute(tmp, save_path)
 	if err != OK:
 		push_error("Profile: cannot replace %s (%s)" % [save_path, error_string(err)])
+		_retry_later()
 		return
 	_main_ok = true
+
+
+## Запись не удалась: данные в памяти целы, пробуем снова позже.
+func _retry_later() -> void:
+	_pending = true
+	_save_left = RETRY_DELAY
+	set_process(true)
 
 
 ## Однократный перенос звёзд из старого user://progress.cfg (версия 0.1).
