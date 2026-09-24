@@ -7,6 +7,7 @@ extends Node2D
 const INK := Pen.INK
 const CAT := Color("362c4c")
 const CAT_RIM := Color("8f7fc9")
+const CAT_LINE := Color("c4b8f0")   # черты мордочки кота: чернила на чёрной шерсти не видны
 const AMBER := Color("ffb31a")
 const PINK := Color("ff8fb0")
 const OWL := Color("8a7563")
@@ -128,10 +129,18 @@ func _cat() -> void:
 	for s: float in [-1.0, 1.0]:
 		Pen.line(Vector2(7.0 * s, -30), Vector2(17.0 * s, -32), Color(1, 1, 1, 0.5), 1.0)
 		Pen.line(Vector2(7.0 * s, -29), Vector2(17.0 * s, -27), Color(1, 1, 1, 0.5), 1.0)
-	Pen.poly(PackedVector2Array([Vector2(-1.8, -31.5), Vector2(1.8, -31.5), Vector2(0, -29.5)]), PINK)
+	var nose := PackedVector2Array([Vector2(-1.8, -31.5), Vector2(1.8, -31.5), Vector2(0, -29.5)])
+	Pen.poly(nose, PINK)
 	if state == &"danger":
+		# светлые лапки-варежки с пальчиками поверх глаз (круглые читались как очки);
+		# сначала обе кромки, потом обе заливки — лапки сливаются в один силуэт
 		for s: float in [-1.0, 1.0]:
-			_paw(Vector2(8.5 * s, -18), Vector2(5.5 * s, -34.5), CAT, CAT_RIM, 4.8)
+			Pen.line(Vector2(9.0 * s, -17), Vector2(7.5 * s, -31), CAT_RIM, 7.5)
+			Pen.line(Vector2(9.0 * s, -17), Vector2(7.5 * s, -31), CAT, 4.5)
+		for layer in 2:
+			for s: float in [-1.0, 1.0]:
+				_mitten(Vector2(5.8 * s, -34.5), 0.2 * s, 1.2 - layer * 1.2, CAT_RIM if layer == 0 else CAT.lightened(0.16))
+		Pen.poly(nose, PINK)
 	_face(Vector2(5, -35), AMBER, true, Vector2(0, -27.5))
 
 
@@ -197,13 +206,21 @@ func _paw(from: Vector2, to: Vector2, fur: Color, rim: Color, r: float) -> void:
 	Pen.dot(to, r, fur.lightened(0.1), 1.8, rim)
 
 
+## Кошачья лапка-варежка: ладошка и три пальчика; grow > 0 — слой кромки под заливкой.
+func _mitten(c: Vector2, rot: float, grow: float, col: Color) -> void:
+	Pen.soft(Pen.oval(c + Vector2(0, 1).rotated(rot), Vector2(4.6 + grow, 3.4 + grow), 14, rot), col)
+	for i in 3:
+		Pen.disc(c + Vector2((i - 1) * 2.9, -3.1 + absf(i - 1) * 0.8).rotated(rot), 1.9 + grow, col)
+
+
 ## Глаза и рот по состоянию. e — правый глаз, m — рот.
 func _face(e: Vector2, iris: Color, slit: bool, m: Vector2) -> void:
+	var ln := CAT_LINE if kind == &"cat" else INK
 	for s: float in [-1.0, 1.0]:
 		var c := e * Vector2(s, 1)
 		match state:
 			&"win":
-				Pen.arc(c + Vector2(0, 1.5), 3.2, PI + 0.5, TAU - 0.5, INK, 2.2, 8)
+				Pen.arc(c + Vector2(0, 1.5), 3.2, PI + 0.5, TAU - 0.5, ln, 2.2, 8)
 			&"oops":
 				# голова кружится: глаза-спиральки, а не «крестики»
 				Pen.dot(c, 4.2, iris, 1.4)
@@ -214,20 +231,20 @@ func _face(e: Vector2, iris: Color, slit: bool, m: Vector2) -> void:
 			&"danger":
 				# зажмурился: складочка над лапкой (у лягушки глаза на макушке — ей некуда)
 				if kind != &"frog":
-					Pen.arc(c + Vector2(0, -7.5), 3.2, PI + 0.6, TAU - 0.6, CAT_RIM if kind == &"cat" else INK, 1.4, 6)
+					Pen.arc(c + Vector2(0, -7.5), 3.2, PI + 0.6, TAU - 0.6, ln, 1.4, 6)
 			_:
 				if _closed:
-					Pen.arc(c + Vector2(0, -1.5), 3.2, 0.5, PI - 0.5, INK, 2.0, 8)
+					Pen.arc(c + Vector2(0, -1.5), 3.2, 0.5, PI - 0.5, ln, 2.0, 8)
 				else:
 					Pen.dot(c, 4.2, iris, 1.4)
 					Pen.soft(Pen.oval(c, Vector2(1.0 if slit else 2.4, 3.2 if slit else 2.4), 10), INK)
 					Pen.disc(c + Vector2(1.3, -1.4), 1.1, Color.WHITE)
 	if state == &"oops":
-		Pen.arc(m + Vector2(0, 2.5), 3.0, PI + 0.5, TAU - 0.5, INK, 1.8, 8)
+		Pen.arc(m + Vector2(0, 2.5), 3.0, PI + 0.5, TAU - 0.5, ln, 1.8, 8)
 	elif state == &"danger":
-		Pen.pline(PackedVector2Array([m + Vector2(-3, 0.5), m + Vector2(-1, -0.8), m + Vector2(1, 0.5), m + Vector2(3, -0.8)]), INK, 1.4)
+		Pen.pline(PackedVector2Array([m + Vector2(-3, 0.5), m + Vector2(-1, -0.8), m + Vector2(1, 0.5), m + Vector2(3, -0.8)]), ln, 1.4)
 	elif kind == &"frog":
 		Pen.arc(m + Vector2(0, -5), 7.0, 0.4, PI - 0.4, INK, 1.8, 10)
 	elif kind == &"cat":
 		for s: float in [-1.0, 1.0]:
-			Pen.arc(m + Vector2(2.0 * s, -1.0), 2.0, 0.3, PI - 0.3, INK, 1.6, 6)
+			Pen.arc(m + Vector2(2.0 * s, -1.0), 2.0, 0.3, PI - 0.3, ln, 1.6, 6)
