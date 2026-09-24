@@ -1,5 +1,6 @@
 class_name Level
 extends Node2D
+const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -93,11 +94,13 @@ func build(level_data: Dictionary) -> void:
 		_jitter = RandomNumberGenerator.new()
 		_jitter.seed = jitter_seed
 
-	var backdrop := Backdrop.new()
+	var backdrop: Node2D = HOME_BACKDROP.new() if data.get("family", false) else Backdrop.new()
 	backdrop.setup(_rect(data["tower"]["rect"]))
 	add_child(backdrop)
 
-	hero = Hero.new()
+	hero = FamilyHero.new() if data.get("family", false) else Hero.new()
+	if hero is FamilyHero:
+		hero.stage = Home.stage()
 	hero.setup(_vec(data["hero"]["pos"]))
 	if not hero_outfit.is_empty() and hero.has_method(&"set_outfit"):
 		hero.call(&"set_outfit", hero_outfit)
@@ -399,7 +402,7 @@ func _update_outcome(delta: float) -> void:
 	# до первого засова уровень не решается, даже если собирать нечего
 	if _pulled.is_empty():
 		return
-	if pieces >= pieces_needed and _alive_enemies() == 0:
+	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe():
 		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
 		# не раньше, чем цель выполнена: лава, убившая последнего врага, ещё может
 		# долететь до героини, и поражение должно успеть сработать.
@@ -411,6 +414,21 @@ func _update_outcome(delta: float) -> void:
 		_stuck_timer += delta
 		if _stuck_timer > STUCK_TIMEOUT:
 			_lose("stuck")
+
+
+func _family_safe() -> bool:
+	if not data.get("family", false):
+		return true
+	# ponytail: the first acts keep both characters in one shared rescue zone.
+	# Split this into per-character zones only when a level separates the family.
+	if _pulled.size() != pins.size():
+		_goal_time = -1.0
+		return false
+	for item in items:
+		if _alive(item) and Substances.is_deadly(item.kind) and item.linear_velocity.length() > 12.0:
+			_goal_time = -1.0
+			return false
+	return true
 
 
 func _win() -> void:

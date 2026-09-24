@@ -43,7 +43,7 @@ RELICS = {"star_mushroom", "phoenix_feather", "moon_dew", "dragon_scale", "frog_
           "philosophers_pebble"}
 ENEMY_KINDS = {"slime", "magma"}
 WALL_TYPES = {"solid", "sieve"}
-TOP_KEYS = {"format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
+TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal",
             "solution", "fails", "verify"}
 

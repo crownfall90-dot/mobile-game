@@ -57,6 +57,9 @@ func _init() -> void:
 
 func run(flags: Dictionary) -> void:
 	_flags = flags
+	if flags.get("home_selfcheck", false):
+		load("res://tools/test_home.gd").run()
+		return
 	_start_ms = Time.get_ticks_msec()
 	var profile := get_node_or_null(^"/root/Profile")
 	if profile:

@@ -9,6 +9,7 @@ extends Node
 signal screen_changed(name: StringName)
 
 const SCREENS := {
+	&"story": "res://scripts/screens/story_screen.gd",
 	&"loading": "res://scripts/screens/loading_screen.gd",
 	&"hub": "res://scripts/screens/hub_screen.gd",
 	&"map": "res://scripts/screens/map_screen.gd",
@@ -17,6 +18,7 @@ const SCREENS := {
 	&"grimoire": "res://scripts/screens/grimoire_screen.gd",
 }
 const POPUPS := {
+	&"shop": "res://scripts/popups/shop_popup.gd",
 	&"pause": "res://scripts/popups/pause_popup.gd",
 	&"result": "res://scripts/popups/result_popup.gd",
 	&"chest": "res://scripts/popups/chest_popup.gd",

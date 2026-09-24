@@ -99,6 +99,12 @@ func load() -> void:
 				and not FileAccess.file_exists(_bak_path()):
 			loaded = _migrate_v1()
 			migrated = not loaded.is_empty()
+		if loaded.is_empty() and not FileAccess.file_exists(save_path) and not FileAccess.file_exists(_bak_path()):
+			var old_dir := OS.get_user_data_dir().get_base_dir().path_join("Зелья и засовы")
+			loaded = _read(old_dir.path_join("save.json"))
+			if loaded.is_empty():
+				loaded = _read(old_dir.path_join("save.bak"))
+			migrated = not loaded.is_empty()
 	data = _sanitize(loaded)
 	if migrated:
 		_write()

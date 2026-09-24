@@ -20,6 +20,9 @@ func level_reward(level_id: String, result: Dictionary, _mods: Dictionary = {}) 
 		rec = Profile.record_result(level_id, int(result.get("stars", 0)))
 	Profile.last_record = {}
 	var coins := int(result.get("coins_pieces", 0))
+	if not Home.task_for_level(level_id).is_empty():
+		# First clear and improved stars only; replays cannot farm the shop.
+		coins = (50 if rec.get("first_clear", false) else 0) + int(rec.get("new_stars", 0)) * 10
 	Profile.add_coins(coins, "level")
 	var breakdown := {
 		"lines": [{"key": "coins", "amount": coins}],
