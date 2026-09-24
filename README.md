@@ -48,5 +48,5 @@ godot --headless --path . -- --smoke
 чтобы установить Vita. Прогресс старой игры автоматически не переносится.
 В Google Play ничего не опубликовано.
 
-Продолжение для разработчика: [docs/HANDOFF.md](docs/HANDOFF.md) и
-[docs/FAMILY_HOME.md](docs/FAMILY_HOME.md).
+Продолжение для разработчика: [docs/HANDOFF.md](docs/HANDOFF.md),
+[docs/FAMILY_HOME.md](docs/FAMILY_HOME.md) и [ревью с планом и промтом](docs/NEXT_PLAN.md).
