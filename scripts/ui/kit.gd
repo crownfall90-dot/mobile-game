@@ -372,6 +372,21 @@ static func low_fx() -> bool:
 	return p != null and p.has_method(&"setting") and bool(p.call(&"setting", &"low_fx"))
 
 
+## В ScrollContainer кнопка пропускает касание к нему (список листается пальцем по
+## кнопкам; поставь списку scroll_deadzone ~16), вне его — останавливает, иначе тап
+## по кнопке дойдёт до _unhandled_input уровня.
+static func fit_mouse_filter(c: Control) -> void:
+	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		return
+	var n := c.get_parent()
+	while n is Control:
+		if n is ScrollContainer:
+			c.mouse_filter = Control.MOUSE_FILTER_PASS
+			return
+		n = n.get_parent()
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
 static func _autoload(path: NodePath) -> Node:
 	var tree := Engine.get_main_loop() as SceneTree
 	return tree.root.get_node_or_null(path) if tree else null
@@ -534,6 +549,10 @@ class Chunky extends Button:
 			add_theme_stylebox_override(k, up)
 		for k in [&"pressed", &"hover_pressed"]:
 			add_theme_stylebox_override(k, dn)
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_ENTER_TREE:
+			UiKit.fit_mouse_filter(self)
 
 	func _is_down() -> bool:
 		var m := get_draw_mode()
@@ -767,7 +786,8 @@ class StarRow extends Control:
 		for i in count:
 			draw_set_transform_matrix(_slot(i))
 			var half := Vector2(base, base)
-			draw_texture_rect(_tex, Rect2(-half, half * 2), false, Color(0.2, 0.15, 0.36, 0.95))
+			# пустое гнездо — тёмный силуэт звезды
+			draw_texture_rect(_tex, Rect2(-half, half * 2), false, Color(0.06, 0.03, 0.14, 0.62))
 			var k := _k[i]
 			if k > 0.0:
 				var e := _ease_back(k)
@@ -776,10 +796,10 @@ class StarRow extends Control:
 				draw_texture_rect(_tex, Rect2(-half * sc, half * 2 * sc), false, Color(1, 1, 1, a))
 				if k < 1.0:
 					var rr := base * lerpf(0.7, 1.9, k)
-					draw_arc(Vector2.ZERO, rr, 0, TAU, 40, Color(UiKit.GOLD_LIGHT, 1.0 - k), lerpf(8.0, 1.0, k), true)
+					draw_arc(Vector2.ZERO, rr, 0, TAU, 40, Color(UiKit.GOLD, 1.0 - k), lerpf(9.0, 1.0, k), true)
 					for j in 6:
 						var dir := Vector2.from_angle(TAU * j / 6.0 + 0.4)
-						draw_circle(dir * base * lerpf(0.8, 2.2, k), lerpf(5.0, 1.0, k), Color(UiKit.GOLD_LIGHT, 1.0 - k), true, -1.0, true)
+						draw_circle(dir * base * lerpf(0.8, 2.3, k), lerpf(6.0, 1.5, k), Color(UiKit.GOLD_LIGHT, 1.0 - k * k), true, -1.0, true)
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 
 	static func _ease_back(t: float) -> float:
@@ -899,6 +919,10 @@ class Toggle extends Button:
 			add_theme_stylebox_override(k, sb)
 		toggled.connect(_on_toggled)
 		button_down.connect(func() -> void: UiKit.sfx(&"ui_tap"))
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_ENTER_TREE:
+			UiKit.fit_mouse_filter(self)
 
 	## Поставить значение без вызова cb (например, после сброса настроек).
 	func set_value(on: bool) -> void:
