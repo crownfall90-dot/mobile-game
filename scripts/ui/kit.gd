@@ -526,10 +526,17 @@ class Chunky extends Button:
 	var style: StringName = &"primary"
 	var radius := UiKit.RADIUS
 	var lip := UiKit.LIP
-	var pad := 30.0
+	## Поле слева и справа от содержимого.
+	var pad := 30.0:
+		set(v):
+			pad = v
+			_apply_margins()
 	var face := Control.new()
 	## Иконка слева от текста: держится вплотную к нему, даже если кнопка растянута.
 	var side_icon: Texture2D
+	var _side_name: StringName = &""
+	var _gap := 12.0
+	var _font_px := UiKit.SIZE_M
 	var _was_off := false
 	var _drawn_down := false
 	var _drawn_text := ""
@@ -571,18 +578,31 @@ class Chunky extends Button:
 		_was_off = disabled
 		add_theme_color_override(&"font_outline_color", UiKit.colors(&"disabled" if disabled else style)[3])
 
+	## Кегль текста; иконка слева растёт и мельчает вместе с ним (56 px при 36).
 	func set_font_size(px: int) -> void:
+		_font_px = px
 		add_theme_font_size_override(&"font_size", px)
 		add_theme_constant_override(&"outline_size", UiKit.outline_for(px))
+		if _side_name != &"":
+			set_side_icon(_side_name)
 		face.queue_redraw()
 
 	func set_side_icon(icon_name: StringName) -> void:
-		side_icon = Icons.tex(icon_name, 56) if icon_name != &"" else null
+		_side_name = icon_name
+		side_icon = Icons.tex(icon_name, roundi(_font_px * 1.55)) if icon_name != &"" else null
 		_apply_margins()
 		face.queue_redraw()
 
+	## Компактная кнопка для тесных сеток (карточки гардероба в 3 колонки): кегль 28,
+	## узкие поля, иконка 43, высота 88, ширина по содержимому, но не меньше 88.
+	func set_compact(on := true) -> void:
+		_gap = 8.0 if on else 12.0
+		custom_minimum_size = Vector2(UiKit.TOUCH, UiKit.TOUCH) if on else Vector2(104.0 if text == "" else 220.0, 104.0)
+		set_font_size(UiKit.SIZE_S if on else UiKit.SIZE_M)
+		pad = 14.0 if on else 30.0
+
 	func _apply_margins() -> void:
-		var left := pad + (side_icon.get_width() + 12.0 if side_icon else 0.0)
+		var left := pad + (side_icon.get_width() + _gap if side_icon else 0.0)
 		var up := UiKit._empty(left, 2, pad, 2 + lip + UiKit.BORDER)
 		var dn := UiKit._empty(left, lip, pad, UiKit.BORDER + 4)
 		for k: StringName in [&"normal", &"hover", &"focus", &"disabled"]:
@@ -615,7 +635,7 @@ class Chunky extends Button:
 		# иконка + текст — одна группа по центру (текст сдвинут полями стиля)
 		var tw := get_theme_font(&"font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, get_theme_font_size(&"font_size")).x
 		var iw := side_icon.get_size()
-		var x := maxf(pad, (size.x - (iw.x + 12.0 + tw)) * 0.5)
+		var x := maxf(pad, (size.x - (iw.x + _gap + tw)) * 0.5)
 		var cy := (size.y - lip - UiKit.BORDER) * 0.5 + (float(lip - 2) if dn else 0.0)
 		var at := Vector2(x, cy - iw.y * 0.5).round()
 		face.draw_texture(side_icon, at + Vector2(0, 3), Color(0, 0, 0, 0.22))
@@ -702,7 +722,6 @@ class IconButton extends Chunky:
 		size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		icon = Icons.tex(icon_name, 52)
 		icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_apply_margins()
 		set_badge(badge_text)
 
 	func set_icon_name(icon_name: StringName) -> void:
