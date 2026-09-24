@@ -16,11 +16,14 @@ extends Node
 ##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию;
 ##                         без окна и без --shot — выйти через 30 кадров: RESULT: SCREEN <имя> ok|FAIL
 ##   --shot=путь.png@сек   сохранить скриншот через столько секунд (нужно окно, не headless)
-##   --smoke               открыть по очереди все готовые экраны и попапы, сообщить об ошибках
+##   --smoke               открыть по очереди все готовые экраны и попапы, потом сыграть первый
+##                         уровень индекса как игрок: решение до победы и первый порядок из fails
+##                         до поражения, каждый раз с окном итога и кнопкой «Дальше» / «Ещё раз»
 ##
 ## Итог уровня печатается строкой RESULT: WON stars=3 gold=22/22 или RESULT: LOST reason=enemy
 ## (плюс RESULT_JSON с --json), код выхода 0. Код 2 — RESULT: TIMEOUT (итога нет за 20 игровых
-## секунд после последнего засова), 3 — RESULT: ERROR (уровень, засовы или экран не нашлись),
+## секунд после последнего засова), 3 — RESULT: ERROR (уровень, засовы или экран не нашлись;
+## экран из реестра, чей скрипт ещё не написан — Router открыл бы вместо него игру),
 ## 1 — smoke или --screen нашли ошибки. Без окна любой запуск заканчивается сам; в окне без --shot
 ## уровень без засовов по сценарию и --screen ждут человека без предела.
 ## Сохранение не пишется (Profile.volatile), звука нет, экрана загрузки нет.
@@ -34,6 +37,7 @@ const AFTER_LAST := 20.0        # сколько игровых секунд ж�
 const WALL_LIMIT_MS := 100000   # предел по часам для прогона уровня (вдобавок к кадрам)
 const SMOKE_SCREEN_FRAMES := 30
 const SMOKE_POPUP_FRAMES := 20
+const SMOKE_RESULT_WAIT := 2.0  # секунд после итога: окно итога успевает открыться и отыграть
 
 var _flags: Dictionary = {}
 var _screen: GameScreen
@@ -265,15 +269,27 @@ func _open_screen(screen_name: String) -> void:
 	if check:
 		OS.add_logger(errors)
 	var sn := StringName(screen_name)
-	if _registry(&"SCREENS").has(sn):
+	var is_screen := _registry(&"SCREENS").has(sn)
+	if is_screen:
 		router.call(&"go", sn, _screen_args(sn))
+		await _router_idle(router)
+		# вместо ненаписанного экрана Router открывает игру — это не «экран открылся»
+		var shown: StringName = router.call(&"current")
+		if shown != sn:
+			print("RESULT: ERROR screen '%s' is not written yet (Router opened %s)" % [screen_name, shown])
+			if check:
+				OS.remove_logger(errors)
+			_shot_pending = false   # снимок чужого экрана не нужен
+			_quit(3)
+			return
 	else:
 		# попап показываем поверх лаборатории (или того, что Router откроет вместо неё)
 		router.call(&"go", &"hub", {})
 		await _frames(SMOKE_SCREEN_FRAMES)
 		if router.call(&"popup", sn, {}) == null:
 			print("RESULT: ERROR no screen or popup '%s'" % screen_name)
-			OS.remove_logger(errors)
+			if check:
+				OS.remove_logger(errors)
 			_quit(3)
 			return
 	if not check:
@@ -337,11 +353,82 @@ func _smoke() -> void:
 		print("SMOKE popup %s: %s" % [pn, "ok" if ok else "FAIL " + errors.last])
 		failed = failed or not ok
 		opened += 1
+	# окно итога с настоящими данными: победа по решению и поражение по первому из fails
+	if router != null and screens.has(&"game") and ResourceLoader.exists(screens[&"game"]):
+		for win in [true, false]:
+			var ok: bool = await _smoke_level(router, errors, win)
+			failed = failed or not ok
 	if not missing.is_empty():
 		print("SMOKE not written yet: ", ", ".join(missing))
 	print("SMOKE: %s (%d opened, %d missing, %d errors)" % ["FAIL" if failed else "OK", opened, missing.size(), errors.count])
 	OS.remove_logger(errors)
 	_quit(1 if failed else 0)
+
+
+## Первый уровень индекса как у игрока (с Profile и Economy, но без записи на диск):
+## засовы по порядку, итог, окно итога, затем «Дальше» после победы или «Ещё раз» после
+## поражения. true — дошли до конца без ошибок.
+func _smoke_level(router: Node, errors: ErrorCounter, win: bool) -> bool:
+	var what := "win" if win else "lose"
+	var ids := Game.level_ids()
+	if ids.is_empty():
+		print("SMOKE level %s: FAIL no levels" % what)
+		return false
+	var before := errors.count
+	# go() закрывает и попапы прошлого шага (окно итога)
+	router.call(&"go", &"game", {"id": ids[0]})
+	await _frames(SMOKE_SCREEN_FRAMES)
+	var gs := router.call(&"current_screen") as GameScreen
+	if gs == null or gs.level == null:
+		print("SMOKE level %s: FAIL game screen did not open %s" % [what, ids[0]])
+		return false
+	var order := PackedStringArray()
+	var fails: Array = gs.level.data.get("fails", [])
+	var src: Variant = gs.level.data.get("solution", []) if win else (fails[0] if not fails.is_empty() else [])
+	for id in src:
+		order.append(str(id))
+	if order.is_empty():
+		print("SMOKE level %s: skipped (%s has no %s)" % [what, ids[0], "solution" if win else "fails"])
+		return true
+	var got: Array = []
+	gs.level_finished.connect(func(res: Dictionary) -> void: got.append(res), CONNECT_ONE_SHOT)
+	var level := gs.level
+	await _wait(START_DELAY)
+	for i in order.size():
+		if i > 0:
+			await _wait(INTERVAL)
+		if not got.is_empty() or not is_instance_valid(level):
+			break
+		level.pull_pin(level.pin_by_id(order[i]))
+	var limit := _ticks + _secs(AFTER_LAST)
+	while got.is_empty() and _ticks < limit:
+		await get_tree().physics_frame
+	if got.is_empty():
+		print("SMOKE level %s: FAIL %s %s did not finish" % [what, ids[0], ",".join(order)])
+		return false
+	var res: Dictionary = got[0]
+	# окно итога появляется через GameScreen.RESULT_DELAY и анимируется
+	await _wait(SMOKE_RESULT_WAIT)
+	var action := &"_go_next" if win else &"restart"
+	if is_instance_valid(gs) and gs.has_method(action):
+		gs.call(action)
+		await _frames(SMOKE_SCREEN_FRAMES)
+	var won := bool(res.get("won", false))
+	var outcome := "WON %d stars" % int(res.get("stars", 0)) if won else "LOST " + str(res.get("reason", ""))
+	var ok: bool = errors.count == before and won == win
+	var why := errors.last if errors.count != before else "expected a " + what
+	print("SMOKE level %s: %s (%s %s: %s, then %s)" % [what, "ok" if ok else "FAIL " + why,
+		ids[0], ",".join(order), outcome, action])
+	return ok
+
+
+## Ждёт конца перехода Router (затемнения), но не дольше 120 кадров: в окне под xvfb
+## кадры медленные, и счёт кадров не говорит, успел ли экран смениться.
+func _router_idle(router: Node) -> void:
+	for i in 120:
+		if not router.call(&"is_busy"):
+			return
+		await get_tree().process_frame
 
 
 func _frames(n: int) -> void:
