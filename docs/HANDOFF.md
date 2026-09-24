@@ -32,7 +32,7 @@
 - APK собран официальным шаблоном Godot 4.5.1: `build/vita-first-act.apk`,
   28 173 316 байт (26,9 МиБ), Android arm64, versionCode 3 / versionName 0.3.0.
   Подпись APK v2/v3 проверена, имя приложения внутри APK — Vita.
-  Прямая ссылка: https://raw.githubusercontent.com/crownfall90-dot/mobile-game/codex/family-home/build/vita-first-act.apk
+  Основная ссылка для телефона: https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.0-android-test/Vita-first-act-v0.3.0-arm64.apk
 - Реальный телефон ещё не проверен. APK — рабочая тестовая сборка первого акта,
   не подтверждённый релиз для магазина.
 
