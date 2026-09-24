@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <radialGradient id="bgGrad" gradientUnits="userSpaceOnUse" cx="54" cy="43" r="64">
+      <stop offset="0" stop-color="#6a3bc8"/>
+      <stop offset="0.55" stop-color="#2a1560"/>
+      <stop offset="1" stop-color="#140c24"/>
+    </radialGradient>
+  </defs>
+  <rect id="bg" x="0" y="0" width="108" height="108" fill="url(#bgGrad)"/>
+  <!-- искорки внутри круга r = 36 (маска лаунчера), чтобы их не срезало -->
+  <g fill="#ffe27a" fill-opacity="0.85">
+    <path d="M31.5,29 Q31.5,33 35.5,33 Q31.5,33 31.5,37 Q31.5,33 27.5,33 Q31.5,33 31.5,29 Z"/>
+    <path d="M79,33.5 Q79,37 82.5,37 Q79,37 79,40.5 Q79,37 75.5,37 Q79,37 79,33.5 Z"/>
+    <path d="M77,71 Q77,75 81,75 Q77,75 77,79 Q77,75 73,75 Q77,75 77,71 Z"/>
+  </g>
+</svg>
