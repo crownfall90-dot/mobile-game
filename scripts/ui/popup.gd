@@ -3,6 +3,8 @@ extends Control
 ## Основа всех попапов: затемнение, стеклянная панель по центру с лентой-заголовком
 ## и красным крестиком. Router.popup() создаёт узел, добавляет на слой 50 и зовёт open(args).
 ## Наследник наполняет content (VBoxContainer) в open() и закрывает через close(result).
+## Прямые дети content проявляются лесенкой до своей прозрачности; ребёнка с
+## modulate.a = 0 (наследник анимирует его сам: pop_in, fade_in) лесенка не трогает.
 
 signal closed(result: Variant)
 
@@ -22,6 +24,7 @@ var _frame := PopupFrame.new()
 var _close_btn: UiKit.IconButton
 var _ribbon: UiKit.Ribbon
 var _closing := false
+var _armed := false      # затемнение ловит тапы только после появления
 var _dim_down := false
 
 
@@ -69,8 +72,12 @@ func set_title(text: String, style := &"secondary") -> void:
 			return
 	if _ribbon == null:
 		_ribbon = UiKit.ribbon(text, style)
+		# тап по заголовку — не «мимо панели»
+		_ribbon.mouse_filter = Control.MOUSE_FILTER_STOP
 		_frame.add_child(_ribbon)
 		_frame.ribbon = _ribbon
+		# крестик всегда поверх ленты
+		_frame.move_child(_close_btn, -1)
 	_ribbon.set_text(text)
 	sb.content_margin_top = 64
 
@@ -84,7 +91,9 @@ func close(result: Variant = null) -> void:
 	if _closing:
 		return
 	_closing = true
-	_close_btn.disabled = true
+	# панель больше не ловит нажатия (двойной тап по «Забрать» не сработает дважды);
+	# крестик не выключаем — иначе он посереет, пока попап ещё виден
+	_frame.mouse_behavior_recursive = Control.MOUSE_BEHAVIOR_DISABLED
 	if not is_inside_tree():
 		_finish(result)
 		return
@@ -119,6 +128,8 @@ func _animate_in() -> void:
 	tw.tween_property(dim, ^"modulate:a", 1.0, 0.2)
 	tw.tween_property(_frame, ^"modulate:a", 1.0, 0.1)
 	tw.tween_property(_frame, ^"scale", Vector2.ONE, IN_TIME).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# второй тап двойного касания по кнопке, открывшей попап, не должен его закрыть
+	tw.chain().tween_callback(func() -> void: _armed = true)
 	UiKit.sfx(&"ui_pop")
 	# содержимое проявляется лесенкой — после open(), который роутер зовёт сразу
 	_stagger.call_deferred()
@@ -126,11 +137,13 @@ func _animate_in() -> void:
 
 func _stagger() -> void:
 	var i := 0
-	for c in content.get_children():
-		if c is CanvasItem and c.visible:
-			var ci := c as CanvasItem
+	for c: Node in content.get_children():
+		var ci := c as CanvasItem
+		# к своей прозрачности (строка может быть нарочно приглушена)
+		var a := ci.modulate.a if ci else 0.0
+		if ci and ci.visible and a > 0.01:
 			ci.modulate.a = 0.0
-			create_tween().tween_property(ci, ^"modulate:a", 1.0, 0.16).set_delay(0.08 + 0.045 * i)
+			create_tween().tween_property(ci, ^"modulate:a", a, 0.16).set_delay(0.08 + 0.045 * i)
 			i += 1
 
 
@@ -147,7 +160,7 @@ func _on_dim_input(e: InputEvent) -> void:
 	if mb == null or mb.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if mb.pressed:
-		_dim_down = true
+		_dim_down = _armed
 	elif _dim_down:
 		_dim_down = false
 		if dismissable and not _closing:
@@ -164,7 +177,7 @@ func _finish(result: Variant) -> void:
 class PopupFrame extends Container:
 	var panel: Control
 	var close_btn: Control
-	var ribbon: Control
+	var ribbon: UiKit.Ribbon
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -180,7 +193,10 @@ class PopupFrame extends Container:
 			var cs := close_btn.get_combined_minimum_size()
 			fit_child_in_rect(close_btn, Rect2(Vector2(size.x - cs.x * 0.72, -cs.y * 0.28), cs))
 		if ribbon:
+			# по центру и не заходя под крестик: длинный текст лента ужимает сама
+			var room := size.x - 132.0
+			ribbon.fit(room)
 			var rs := ribbon.get_combined_minimum_size()
-			rs.x = clampf(maxf(rs.x, size.x * 0.62), 0.0, size.x - 120.0)
+			rs.x = clampf(maxf(rs.x, size.x * 0.62), 0.0, room)
 			fit_child_in_rect(ribbon, Rect2(Vector2((size.x - rs.x) * 0.5, -rs.y * 0.52), rs))
 		pivot_offset = size * 0.5
