@@ -32,9 +32,8 @@ const ROBE_R: Array[Vector2] = [Vector2(0, -64), Vector2(8, -63.5), Vector2(14, 
 	Vector2(20, -46), Vector2(23, -33), Vector2(27, -19), Vector2(30.5, -8), Vector2(29, -4.8),
 	Vector2(20, -3.2), Vector2(10, -2.4), Vector2(0, -2)]
 # кромка чёлки справа налево, потом сглаживается
-const FRINGE: Array[Vector2] = [Vector2(19.5, -77), Vector2(17, -85), Vector2(13, -89), Vector2(9.5, -83.5),
-	Vector2(5, -90), Vector2(-1, -84.5), Vector2(-6, -90.5), Vector2(-12, -85), Vector2(-16.5, -88),
-	Vector2(-19.5, -77)]
+const FRINGE: Array[Vector2] = [Vector2(19.5, -77), Vector2(17.5, -86), Vector2(12, -84), Vector2(6.5, -90),
+	Vector2(0, -85), Vector2(-6.5, -90.5), Vector2(-12.5, -84.5), Vector2(-17.5, -87), Vector2(-19.5, -77)]
 
 var mood := Mood.IDLE:
 	set(v):
@@ -54,7 +53,8 @@ var _shadow: Pen.Canvas
 var _t := 0.0
 var _blink := 2.5
 var _closed := false
-var _live := false          # анимированное состояние: перерисовка каждый кадр
+var _live := false          # анимированное состояние: перерисовка 30 раз в секунду
+var _tick := 0
 var _drawn_k := 0.0         # масштаб пикселя, при котором рисовали
 var _hop := 0.0
 var _squash := 0.0
@@ -146,7 +146,8 @@ func oops(why: String) -> void:
 	_hop = 0.0
 	mood = Mood.OOPS
 	_squash = -0.1
-	create_tween().tween_property(self, "_squash", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_hop_tw = create_tween()
+	_hop_tw.tween_property(self, "_squash", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 func die() -> void:
@@ -185,7 +186,13 @@ func _process(delta: float) -> void:
 	_rig.scale = Vector2(1.0 - breath + _squash, 1.0 + breath - _squash)
 	_shadow.scale = Vector2.ONE * clampf(1.0 - _hop * 0.012, 0.6, 1.0)
 	_blink -= delta
-	var redraw := _live or absf(Pen.pixel_scale(self) - _drawn_k) > _drawn_k * 0.08
+	var rescale := absf(Pen.pixel_scale(self) - _drawn_k) > _drawn_k * 0.08
+	if rescale:
+		_shadow.queue_redraw()
+	var redraw := rescale
+	if _live and int(_t * 30.0) != _tick:
+		_tick = int(_t * 30.0)
+		redraw = true
 	if _blink <= 0.0 and not _closed:
 		_closed = true
 		redraw = true
@@ -195,7 +202,6 @@ func _process(delta: float) -> void:
 		redraw = true
 	if redraw:
 		_rig.queue_redraw()
-		_shadow.queue_redraw()
 
 
 # --- рисование ---------------------------------------------------------------
@@ -334,27 +340,27 @@ func _paint_face() -> void:
 			Pen.disc(m + Vector2(0, 2.4), 2.6, Color("ff7a9a"))
 		Mood.SCARED:
 			for s: float in [-1.0, 1.0]:
-				Pen.dot(e * Vector2(s, 1), 4.7, Color.WHITE, 1.8)
-				Pen.disc(e * Vector2(s, 1) + Vector2(0, 0.6), 2.1, INK)
-				Pen.line(Vector2(4.0 * s, -86.5), Vector2(11.0 * s, -88.5), INK, 2.0)
+				Pen.dot(e * Vector2(s, 1), 5.0, Color.WHITE, 1.8)
+				Pen.disc(e * Vector2(s, 1) + Vector2(0, 0.6), 2.2, INK)
+				Pen.line(Vector2(4.0 * s, -87.5), Vector2(11.0 * s, -89.5), INK, 2.0)
 			Pen.blob(Pen.oval(m + Vector2(0, 1), Vector2(3.2, 3.8), 12), Color("7a1f3d"), 2.0)
 		Mood.OOPS:
 			_paint_oops_face(e, m)
 		_:
 			for s: float in [-1.0, 1.0]:
 				if _closed:
-					Pen.arc(e * Vector2(s, 1) + Vector2(0, -2), 4.0, 0.5, PI - 0.5, INK, 2.4, 8)
+					Pen.arc(e * Vector2(s, 1) + Vector2(0, -2), 4.4, 0.5, PI - 0.5, INK, 2.4, 8)
 				else:
 					_eye(e * Vector2(s, 1))
 			Pen.arc(m + Vector2(0, -2.2), 3.4, 0.5, PI - 0.5, INK, 1.9, 8)
 
 
 func _eye(c: Vector2) -> void:
-	Pen.soft(Pen.oval(c, Vector2(3.6, 4.7), 16), INK)
-	Pen.disc(c + Vector2(1.2, -1.7), 1.6, Color.WHITE)
-	Pen.disc(c + Vector2(-1.0, 2.0), 0.85, Color(1, 1, 1, 0.7))
+	Pen.soft(Pen.oval(c, Vector2(4.0, 5.2), 16), INK)
+	Pen.disc(c + Vector2(1.3, -2.0), 1.8, Color.WHITE)
+	Pen.disc(c + Vector2(-1.1, 2.2), 0.9, Color(1, 1, 1, 0.7))
 	var out := signf(c.x)
-	Pen.line(c + Vector2(2.8 * out, -3.2), c + Vector2(5.4 * out, -4.8), INK, 1.8)
+	Pen.line(c + Vector2(3.1 * out, -3.6), c + Vector2(5.8 * out, -5.4), INK, 1.8)
 
 
 func _paint_oops_face(e: Vector2, m: Vector2) -> void:
@@ -389,9 +395,9 @@ func _paint_oops_face(e: Vector2, m: Vector2) -> void:
 				var c := e * Vector2(s, 1)
 				_eye(c + Vector2(0, 1))
 				# грустное веко
-				Pen.poly(PackedVector2Array([c + Vector2(-5, -6), c + Vector2(5, -6), c + Vector2(5, -1.2 + 1.5 * s),
-					c + Vector2(-5, -1.2 - 1.5 * s)]), SKIN)
-				Pen.line(c + Vector2(-4.5, -1.2 - 1.3 * s), c + Vector2(4.5, -1.2 + 1.3 * s), INK, 2.0)
+				Pen.poly(PackedVector2Array([c + Vector2(-5.5, -6), c + Vector2(5.5, -6), c + Vector2(5.5, -1.2 + 1.5 * s),
+					c + Vector2(-5.5, -1.2 - 1.5 * s)]), SKIN)
+				Pen.line(c + Vector2(-5, -1.2 - 1.4 * s), c + Vector2(5, -1.2 + 1.4 * s), INK, 2.0)
 				var ty := fmod(_t * 0.9 + (0.5 if s > 0.0 else 0.0), 1.0)
 				_drop(c + Vector2(3.5 * s, 5.0 + ty * 14.0), 2.3, Color(TEAR, 1.0 - ty))
 			Pen.arc(m + Vector2(0, 3), 4.0, PI + 0.5, TAU - 0.5, INK, 2.2, 8)
@@ -483,17 +489,17 @@ func _paint_slime_pet(h: Color, hd: Color, tr: Color, frizz: bool) -> void:
 
 
 func _paint_cone(h: Color, hd: Color, tr: Color, tall: float, droop: float) -> void:
-	Pen.blob(Pen.oval(Vector2(0, -101), Vector2(30, 7), 28), hd, 2.5)
+	Pen.blob(Pen.oval(Vector2(0, -103), Vector2(30, 7), 28), hd, 2.5)
 	var rim := PackedVector2Array()
 	for i in 9:
 		var a := lerpf(0.45, PI - 0.45, i / 8.0)
-		rim.append(Vector2(cos(a) * 26.0, -101.0 + sin(a) * 4.2))
+		rim.append(Vector2(cos(a) * 26.0, -103.0 + sin(a) * 4.2))
 	Pen.pline(rim, h.lerp(hd, 0.4), 2.0)
-	var tip := Vector2(lerpf(16.0, 33.0, droop), lerpf(-152.0 - tall, -118.0, droop))
-	var cl := Vector2(lerpf(-8.0, 6.0, droop), lerpf(-138.0 - tall * 0.8, -152.0, droop))
-	var cr := Vector2(lerpf(12.0, 22.0, droop), lerpf(-122.0 - tall * 0.5, -126.0, droop))
-	var bl := Vector2(-18.5, -102)
-	var br := Vector2(18.5, -102)
+	var tip := Vector2(lerpf(16.0, 33.0, droop), lerpf(-154.0 - tall, -120.0, droop))
+	var cl := Vector2(lerpf(-8.0, 6.0, droop), lerpf(-140.0 - tall * 0.8, -154.0, droop))
+	var cr := Vector2(lerpf(12.0, 22.0, droop), lerpf(-124.0 - tall * 0.5, -128.0, droop))
+	var bl := Vector2(-18.5, -104)
+	var br := Vector2(18.5, -104)
 	var pts := PackedVector2Array()
 	var cols := PackedColorArray()
 	var hl := h.lightened(0.28)
