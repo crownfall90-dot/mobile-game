@@ -1,0 +1,12 @@
+---
+description: Continue the family apartment game and preserve a verifiable handoff
+alwaysApply: true
+---
+- Read docs/HANDOFF.md and docs/FAMILY_HOME.md before continuing.
+- The active concept is mother + daughter, apartment → rescue puzzle → selected object repaired.
+- Old tower/Mirra design documents are historical context, not the current backlog.
+- Reuse the Godot project, physics, Profile, Router, UI and verification tools.
+- Keep changes small; new nontrivial logic needs a runnable check.
+- Preserve existing saves; never grant repairs for loss, exit, replay or a mismatched level.
+- Update HANDOFF after each milestone with actual tests and the next unfinished step.
+- Save and push checkpoints before usage runs out; never claim unrun tests passed.
