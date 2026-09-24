@@ -42,7 +42,7 @@ const SIZE_L := 56
 const SIZE_XL := 84
 const GAP := 24
 
-# стиль кнопки: лицо, губа снизу, блик, обводка текста
+# стиль кнопки: лицо, губа снизу, блик, обводка текста (читать через colors())
 const STYLES := {
 	&"primary": [Color("f5c542"), Color("a8741a"), Color("fff1b8"), Color("6e3f06")],
 	&"secondary": [Color("8a4dff"), Color("5427b8"), Color("c9adff"), Color("2c1170")],
@@ -62,6 +62,12 @@ static var _fx: CanvasLayer
 static var _rng := RandomNumberGenerator.new()
 
 
+## Цвета стиля [лицо, губа, блик, обводка]; неизвестный стиль — как fallback.
+static func colors(style: StringName, fallback := &"primary") -> PackedColorArray:
+	var a: Array = STYLES.get(style, STYLES[fallback])
+	return PackedColorArray(a)
+
+
 # --- шрифты и текст ---------------------------------------------------------
 
 ## Шрифт Godot по умолчанию (есть кириллица), утолщённый для заголовков.
@@ -76,6 +82,8 @@ static func font(bold := true) -> Font:
 	return _bold if bold else _body
 
 
+## Контур растёт с кеглем: у основного размера 36 — ровно 8 px и тень 2 px (§10),
+## у мелкого 28 — 6, у крупных 56/84 — 12/14, чтобы толщина читалась одинаково.
 static func outline_for(size: int) -> int:
 	return clampi(roundi(size * 0.22), 5, 14)
 
@@ -92,7 +100,7 @@ static func text_style(size := SIZE_M, color := TEXT, outline := -1, bold := tru
 		ls.outline_color = INK
 		ls.shadow_size = o
 		ls.shadow_color = Color(INK, 0.6)
-		ls.shadow_offset = Vector2(0, maxf(2.0, roundf(size / 12.0)))
+		ls.shadow_offset = Vector2(0, maxf(2.0, roundf(size / 18.0)))
 	return ls
 
 
@@ -126,9 +134,9 @@ static func theme() -> Theme:
 	grab.content_margin_left = 5
 	grab.content_margin_right = 5
 	var track := _flat(Color(INK, 0.35), 6)
-	for bar in [&"VScrollBar", &"HScrollBar"]:
+	for bar: StringName in [&"VScrollBar", &"HScrollBar"]:
 		_theme.set_stylebox(&"scroll", bar, track)
-		for s in [&"grabber", &"grabber_highlight", &"grabber_pressed"]:
+		for s: StringName in [&"grabber", &"grabber_highlight", &"grabber_pressed"]:
 			_theme.set_stylebox(s, bar, grab)
 	return _theme
 
@@ -338,6 +346,8 @@ static func fx_layer() -> CanvasLayer:
 	_fx = CanvasLayer.new()
 	_fx.name = "UiKitFx"
 	_fx.layer = 90
+	# монеты летят и над игрой на паузе (попап результата живёт так же)
+	_fx.process_mode = Node.PROCESS_MODE_ALWAYS
 	(Engine.get_main_loop() as SceneTree).root.add_child.call_deferred(_fx)
 	return _fx
 
@@ -369,22 +379,32 @@ static func haptic(ms: int) -> void:
 
 static func low_fx() -> bool:
 	var p := _autoload(^"/root/Profile")
-	return p != null and p.has_method(&"setting") and bool(p.call(&"setting", &"low_fx"))
+	if p == null or not p.has_method(&"setting"):
+		return false
+	var v: Variant = p.call(&"setting", &"low_fx")
+	return v is bool and v
 
 
 ## В ScrollContainer кнопка пропускает касание к нему (список листается пальцем по
 ## кнопкам; поставь списку scroll_deadzone ~16), вне его — останавливает, иначе тап
-## по кнопке дойдёт до _unhandled_input уровня.
+## по кнопке дойдёт до _unhandled_input уровня. Фильтр, который вызывающий поставил
+## сам (не тот, что оставили мы), не трогаем.
 static func fit_mouse_filter(c: Control) -> void:
-	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+	var auto: int = c.get_meta(&"_ui_filter", Control.MOUSE_FILTER_STOP)
+	if c.mouse_filter != auto:
 		return
+	c.mouse_filter = Control.MOUSE_FILTER_PASS if scroll_parent(c) else Control.MOUSE_FILTER_STOP
+	c.set_meta(&"_ui_filter", c.mouse_filter)
+
+
+## Ближайший ScrollContainer среди предков (в пределах интерфейса) или null.
+static func scroll_parent(c: Control) -> ScrollContainer:
 	var n := c.get_parent()
 	while n is Control:
 		if n is ScrollContainer:
-			c.mouse_filter = Control.MOUSE_FILTER_PASS
-			return
+			return n
 		n = n.get_parent()
-	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	return null
 
 
 static func _autoload(path: NodePath) -> Node:
@@ -397,29 +417,30 @@ static func _autoload(path: NodePath) -> Node:
 ## Кнопочная «таблетка»: тень, чернильный контур, губа, лицо, блик и искорка.
 static func draw_chunky(ci: CanvasItem, r: Rect2, style: StringName, radius: int, lip: int, down := false) -> void:
 	var b := _chunky_boxes(style, radius)
+	var rid := ci.get_canvas_item()
 	var d := float(lip - 2) if down else 0.0
-	var ghost := style == &"ghost"
-	if not ghost:
-		(b[1] if down else b[0]).draw(ci.get_canvas_item(), r)
+	if style != &"ghost":
+		(b[1] if down else b[0]).draw(rid, r)
 	var inner := r.grow(-BORDER)
-	b[2].draw(ci.get_canvas_item(), inner)
+	b[2].draw(rid, inner)
 	var face := Rect2(inner.position + Vector2(0, d), inner.size - Vector2(0, lip))
-	b[3].draw(ci.get_canvas_item(), face)
+	b[3].draw(rid, face)
 	# нижняя треть лица чуть темнее — объём без градиентов
 	var sh := face.size.y * 0.3
-	b[6].draw(ci.get_canvas_item(), Rect2(face.position + Vector2(0, face.size.y - sh), Vector2(face.size.x, sh)))
+	b[6].draw(rid, Rect2(face.position + Vector2(0, face.size.y - sh), Vector2(face.size.x, sh)))
 	var gh := face.size.y * 0.46
-	b[4].draw(ci.get_canvas_item(), Rect2(face.position + Vector2(5, 4), Vector2(face.size.x - 10, gh)))
+	b[4].draw(rid, Rect2(face.position + Vector2(5, 4), Vector2(face.size.x - 10, gh)))
 	if face.size.x > 60:
 		var gw := clampf(face.size.x * 0.14, 12.0, 30.0)
-		b[5].draw(ci.get_canvas_item(), Rect2(face.position + Vector2(maxf(12.0, radius * 0.55), 7), Vector2(gw, 7)))
+		b[5].draw(rid, Rect2(face.position + Vector2(maxf(12.0, radius * 0.55), 7), Vector2(gw, 7)))
 
 
-static func _chunky_boxes(style: StringName, radius: int) -> Array:
+## [тень+контур, тень нажатой, губа, лицо, блик, искорка, тень низа].
+static func _chunky_boxes(style: StringName, radius: int) -> Array[StyleBoxFlat]:
 	var key := "%s|%d" % [style, radius]
 	if _boxes.has(key):
 		return _boxes[key]
-	var c: Array = STYLES.get(style, STYLES[&"primary"])
+	var c := colors(style)
 	var ink := _flat(INK, radius + BORDER)
 	ink.shadow_color = Color(0.02, 0.0, 0.08, 0.42)
 	ink.shadow_size = 10
@@ -439,19 +460,20 @@ static func _chunky_boxes(style: StringName, radius: int) -> Array:
 	var shade := _flat(Color(c[1], 0.0 if style == &"ghost" else 0.22), radius)
 	shade.corner_radius_top_left = 0
 	shade.corner_radius_top_right = 0
-	var arr := [ink, ink_down, lip, face, gloss, glint, shade]
+	var arr: Array[StyleBoxFlat] = [ink, ink_down, lip, face, gloss, glint, shade]
 	_boxes[key] = arr
 	return arr
 
 
-static func _pill_boxes() -> Array:
+static func _pill_boxes() -> Array[StyleBoxFlat]:
 	if not _boxes.has("pill"):
-		var ink: Array = _chunky_boxes(&"glass", 29)
+		var ink := _chunky_boxes(&"glass", 29)
 		var capsule := _flat(Color("241b44"), 26, Color(PANEL_BORDER, 0.55), 2)
 		var hl := _flat(Color(1, 1, 1, 0.07), 22)
 		hl.corner_radius_bottom_left = 6
 		hl.corner_radius_bottom_right = 6
-		_boxes["pill"] = [ink[0], ink[1], capsule, hl]
+		var arr: Array[StyleBoxFlat] = [ink[0], ink[1], capsule, hl]
+		_boxes["pill"] = arr
 	return _boxes["pill"]
 
 
@@ -463,7 +485,8 @@ static func _draw_sheen(p: Control) -> void:
 		sb.border_width_top = 2
 		sb.border_color = Color(1, 1, 1, 0.16)
 		_boxes["sheen"] = sb
-	(_boxes["sheen"] as StyleBox).draw(p.get_canvas_item(), Rect2(Vector2(BORDER, BORDER), p.size - Vector2(BORDER, BORDER) * 2))
+	var sheen: StyleBox = _boxes["sheen"]
+	sheen.draw(p.get_canvas_item(), Rect2(Vector2(BORDER, BORDER), p.size - Vector2(BORDER, BORDER) * 2))
 
 
 static func _flat(bg: Color, radius: int, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
@@ -507,6 +530,10 @@ class Chunky extends Button:
 	## Иконка слева от текста: держится вплотную к нему, даже если кнопка растянута.
 	var side_icon: Texture2D
 	var _was_off := false
+	var _drawn_down := false
+	var _drawn_text := ""
+	var _in_scroll := false
+	var _cancelled := false
 	var _squash: Tween
 	var _press := 1.0
 	var _pulse := 0.0
@@ -524,14 +551,15 @@ class Chunky extends Button:
 		set_font_size(UiKit.SIZE_M)
 		button_down.connect(_on_down)
 		button_up.connect(_on_up)
+		pressed.connect(_on_pressed)
 		resized.connect(func() -> void: pivot_offset = size * 0.5)
 		set_style(st)
 
 	func set_style(st: StringName) -> void:
 		style = st
-		var c: Array = UiKit.STYLES.get(st, UiKit.STYLES[&"primary"])
+		var c := UiKit.colors(st)
 		add_theme_color_override(&"font_outline_color", c[3])
-		for k in [&"font_color", &"font_pressed_color", &"font_hover_color", &"font_hover_pressed_color", &"font_focus_color"]:
+		for k: StringName in [&"font_color", &"font_pressed_color", &"font_hover_color", &"font_hover_pressed_color", &"font_focus_color"]:
 			add_theme_color_override(k, UiKit.TEXT)
 		add_theme_color_override(&"font_disabled_color", Color(1, 1, 1, 0.75))
 		_apply_margins()
@@ -551,14 +579,20 @@ class Chunky extends Button:
 		var left := pad + (side_icon.get_width() + 12.0 if side_icon else 0.0)
 		var up := UiKit._empty(left, 2, pad, 2 + lip + UiKit.BORDER)
 		var dn := UiKit._empty(left, lip, pad, UiKit.BORDER + 4)
-		for k in [&"normal", &"hover", &"focus", &"disabled"]:
+		for k: StringName in [&"normal", &"hover", &"focus", &"disabled"]:
 			add_theme_stylebox_override(k, up)
-		for k in [&"pressed", &"hover_pressed"]:
+		for k: StringName in [&"pressed", &"hover_pressed"]:
 			add_theme_stylebox_override(k, dn)
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_ENTER_TREE:
 			UiKit.fit_mouse_filter(self)
+			_in_scroll = UiKit.scroll_parent(self) != null
+		elif what == NOTIFICATION_SCROLL_BEGIN:
+			# палец начал листать список: это не нажатие — отпускаем кнопку без щелчка
+			if _press < 1.0 or button_pressed:
+				_cancelled = true
+				_tween_press(1.0, 0.12)
 
 	func _is_down() -> bool:
 		var m := get_draw_mode()
@@ -579,10 +613,17 @@ class Chunky extends Button:
 		face.draw_texture(side_icon, at, Color(1, 1, 1, 0.6 if disabled else 1.0))
 
 	func _draw() -> void:
+		# своя отрисовка кнопки идёт и от смены масштаба (нажатие, пульс) — фон
+		# перерисовываем, только если он правда поменялся
+		var dn := _is_down()
+		if disabled == _was_off and dn == _drawn_down and text == _drawn_text:
+			return
 		if disabled != _was_off:
 			_was_off = disabled
-			var c: Array = UiKit.STYLES.get(&"disabled" if disabled else style, UiKit.STYLES[&"primary"])
+			var c := UiKit.colors(&"disabled" if disabled else style)
 			add_theme_color_override(&"font_outline_color", c[3])
+		_drawn_down = dn
+		_drawn_text = text
 		face.queue_redraw()
 
 	## Мягкая пульсация (главная кнопка «Играть»); не мешает сжатию при нажатии.
@@ -601,13 +642,19 @@ class Chunky extends Button:
 		_apply_scale()
 
 	func _on_down() -> void:
-		UiKit.sfx(&"ui_tap")
-		if _squash:
-			_squash.kill()
-		_squash = create_tween()
-		_squash.tween_method(_set_press, _press, 0.94, 0.06).set_trans(Tween.TRANS_QUAD)
+		_cancelled = false
+		# в списке касание может оказаться прокруткой — щелчок тогда на отпускании
+		if not _in_scroll:
+			UiKit.sfx(&"ui_tap")
+		_tween_press(0.94, 0.06)
+
+	func _on_pressed() -> void:
+		if _in_scroll:
+			UiKit.sfx(&"ui_tap")
 
 	func _on_up() -> void:
+		if _cancelled:
+			return
 		if _squash:
 			_squash.kill()
 		_squash = create_tween()
@@ -615,6 +662,12 @@ class Chunky extends Button:
 		if _press > 0.95:
 			_squash.tween_method(_set_press, _press, 0.94, 0.04)
 		_squash.tween_method(_set_press, 0.94, 1.0, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+	func _tween_press(to: float, dur: float) -> void:
+		if _squash:
+			_squash.kill()
+		_squash = create_tween()
+		_squash.tween_method(_set_press, _press, to, dur).set_trans(Tween.TRANS_QUAD)
 
 	func _set_press(v: float) -> void:
 		_press = v
@@ -666,6 +719,7 @@ class Pill extends Chunky:
 	var value := 0
 	var icon_rect := TextureRect.new()
 	var value_label: Label
+	var _shown := 0.0        # число на экране (во время счёта отстаёт от value)
 	var _count: Tween
 	var _bump: Tween
 
@@ -695,15 +749,23 @@ class Pill extends Chunky:
 		custom_minimum_size.x = maxf(180.0, value_label.get_combined_minimum_size().x + 84.0)
 
 	## Показать n; если anim — число «набегает» за dur секунд (после delay).
+	## Новый вызов посреди счёта продолжает с числа, что сейчас на экране.
 	func set_value(n: int, anim := true, dur := 0.6, delay := 0.0) -> void:
 		if _count:
 			_count.kill()
-		var from := value
+			_count = null
 		value = n
-		if not anim or from == n:
-			value_label.text = UiKit.num(n)
+		if not anim or roundi(_shown) == n:
+			_show(n)
 			return
-		_count = UiKit.count_up(value_label, from, n, dur, "%s", delay)
+		_count = create_tween()
+		if delay > 0.0:
+			_count.tween_interval(delay)
+		_count.tween_method(_show, _shown, float(n), dur).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+
+	func _show(v: float) -> void:
+		_shown = v
+		value_label.text = UiKit.num(roundi(v))
 
 	## Куда летят монеты: центр иконки в координатах холста.
 	func fly_target() -> Vector2:
@@ -741,6 +803,8 @@ class StarRow extends Control:
 		px = size_px
 		arc = px >= 64 and count == 3
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# ряд — плотная группа: в контейнере не растягивается на всю ширину
+		size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_tex = Icons.tex(&"star", roundi(px * (1.25 if arc else 1.0)))
 		_k.resize(count)
 		var spacing := px * (0.22 if arc else 0.08)
@@ -777,8 +841,10 @@ class StarRow extends Control:
 		var s := 1.0
 		var rot := 0.0
 		var y := size.y * 0.5
-		var step := (size.x - px) / maxf(1.0, count - 1)
-		var x := px * 0.5 + step * i
+		# звёзды стоят блоком своей минимальной ширины по центру, даже если узел шире
+		var w := custom_minimum_size.x
+		var step := (w - px) / maxf(1.0, count - 1)
+		var x := (size.x - w) * 0.5 + px * 0.5 + step * i
 		if arc:
 			var side := i - 1
 			s = 1.25 if side == 0 else 1.0
@@ -822,7 +888,7 @@ class Bar extends Control:
 	var text_label: Label
 	var _shown := 0.0
 	var _tw: Tween
-	var _sb: Array = []
+	var _sb: Array[StyleBoxFlat] = []
 
 	func _init(st: StringName = &"primary") -> void:
 		style = st
@@ -857,7 +923,7 @@ class Bar extends Control:
 
 	func _rebuild() -> void:
 		var r := int(size.y * 0.5)
-		var c: Array = UiKit.STYLES.get(style, UiKit.STYLES[&"primary"])
+		var c := UiKit.colors(style)
 		var ink := UiKit._flat(UiKit.INK, r)
 		ink.shadow_color = Color(0, 0, 0, 0.3)
 		ink.shadow_size = 6
@@ -897,7 +963,7 @@ class Toggle extends Button:
 	const OFF := Color("3b2f66")
 	const ON := Color("48c21a")
 	var _t := 0.0
-	var _sb: Array = []
+	var _sb: Array[StyleBoxFlat] = []
 	var _cb: Callable
 	var _tw: Tween
 
@@ -917,13 +983,13 @@ class Toggle extends Button:
 		add_theme_constant_override(&"outline_size", 7)
 		add_theme_constant_override(&"h_separation", 16)
 		add_theme_color_override(&"font_outline_color", UiKit.INK)
-		for k in [&"font_color", &"font_pressed_color", &"font_hover_color", &"font_hover_pressed_color", &"font_focus_color"]:
+		for k: StringName in [&"font_color", &"font_pressed_color", &"font_hover_color", &"font_hover_pressed_color", &"font_focus_color"]:
 			add_theme_color_override(k, UiKit.TEXT)
 		var sb := UiKit._empty(6, 0, 140, 0)
-		for k in [&"normal", &"hover", &"pressed", &"hover_pressed", &"focus", &"disabled"]:
+		for k: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed", &"focus", &"disabled"]:
 			add_theme_stylebox_override(k, sb)
+		# щелчок — когда значение правда сменилось (не на касании: оно может стать прокруткой)
 		toggled.connect(_on_toggled)
-		button_down.connect(func() -> void: UiKit.sfx(&"ui_tap"))
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_ENTER_TREE:
@@ -936,6 +1002,7 @@ class Toggle extends Button:
 		queue_redraw()
 
 	func _on_toggled(on: bool) -> void:
+		UiKit.sfx(&"ui_tap")
 		if _tw:
 			_tw.kill()
 		_tw = create_tween()
@@ -970,14 +1037,19 @@ class Toggle extends Button:
 
 
 ## Точка «новое»: маджента с чернильным ободком, пульсирует.
+## Рисует и пульсирует Node2D внутри: его масштаб не требует перерисовки, в отличие от Control.
 class Dot extends Control:
+	var _blob := Node2D.new()
 	var _tw: Tween
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(30, 30)
 		size = custom_minimum_size
-		pivot_offset = size * 0.5
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_blob.position = size * 0.5
+		_blob.draw.connect(_paint)
+		add_child(_blob)
+		resized.connect(func() -> void: _blob.position = size * 0.5)
 		visibility_changed.connect(_sync)
 
 	func _notification(what: int) -> void:
@@ -995,17 +1067,16 @@ class Dot extends Control:
 			return
 		if is_visible_in_tree() and _tw == null:
 			_tw = create_tween().set_loops()
-			_tw.tween_property(self, ^"scale", Vector2.ONE * 1.18, 0.45).set_trans(Tween.TRANS_SINE)
-			_tw.tween_property(self, ^"scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
+			_tw.tween_property(_blob, ^"scale", Vector2.ONE * 1.18, 0.45).set_trans(Tween.TRANS_SINE)
+			_tw.tween_property(_blob, ^"scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
 		elif not is_visible_in_tree() and _tw:
 			_tw.kill()
 			_tw = null
 
-	func _draw() -> void:
-		var c := size * 0.5
-		draw_circle(c, 14.0, UiKit.INK, true, -1.0, true)
-		draw_circle(c, 10.5, UiKit.MAGENTA, true, -1.0, true)
-		draw_circle(c + Vector2(-3.5, -3.5), 3.2, Color(1, 1, 1, 0.9), true, -1.0, true)
+	func _paint() -> void:
+		_blob.draw_circle(Vector2.ZERO, 14.0, UiKit.INK, true, -1.0, true)
+		_blob.draw_circle(Vector2.ZERO, 10.5, UiKit.MAGENTA, true, -1.0, true)
+		_blob.draw_circle(Vector2(-3.5, -3.5), 3.2, Color(1, 1, 1, 0.9), true, -1.0, true)
 
 
 ## Лента-заголовок: полоса с губой и загнутые тёмные «хвосты» по краям.
