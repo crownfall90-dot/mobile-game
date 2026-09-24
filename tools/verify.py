@@ -21,8 +21,9 @@
       порядки, выигравшие с обоими seed, пишутся в levels/solutions/<id>.json (решение первым)
   G7  есть золото и verify.daily не false: с --mods=golden решение выигрывает на 3 звезды
 
-Кэш: .verify_cache/, ключ — sha1 файла уровня, sha1 кода (scripts/level/*.gd, game.gd,
-dev_runner.gd, game_screen.gd, project.godot) и версия Godot; хранятся исходы отдельных прогонов.
+Кэш: .verify_cache/, ключ — sha1 файла уровня, sha1 всего, что грузит прогон (все файлы res://,
+кроме levels/, docs/, tools/ и скрытых папок; плюс levels/index.json), версия, размер и время
+файла Godot; хранятся исходы отдельных прогонов.
 Код выхода: 0 — всё прошло, 1 — есть провалы, 2 — нечем проверять.
 """
 
@@ -49,8 +50,12 @@ ROOT = lint.ROOT
 LEVELS = lint.LEVELS
 CACHE_DIR = ROOT / ".verify_cache"
 SOLUTIONS_DIR = LEVELS / "solutions"
-CODE_FILES = ["scripts/level/*.gd", "scripts/core/game.gd", "scripts/dev/dev_runner.gd",
-              "scripts/screens/game_screen.gd", "project.godot"]
+# Ключ кэша по коду: всё, что может загрузить прогон, а не выбранный вручную список —
+# иначе ошибка в hud.gd или автозагрузке прячется за старым PASS.
+# Файл уровня хешируется отдельно; index.json — здесь: по нему Game строит каталог.
+CODE_SKIP_DIRS = {"levels", "docs", "tools", "build", "android"}
+CODE_SKIP_SUFFIXES = (".md", ".tmp")
+CODE_EXTRA = ["levels/index.json"]
 RUN_TIMEOUT = 120
 NORMAL = "1.5"
 FLAKY_MAX = 0.10
@@ -197,10 +202,34 @@ def godot_version(godot):
     return p.stdout.strip().splitlines()[-1] if p.stdout.strip() else "unknown"
 
 
+def godot_id(godot, version):
+    """Версия плюс размер и время файла: пересобранный движок той же версии — другой ключ."""
+    try:
+        st = Path(shutil.which(godot) or godot).resolve().stat()
+    except OSError:
+        return version
+    return f"{version} {st.st_size} {int(st.st_mtime)}"
+
+
+def code_files():
+    """Файлы res://, от которых зависит прогон: без уровней, документов, инструментов,
+    скрытых папок (.git, .godot, .verify_cache) и папок с .gdignore."""
+    files = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        here = Path(dirpath)
+        top = here == ROOT
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")
+                       and not (top and d in CODE_SKIP_DIRS)
+                       and not (here / d / ".gdignore").exists()]
+        files += [here / n for n in filenames
+                  if not n.startswith(".") and not n.endswith(CODE_SKIP_SUFFIXES)]
+    files += [ROOT / f for f in CODE_EXTRA if (ROOT / f).is_file()]
+    return sorted(set(files))
+
+
 def code_sha():
     h = hashlib.sha1()
-    files = sorted({f for pat in CODE_FILES for f in ROOT.glob(pat)})
-    for f in files:
+    for f in code_files():
         h.update(f.relative_to(ROOT).as_posix().encode())
         h.update(f.read_bytes())
     return h.hexdigest()
@@ -228,6 +257,8 @@ def load_cache(lv, meta):
 def save_cache(lv, meta):
     runs = {k: r for k, r in lv.results.items() if r.get("status") == "ok"}
     old = load_cache(lv, meta)
+    if not runs and not old:
+        return   # прогон весь с ошибками: не затираем кэш прошлого (рабочего) кода
     old.update(runs)
     CACHE_DIR.mkdir(exist_ok=True)
     tmp = cache_path(lv).with_suffix(".tmp")
@@ -464,6 +495,7 @@ def main(argv):
         return 2
 
     version = godot_version(godot)
+    engine = godot_id(godot, version)
     code = code_sha()
     jobs = max(1, a.j)
     print(f"verify: {len(paths)} level(s), {version}, {jobs} worker(s), "
@@ -490,7 +522,7 @@ def main(argv):
             if lv.gates["G1"][0] == "FAIL":
                 continue
             plan(lv, a.quick)
-            lv.meta = cache_meta(lv, code, version)
+            lv.meta = cache_meta(lv, code, engine)
             cached = {} if a.no_cache else load_cache(lv, lv.meta)
             for key, s in lv.specs.items():
                 if key in cached:
