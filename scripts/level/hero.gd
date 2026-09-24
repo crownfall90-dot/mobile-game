@@ -524,9 +524,7 @@ func _paint_cone(h: Color, hd: Color, tr: Color, tall: float, droop: float) -> v
 	if hat_style == "flame":
 		var f := sin(_t * 13.0) * 1.6 + sin(_t * 7.0) * 1.0
 		Pen.glow(tip + Vector2(0, -6), Vector2(15, 15), Color(1.0, 0.6, 0.2, 0.45), 16)
-		_flame(tip + Vector2(0, 1), 7.5, 24.0, f, Color("ff5a1f"))
-		_flame(tip + Vector2(0, 0), 5.2, 16.0, f * 0.7, Color("ffb02e"))
-		_flame(tip + Vector2(0, -1), 2.8, 8.0, f * 0.4, Color("fff1b8"))
+		Pen.flame(tip + Vector2(0, 1), 7.5, 24.0, f)
 
 
 func _paint_oops() -> void:
@@ -567,18 +565,6 @@ func _paint_oops() -> void:
 
 
 # --- мелкие фигуры --------------------------------------------------------------
-
-## Язычок пламени: круглый низ и вершина, которую качает sway.
-func _flame(c: Vector2, r: float, h: float, sway: float, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for i in 16:
-		var a := TAU * i / 16.0
-		var up := cos(a) > 0.0
-		var y := -cos(a) * (h - r if up else r)
-		var x := r * sin(a) * pow(absf(sin(a * 0.5)), 1.3)
-		pts.append(c + Vector2(x + sway * pow(maxf(0.0, -y) / h, 2.0), y - r * 0.2))
-	Pen.soft(pts, col)
-
 
 func _drop(c: Vector2, r: float, col: Color) -> void:
 	var pts := PackedVector2Array([c + Vector2(0, -r * 2.2)])
