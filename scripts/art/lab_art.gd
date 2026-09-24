@@ -3,7 +3,11 @@ extends RefCounted
 ## Лаборатория Мастера — хаб. Комната и 9 предметов в трёх состояниях.
 ## Рисует в чужой CanvasItem в дизайн-координатах 720x1280 (начало холста = угол экрана).
 ## Комнату рисуйте один раз на статичном холсте, каждый предмет — на своём узле и только
-## при смене состояния; анимируется лишь GHOST (пульс по t). Порядок рисования — ORDER.
+## при смене состояния. Порядок рисования — ORDER.
+## GHOST дёшево: предмет рисуется один раз с t < 0 (без пульса и рамки), а каждый кадр
+## хаб лишь ставит этому холсту modulate.a = ghost_alpha(t) и перерисовывает соседний лёгкий
+## холст с draw_ghost_frame() (бегущий пунктир и звёздочка). С t >= 0 draw_object рисует
+## всё сразу — проще, но тогда весь предмет перерисовывается каждый кадр.
 
 const BROKEN := 0
 const GHOST := 1
@@ -18,6 +22,27 @@ const SLOTS := {
 	&"rug": Rect2(180, 960, 360, 110),
 	&"telescope": Rect2(420, 470, 140, 200),
 	&"alembic": Rect2(240, 520, 240, 380),
+}
+## Повреждения сломанного предмета в его собственных координатах: трещины — пары точек
+## начало/конец прямо на форме предмета; паутина — [x, y, радиус, от°, до°] в углу между
+## двумя его поверхностями (у ковра паутины нет: ей не за что зацепиться).
+const DAMAGE := {
+	&"shelves": [[Vector2(66, 48), Vector2(80, 74), Vector2(88, 166), Vector2(98, 190)],
+		[31, 97.5, 26, 4, 80]],
+	&"barrels": [[Vector2(34, 96), Vector2(46, 152), Vector2(126, 134), Vector2(138, 168)],
+		[109, 122, 26, 0, 72]],
+	&"lantern": [[Vector2(41, 44), Vector2(47, 82)], [35, 22, 14, -90, 0]],
+	&"workbench": [[Vector2(146, 95), Vector2(154, 111), Vector2(44, 30), Vector2(58, 58)],
+		[32, 112, 34, 0, 90]],
+	&"window": [[Vector2(36, 232), Vector2(60, 272), Vector2(134, 110), Vector2(150, 150)],
+		[12, 284, 36, -90, 0]],
+	&"bookcase": [[Vector2(143, 0), Vector2(155, 24), Vector2(60, 33), Vector2(67, 49)],
+		[12, 58, 40, 0, 90]],
+	&"rug": [[Vector2(282, 14), Vector2(292, 40), Vector2(72, 72), Vector2(84, 96)], []],
+	&"telescope": [[Vector2(87, 81), Vector2(95, 69), Vector2(24, 23), Vector2(16, 37)],
+		[80, 116, 44, 89, 122]],
+	&"alembic": [[Vector2(66, 184), Vector2(80, 236), Vector2(128, 78), Vector2(142, 120)],
+		[48, 284, 34, -80, 0]],
 }
 ## От дальних к ближним.
 const ORDER: Array[StringName] = [&"window", &"shelves", &"bookcase", &"lantern", &"telescope", &"rug",
@@ -161,7 +186,7 @@ static func draw_object(ci: CanvasItem, obj_id: StringName, rect: Rect2, state: 
 		Pen.desat = 0.6
 		Pen.dim = 0.25
 	elif state == GHOST:
-		Pen.alpha = 0.3 + 0.12 * sin(t * 3.0)
+		Pen.alpha = ghost_alpha(t) if t >= 0.0 else 1.0
 		Pen.desat = 0.2
 	match obj_id:
 		&"shelves":
@@ -185,12 +210,28 @@ static func draw_object(ci: CanvasItem, obj_id: StringName, rect: Rect2, state: 
 	Pen.desat = 0.0
 	Pen.dim = 0.0
 	Pen.alpha = 1.0
-	if state == BROKEN:
-		var right := hash(obj_id) & 1 == 1
-		_cracks(s, hash(obj_id))
-		_web(Vector2(s.x - 4, 4) if right else Vector2(4, 4), minf(46.0, s.x * 0.45), right)
-	elif state == GHOST:
+	if state == BROKEN and DAMAGE.has(obj_id):
+		var dmg: Array = DAMAGE[obj_id]
+		var cracks: Array = dmg[0]
+		for i in range(0, cracks.size(), 2):
+			_crack(cracks[i], cracks[i + 1])
+		if not dmg[1].is_empty():
+			_web(dmg[1])
+	elif state == GHOST and t >= 0.0:
 		_ghost_frame(s, t)
+	Pen.end()
+
+
+## Прозрачность призрака для modulate.a холста, где предмет нарисован в GHOST с t < 0.
+static func ghost_alpha(t: float) -> float:
+	return 0.3 + 0.12 * sin(t * 3.0)
+
+
+## Бегущий пунктир и звёздочка-ярлык призрака — на отдельный лёгкий холст, каждый кадр.
+static func draw_ghost_frame(ci: CanvasItem, obj_id: StringName, rect: Rect2, t: float) -> void:
+	var design: Rect2 = SLOTS.get(obj_id, rect)
+	Pen.begin(ci, Transform2D(0.0, rect.size / design.size, 0.0, rect.position))
+	_ghost_frame(design.size, t)
 	Pen.end()
 
 
@@ -501,23 +542,27 @@ static func _arch(r: Rect2) -> PackedVector2Array:
 
 # --- состояния --------------------------------------------------------------
 
-static func _cracks(s: Vector2, seed: int) -> void:
-	for n in 2:
-		var p := Vector2(s.x * (0.25 + 0.5 * n), s.y * (0.2 + 0.15 * ((seed >> n) & 1)))
-		var pts := PackedVector2Array([p])
-		for i in 4:
-			p += Vector2((12.0 if (i + n) % 2 == 0 else -10.0), s.y * 0.09)
-			pts.append(p)
-		Pen.pline(pts, Color(0.06, 0.03, 0.1, 0.85), 2.5)
-		Pen.pline(Transform2D(0.0, Vector2(1.5, 0)) * pts, Color(1, 1, 1, 0.18), 1.0)
+## Короткая трещина из трёх изломов с отростком, от a к b.
+static func _crack(a: Vector2, b: Vector2) -> void:
+	var d := b - a
+	var n := d.orthogonal() * 0.16
+	var pts := PackedVector2Array([a, a + d * 0.36 + n, a + d * 0.68 - n, b])
+	var dark := Color(0.06, 0.03, 0.1, 0.85)
+	Pen.pline(pts, dark, 2.5)
+	Pen.line(pts[1], pts[1] + d.rotated(0.8) * 0.3, dark, 1.6)
+	Pen.pline(Transform2D(0.0, Vector2(1.4, 0.4)) * pts, Color(1, 1, 1, 0.2), 1.0)
 
 
-static func _web(corner: Vector2, size: float, right: bool) -> void:
-	var dir := Vector2(-1 if right else 1, 1)
+## Паутина w = [x, y, радиус, от°, до°]: четыре нити из угла и три провисших ряда.
+static func _web(w: Array) -> void:
+	var corner := Vector2(w[0], w[1])
+	var r: float = w[2]
+	var a0: float = w[3]
+	var a1: float = w[4]
 	var col := Color(0.92, 0.9, 1.0, 0.5)
 	var ends: Array[Vector2] = []
 	for i in 4:
-		var e := corner + Vector2.from_angle(PI * 0.5 * i / 3.0) * size * dir
+		var e := corner + Vector2.from_angle(deg_to_rad(lerpf(a0, a1, i / 3.0))) * r
 		ends.append(e)
 		Pen.line(corner, e, col, 1.2)
 	for ring in 3:
@@ -536,6 +581,8 @@ static func _ghost_frame(s: Vector2, t: float) -> void:
 	var dash := 18.0
 	var gap := 10.0
 	var off := fmod(t * 30.0, dash + gap)
+	# все штрихи — одной командой отрисовки
+	var dashes := PackedVector2Array()
 	for i in path.size() - 1:
 		var p0 := path[i]
 		var seg := path[i + 1] - p0
@@ -545,9 +592,11 @@ static func _ghost_frame(s: Vector2, t: float) -> void:
 			var u0 := maxf(u, 0.0)
 			var u1 := minf(u + dash, len)
 			if u1 > u0:
-				Pen.line(p0 + seg * (u0 / len), p0 + seg * (u1 / len), Color(1.0, 0.9, 0.5, a), 3.5)
+				dashes.append(p0 + seg * (u0 / len))
+				dashes.append(p0 + seg * (u1 / len))
 			u += dash + gap
 		off = fmod(off + len, dash + gap)
+	Pen.multi(dashes, Color(1.0, 0.9, 0.5, a), 3.5)
 	var tag := Vector2(s.x - 4, -4 + sin(t * 3.0) * 4.0)
 	Pen.glow(tag, Vector2(40, 40), Color(1.0, 0.85, 0.3, 0.4 * a), 16)
 	Pen.dot(tag, 20, Color("2a2147"), 3.0)

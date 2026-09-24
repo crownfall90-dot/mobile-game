@@ -106,6 +106,12 @@ static func pline(pts: PackedVector2Array, c: Color, w: float) -> void:
 	_ci.draw_polyline(_up * pts, col(c), w * k, true)
 
 
+## Много отдельных отрезков (пары точек) одной командой.
+static func multi(pts: PackedVector2Array, c: Color, w: float) -> void:
+	if pts.size() >= 2:
+		_ci.draw_multiline(_up * pts, col(c), w * k, true)
+
+
 static func line(a: Vector2, b: Vector2, c: Color, w: float) -> void:
 	_ci.draw_line(a * k, b * k, col(c), w * k, true)
 
