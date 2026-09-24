@@ -1,0 +1,11 @@
+# Godot 4
+.godot/
+/android/
+*.tmp
+# Export output
+/build/
+*.apk
+*.aab
+# Keystores never go to git
+*.keystore
+*.jks
