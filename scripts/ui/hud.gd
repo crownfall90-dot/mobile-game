@@ -1,7 +1,7 @@
 class_name Hud
 extends Control
 ## Интерфейс поверх уровня: верхняя панель, подсказка, экран результата.
-## Всё строится кодом, без внешних ассетов.
+## Всё строится кодом, без внешних ассетов. Временный: его заменит поток Game UX.
 
 signal restart_requested
 signal next_requested
@@ -74,10 +74,10 @@ func hide_hint() -> void:
 
 func show_result(won: bool, stars: int, text: String) -> void:
 	_won = won
-	_res_title.text = "Спасена!" if won else "Не вышло"
+	_res_title.text = Loc.t("level.won") if won else Loc.t("level.lost")
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
-	_res_button.text = "Дальше" if won else "Ещё раз"
+	_res_button.text = Loc.t("common.next") if won else Loc.t("common.retry")
 	_stars.visible = won
 	_stars.set_stars(0)
 	_overlay.visible = true

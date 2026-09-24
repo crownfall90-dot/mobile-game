@@ -9,3 +9,4 @@
 # Keystores never go to git
 *.keystore
 *.jks
+.verify_cache/

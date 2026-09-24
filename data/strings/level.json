@@ -1,0 +1,6 @@
+{
+  "level.won": {"ru": "Спасена!", "en": "Rescued!"},
+  "level.lost": {"ru": "Ой!", "en": "Oops!"},
+  "level.gold": {"ru": "Золото: {0} из {1}", "en": "Gold: {0} of {1}"},
+  "level.no_level": {"ru": "Уровень не найден", "en": "Level not found"}
+}
