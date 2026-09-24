@@ -36,6 +36,8 @@ var _main_ok := false
 
 
 func _init() -> void:
+	# отложенная запись идёт и на паузе: переключатели звука живут в окне паузы
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	data = defaults()
 	set_process(false)
 
@@ -359,7 +361,7 @@ func set_setting(key: StringName, v: Variant) -> void:
 
 
 func flag(key: String) -> bool:
-	return bool(data["flags"].get(key, false))
+	return _bool(data["flags"].get(key), false)
 
 
 func set_flag(key: String, v := true) -> void:
@@ -387,7 +389,7 @@ func stat_inc(path: String, n := 1) -> void:
 			node[parts[i]] = next
 		node = next
 	var last := parts[parts.size() - 1]
-	node[last] = int(node.get(last, 0)) + n
+	node[last] = _int(node.get(last), 0) + n
 	save()
 
 
@@ -414,13 +416,15 @@ func _tmp_path() -> String:
 	return save_path.get_basename() + ".tmp"
 
 
+## {} — нет файла, не JSON или это не наше сохранение (нет поля "v"): тогда берётся save.bak.
 func _read(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var json := JSON.new()
 	if json.parse(FileAccess.get_file_as_string(path)) != OK or not json.data is Dictionary:
 		return {}
-	return json.data
+	var d: Dictionary = json.data
+	return d if d.has("v") else {}
 
 
 func _write() -> void:
@@ -464,60 +468,84 @@ func _migrate_v1() -> Dictionary:
 
 
 ## Приводит прочитанный JSON к save v2: числа из JSON приходят float,
-## недостающие поля берутся по умолчанию, лишние поля сохраняются.
+## значения не того типа (null, строка вместо числа) и недостающие поля берутся
+## по умолчанию, лишние поля сохраняются. Никогда не падает на чужих данных.
 func _sanitize(src: Dictionary) -> Dictionary:
 	var d := defaults()
 	for key in src:
 		if not d.has(key):
 			d[key] = src[key]
 	for key in ["coins", "hints", "stars_spent", "streak", "chest"]:
-		d[key] = maxi(0, int(src.get(key, d[key])))
+		d[key] = maxi(0, _int(src.get(key), d[key]))
 	d["v"] = VERSION
 	var levels: Dictionary = {}
-	var src_levels: Variant = src.get("levels", {})
+	var src_levels: Variant = src.get("levels")
 	if src_levels is Dictionary:
 		for id in src_levels:
 			var e: Variant = src_levels[id]
 			if e is Dictionary:
-				levels[str(id)] = {"stars": clampi(int(e.get("stars", 0)), 0, 3),
-						"cleared": bool(e.get("cleared", false)),
-						"skipped": bool(e.get("skipped", false)), "relic": bool(e.get("relic", false))}
+				levels[str(id)] = {"stars": clampi(_int(e.get("stars"), 0), 0, 3),
+						"cleared": _bool(e.get("cleared"), false),
+						"skipped": _bool(e.get("skipped"), false), "relic": _bool(e.get("relic"), false)}
 	d["levels"] = levels
 	var fails_d: Dictionary = {}
-	var src_fails: Variant = src.get("fails", {})
+	var src_fails: Variant = src.get("fails")
 	if src_fails is Dictionary:
 		for id in src_fails:
-			fails_d[str(id)] = int(src_fails[id])
+			var n := _int(src_fails[id], 0)
+			if n > 0:
+				fails_d[str(id)] = n
 	d["fails"] = fails_d
 	for key in ["owned", "lab", "grimoire"]:
 		var arr: Variant = src.get(key)
 		if arr is Array:
 			var clean: Array = []
 			for x in arr:
-				if not clean.has(str(x)):
-					clean.append(str(x))
+				if x is String and not clean.has(x):
+					clean.append(x)
 			d[key] = clean
 	for key in ["equipped", "daily", "settings"]:
 		var sub: Variant = src.get(key)
 		if sub is Dictionary:
+			var dst: Dictionary = d[key]
 			for k in sub:
-				var def: Variant = d[key].get(k)
-				d[key][k] = _like(def, sub[k])
-	for key in ["last_open"]:
-		d[key] = str(src.get(key, ""))
-	for key in ["flags", "stats"]:
-		if src.get(key) is Dictionary:
-			d[key] = src[key]
+				dst[str(k)] = _like(dst.get(str(k)), sub[k])
+	if not ["auto", "ru", "en"].has(d["settings"]["lang"]):
+		d["settings"]["lang"] = "auto"
+	d["last_open"] = _str(src.get("last_open"), "")
+	var flags: Dictionary = {}
+	var src_flags: Variant = src.get("flags")
+	if src_flags is Dictionary:
+		for k in src_flags:
+			flags[str(k)] = _bool(src_flags[k], false)
+	d["flags"] = flags
+	if src.get("stats") is Dictionary:
+		d["stats"] = src["stats"]
 	return d
 
 
-## Значение v с типом образца (JSON отдаёт числа как float).
+## Значение v с типом образца; не тот тип — образец (значение по умолчанию).
+## Поля без образца (новые, от других модулей) остаются как есть.
 static func _like(sample: Variant, v: Variant) -> Variant:
 	match typeof(sample):
 		TYPE_INT:
-			return int(v)
+			return _int(v, sample)
 		TYPE_BOOL:
-			return bool(v)
+			return _bool(v, sample)
 		TYPE_STRING:
-			return str(v)
-	return v
+			return _str(v, sample)
+		TYPE_NIL:
+			return v
+	return v if typeof(v) == typeof(sample) else sample
+
+
+static func _int(v: Variant, def: int) -> int:
+	return int(v) if v is int or v is float else def
+
+
+static func _bool(v: Variant, def: bool) -> bool:
+	return bool(v) if v is bool or v is int or v is float else def
+
+
+static func _str(v: Variant, def: String) -> String:
+	return v if v is String else def
