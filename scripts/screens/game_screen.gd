@@ -165,8 +165,16 @@ func _on_lost(reason: String) -> void:
 		Profile.add_fail(level_id)
 		Economy.level_lost(level_id, reason)
 	level_finished.emit(res)
-	var key := "lose." + reason if LOSE_REASONS.has(reason) else "lose.other"
-	_show_result_later(false, 0, Loc.t(key))
+	_show_result_later(false, 0, Loc.t(lose_key(res)))
+
+
+## Ключ строки причины поражения по result(). «Застряли» при собранном золоте значит,
+## что победе мешает живой враг — это отдельная строка, а не «Не хватило золота».
+static func lose_key(res: Dictionary) -> String:
+	var reason := str(res.get("reason", ""))
+	if reason == "stuck" and int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
+		return "lose.enemy_alive"
+	return "lose." + reason if LOSE_REASONS.has(reason) else "lose.other"
 
 
 func _show_result_later(won: bool, stars: int, text: String) -> void:
