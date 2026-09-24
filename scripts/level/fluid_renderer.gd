@@ -6,6 +6,7 @@ extends Node2D
 ##    Капли рисуются аддитивно в маленький SubViewport в половинном разрешении,
 ##    каждое вещество в свой канал: вода -> R, лава -> G, кислота -> B.
 ## 2. Шейдер fluid.gdshader отсекает поле по порогу, добавляет блики и свечение.
+## Когда капель не осталось (вся лава застыла), буфер перестаёт обновляться.
 
 const DOWNSCALE := 0.5
 const BLOB_SIZE := 46.0
@@ -13,6 +14,8 @@ const SHADER := preload("res://shaders/fluid.gdshader")
 
 var _level: Level
 var _mm: MultiMesh
+var _vp: SubViewport
+var _sprite: Sprite2D
 
 
 func setup(level: Level, design_size: Vector2, capacity: int) -> void:
@@ -21,8 +24,9 @@ func setup(level: Level, design_size: Vector2, capacity: int) -> void:
 	vp.size = Vector2i(design_size * DOWNSCALE)
 	vp.transparent_bg = true
 	vp.disable_3d = true
-	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(vp)
+	_vp = vp
 
 	_mm = MultiMesh.new()
 	_mm.transform_format = MultiMesh.TRANSFORM_2D
@@ -50,7 +54,9 @@ func setup(level: Level, design_size: Vector2, capacity: int) -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = SHADER
 	sprite.material = mat
+	sprite.visible = false
 	add_child(sprite)
+	_sprite = sprite
 
 
 func _process(_delta: float) -> void:
@@ -65,6 +71,10 @@ func _process(_delta: float) -> void:
 		_mm.set_instance_color(n, Substances.channel(item.kind))
 		n += 1
 	_mm.visible_instance_count = n
+	var active := n > 0
+	if active != _sprite.visible:
+		_sprite.visible = active
+		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED
 
 
 static func _blob_texture() -> Texture2D:
