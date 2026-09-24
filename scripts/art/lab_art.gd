@@ -2,12 +2,17 @@ class_name LabArt
 extends RefCounted
 ## Лаборатория Мастера — хаб. Комната и 9 предметов в трёх состояниях.
 ## Рисует в чужой CanvasItem в дизайн-координатах 720x1280 (начало холста = угол экрана).
-## Комнату рисуйте один раз на статичном холсте, каждый предмет — на своём узле и только
-## при смене состояния. Порядок рисования — ORDER.
-## GHOST дёшево: предмет рисуется один раз с t < 0 (без пульса и рамки), а каждый кадр
-## хаб лишь ставит этому холсту modulate.a = ghost_alpha(t) и перерисовывает соседний лёгкий
-## холст с draw_ghost_frame() (бегущий пунктир и звёздочка). С t >= 0 draw_object рисует
-## всё сразу — проще, но тогда весь предмет перерисовывается каждый кадр.
+## Комнату рисуйте один раз на статичном холсте, предметы — в порядке ORDER.
+## Проще всего каждому предмету дать LabArt.ObjectCanvas (ниже): он сам перерисовывается,
+## когда меняется состояние или масштаб, и дёшево мерцает призраком.
+## Если рисуете предмет сами, помните: Pen запекает сглаживание под масштаб пикселя в момент
+## рисования. Холст надо перерисовать, когда закончилась анимация масштаба (pop-in при
+## восстановлении) и когда Pen.pixel_scale(ci) заметно изменился, иначе предмет,
+## нарисованный в начале pop-in, так и останется мыльным.
+## GHOST дёшево: предмет рисуется один раз с t < 0 (без пульса и рамки), каждый кадр холсту
+## ставится self_modulate.a = ghost_alpha(t), а лёгкий дочерний холст рисует
+## draw_ghost_frame() (бегущий пунктир и звёздочка). С t >= 0 draw_object рисует всё сразу,
+## но тогда весь предмет перерисовывается каждый кадр.
 
 const BROKEN := 0
 const GHOST := 1
@@ -67,7 +72,69 @@ const RED := Color("d9463a")
 const BOOKS: Array[Color] = [Color("c0392b"), Color("3d7bff"), Color("4fae5a"), Color("8a4dff"), Color("f5a142"),
 	Color("2fb5a8"), Color("d95f9a")]
 
-static var _lit := true   # светятся ли жидкости и огонь (только у восстановленных)
+static var _lit := true      # светятся ли жидкости и огонь (только у восстановленных)
+static var _broken := false  # у сломанного витража выбито стекло
+
+
+## Холст одного предмета для хаба. Узел стоит в центре слота, так что pop-in масштабом
+## идёт от центра. Перерисовывается при смене состояния, при уходе масштаба пикселя больше
+## чем на 8% и когда масштаб устоялся на новом значении (конец pop-in). Пунктир призрака
+## перерисовывается 30 раз в секунду, мерцание — через self_modulate без перерисовки.
+class ObjectCanvas extends Node2D:
+	var obj_id: StringName
+	var state := LabArt.BROKEN
+	var _rect := Rect2()
+	var _frame: Pen.Canvas
+	var _t := 0.0
+	var _tick := -1
+	var _drawn_k := 0.0
+	var _prev_k := 0.0
+
+	func _init() -> void:
+		_frame = Pen.Canvas.new()
+		_frame.paint = func(ci: CanvasItem) -> void: LabArt.draw_ghost_frame(ci, obj_id, _local(), _t)
+		_frame.visible = false
+		add_child(_frame)
+
+	func _ready() -> void:
+		if DisplayServer.get_name() == "headless":
+			set_process(false)
+
+	## rect — слот в координатах родителя; по умолчанию SLOTS[id].
+	func setup(id: StringName, st: int, rect := Rect2()) -> void:
+		obj_id = id
+		_rect = rect if rect.has_area() else LabArt.SLOTS.get(id, Rect2())
+		position = _rect.get_center()
+		set_state(st)
+
+	func set_state(st: int) -> void:
+		state = st
+		self_modulate.a = LabArt.ghost_alpha(_t) if st == LabArt.GHOST else 1.0
+		_frame.visible = st == LabArt.GHOST
+		queue_redraw()
+		_frame.queue_redraw()
+
+	func _local() -> Rect2:
+		return Rect2(_rect.position - position, _rect.size)
+
+	func _draw() -> void:
+		_drawn_k = Pen.pixel_scale(self)
+		LabArt.draw_object(self, obj_id, _local(), state, -1.0)
+
+	func _process(delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		var k := Pen.pixel_scale(self)
+		if absf(k - _drawn_k) > _drawn_k * 0.08 or (k != _drawn_k and k == _prev_k):
+			queue_redraw()
+			_frame.queue_redraw()
+		_prev_k = k
+		if state == LabArt.GHOST:
+			_t += delta
+			self_modulate.a = LabArt.ghost_alpha(_t)
+			if int(_t * 30.0) != _tick:
+				_tick = int(_t * 30.0)
+				_frame.queue_redraw()
 
 
 # --- комната -----------------------------------------------------------------
@@ -182,6 +249,7 @@ static func draw_object(ci: CanvasItem, obj_id: StringName, rect: Rect2, state: 
 		xf = xf * Transform2D(deg_to_rad(6.0), pivot) * Transform2D(0.0, -pivot)
 	Pen.begin(ci, xf)
 	_lit = state == RESTORED
+	_broken = state == BROKEN
 	if state == BROKEN:
 		Pen.desat = 0.6
 		Pen.dim = 0.25
@@ -222,9 +290,9 @@ static func draw_object(ci: CanvasItem, obj_id: StringName, rect: Rect2, state: 
 	Pen.end()
 
 
-## Прозрачность призрака для modulate.a холста, где предмет нарисован в GHOST с t < 0.
+## Прозрачность призрака для self_modulate.a холста, где предмет нарисован в GHOST с t < 0.
 static func ghost_alpha(t: float) -> float:
-	return 0.3 + 0.12 * sin(t * 3.0)
+	return 0.4 + 0.12 * sin(t * 3.0)
 
 
 ## Бегущий пунктир и звёздочка-ярлык призрака — на отдельный лёгкий холст, каждый кадр.
@@ -333,7 +401,7 @@ static func _workbench(s: Vector2) -> void:
 static func _window(s: Vector2) -> void:
 	var c := Vector2(100, 100)
 	var panes: Array[Color] = [VIOLET, Color("3d7bff"), CYAN, MAGENTA, GOLD, Color("4fae5a")]
-	var skip := -1 if _lit or Pen.alpha < 1.0 else 2
+	var skip := 2 if _broken else -1
 	for i in 6:
 		if i != skip:
 			var col := i % 2
