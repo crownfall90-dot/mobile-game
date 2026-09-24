@@ -114,7 +114,7 @@ func _tv() -> void:
 	_box(Rect2(389,471,166,88),5,Color("acdce2") if good else Color("424b50"))
 	if good:
 		Pen.disc(Vector2(527,493),13,Color("fff2b8"))
-		Pen.soft(Pen.oval(Vector2(471,558),Vector2(95,31)),Color("8eae73"))
+		Pen.soft(Pen.oval(Vector2(471,547),Vector2(78,12)),Color("8eae73"))
 		Pen.dot(Vector2(466,515),18,Color("e7b175"),1.5)
 		for x in [451,481]:
 			Pen.dot(Vector2(x,499),8,Color("e7b175"),1.5)

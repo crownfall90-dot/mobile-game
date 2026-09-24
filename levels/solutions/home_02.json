@@ -1,0 +1,5 @@
+[
+  ["water", "lava", "gold"],
+  ["water", "gold", "lava"],
+  ["gold", "water", "lava"]
+]

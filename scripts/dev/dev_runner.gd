@@ -64,6 +64,9 @@ func run(flags: Dictionary) -> void:
 	var profile := get_node_or_null(^"/root/Profile")
 	if profile:
 		profile.set(&"volatile", true)
+	if flags.has("home-stage"):
+		for i in mini(int(flags["home-stage"]), 10):
+			Profile.set_flag("home." + Home.TASKS[i].id)
 	AudioServer.set_bus_mute(0, true)
 	var jitter := int(flags.get("jitter", 0))
 	_rng.seed = jitter
