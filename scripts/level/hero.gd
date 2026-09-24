@@ -317,8 +317,12 @@ func _paint_fx(ci: CanvasItem) -> void:
 	if hat_style == "flame":
 		var tip := _cone_tip()
 		Pen.push(_hat_xf())
-		Pen.glow(tip + Vector2(0, -5), Vector2(12, 12), Color(1.0, 0.6, 0.2, 0.45), 14)
-		Pen.flame(tip + Vector2(0, 1), 6.5, 17.0, sin(_t * 13.0) * 1.2 + sin(_t * 7.0) * 0.8)
+		if _droop() > 0.0:
+			# кончик поникшего колпака сходит на нет раньше геометрической вершины
+			_snuffed(_cone_at(0.9, 0.5))
+		else:
+			Pen.glow(tip + Vector2(0, -5), Vector2(12, 12), Color(1.0, 0.6, 0.2, 0.45), 14)
+			Pen.flame(tip + Vector2(0, 1), 6.5, 17.0, sin(_t * 13.0) * 1.2 + sin(_t * 7.0) * 0.8)
 		Pen.push(Transform2D.IDENTITY)
 	if mood == Mood.OOPS:
 		_paint_oops_fx()
@@ -465,13 +469,32 @@ func _hat_xf() -> Transform2D:
 	return Transform2D.IDENTITY
 
 
-## Кончик колпака; при неудаче он никнет, сильнее всего от грусти.
-func _cone_tip() -> Vector2:
-	var droop := 0.0
-	if mood == Mood.OOPS:
-		droop = 1.0 if reason == "stuck" else (0.55 if reason == "lava" else 0.0)
+## Насколько поник колпак: сильнее всего от грусти, наполовину от лавы.
+func _droop() -> float:
+	if mood != Mood.OOPS:
+		return 0.0
+	return 1.0 if reason == "stuck" else (0.55 if reason == "lava" else 0.0)
+
+
+## Колпак: левая и правая кривые от полей (±18.5, -104) через cl и cr к кончику.
+## При неудаче кончик никнет.
+func _cone_ctrl() -> PackedVector2Array:
+	var droop := _droop()
 	var tall := TALL if hat_style == "tall_stars" else 0.0
-	return Vector2(lerpf(16.0, 33.0, droop), lerpf(-154.0 - tall, -120.0, droop))
+	return PackedVector2Array([Vector2(lerpf(-8.0, 6.0, droop), lerpf(-140.0 - tall * 0.8, -154.0, droop)),
+		Vector2(lerpf(12.0, 22.0, droop), lerpf(-124.0 - tall * 0.5, -128.0, droop)),
+		Vector2(lerpf(16.0, 33.0, droop), lerpf(-154.0 - tall, -120.0, droop))])
+
+
+func _cone_tip() -> Vector2:
+	return _cone_ctrl()[2]
+
+
+## Точка внутри колпака: u — от полей к кончику, w — от левого края к правому.
+## Звёзды на одной высоте u между краями не вылезают из колпака, даже поникшего.
+func _cone_at(u: float, w: float) -> Vector2:
+	var c := _cone_ctrl()
+	return Pen.qbez(Vector2(-18.5, -104), c[0], c[2], u).lerp(Pen.qbez(Vector2(18.5, -104), c[1], c[2], u), w)
 
 
 func _paint_hat(dim: float) -> void:
@@ -497,10 +520,12 @@ func _paint_hat(dim: float) -> void:
 				Pen.disc(c, 1.8, Color("ffe27a"))
 		"bandana":
 			# косынка облегает голову и спускается на виски; сбоку узел с длинными хвостами
-			Pen.blob(PackedVector2Array([Vector2(19, -95), Vector2(30, -100), Vector2(41, -94), Vector2(37, -91),
-				Vector2(28, -94), Vector2(20, -90)]), hd, 2.0)
-			Pen.blob(PackedVector2Array([Vector2(19, -92), Vector2(31, -86), Vector2(36, -73), Vector2(31, -72),
-				Vector2(26, -83), Vector2(18, -87)]), hd, 2.0)
+			Pen.blob(PackedVector2Array([Vector2(20, -96), Vector2(30, -101), Vector2(42, -100.5), Vector2(38, -96.5),
+				Vector2(42, -92), Vector2(30, -92.5), Vector2(21, -89.5)]), h, 2.0)
+			Pen.blob(PackedVector2Array([Vector2(19, -93), Vector2(31, -89), Vector2(38.5, -76), Vector2(34, -77),
+				Vector2(31, -71.5), Vector2(25, -83), Vector2(18, -86.5)]), h, 2.0)
+			Pen.line(Vector2(24, -95), Vector2(37, -96.5), hd, 1.6)
+			Pen.line(Vector2(23, -89.5), Vector2(32, -77.5), hd, 1.6)
 			var edge: Array[Vector2] = [Vector2(21.5, -80), Vector2(17, -90), Vector2(8, -94.5), Vector2(0, -95.5),
 				Vector2(-8, -94.5), Vector2(-17, -90), Vector2(-21.5, -80)]
 			var hem := Pen.smooth(edge, 3)
@@ -567,17 +592,17 @@ func _paint_slime_pet(h: Color, hd: Color, tr: Color, frizz: bool) -> void:
 
 
 func _paint_cone(h: Color, hd: Color, tr: Color) -> void:
-	var tip := _cone_tip()
-	var droop := (tip.x - 16.0) / 17.0
-	var tall := TALL if hat_style == "tall_stars" else 0.0
+	var ctrl := _cone_ctrl()
+	var droop := _droop()
 	Pen.blob(Pen.oval(Vector2(0, -103), Vector2(30, 7), 28), hd, 2.5)
 	var rim := PackedVector2Array()
 	for i in 9:
 		var a := lerpf(0.45, PI - 0.45, i / 8.0)
 		rim.append(Vector2(cos(a) * 26.0, -103.0 + sin(a) * 4.2))
 	Pen.pline(rim, h.lerp(hd, 0.4), 2.0)
-	var cl := Vector2(lerpf(-8.0, 6.0, droop), lerpf(-140.0 - tall * 0.8, -154.0, droop))
-	var cr := Vector2(lerpf(12.0, 22.0, droop), lerpf(-124.0 - tall * 0.5, -128.0, droop))
+	var cl := ctrl[0]
+	var cr := ctrl[1]
+	var tip := ctrl[2]
 	var bl := Vector2(-18.5, -104)
 	var br := Vector2(18.5, -104)
 	var pts := PackedVector2Array()
@@ -594,19 +619,22 @@ func _paint_cone(h: Color, hd: Color, tr: Color) -> void:
 	Pen.grad(pts, cols)
 	Pen.loop(pts, INK, 2.5)
 	Pen.blob(PackedVector2Array([bl, br, Pen.qbez(br, cr, tip, 0.12), Pen.qbez(bl, cl, tip, 0.12)]), tr, 1.8)
-	var mid := (Pen.qbez(bl, cl, tip, 0.32) + Pen.qbez(br, cr, tip, 0.32)) * 0.5
+	var mid := _cone_at(0.32, 0.5)
+	# вторая мелкая звезда не помещается в поникший колпак
+	var p1 := _cone_at(lerpf(0.58, 0.54, droop), lerpf(0.47, 0.7, droop))
+	var p2 := _cone_at(0.74, 0.5)
 	match hat_style:
 		"crescent":
 			_crescent(mid + Vector2(-1, 0), 6.8, tr)
-			Pen.star(Pen.qbez(bl, cl, tip, 0.62) + Vector2(5, 1), 2.8, tr, 0.0)
-			Pen.star(Pen.qbez(br, cr, tip, 0.45) + Vector2(-4, 0), 2.2, tr, 0.0)
+			Pen.soft(Pen.star_pts(p1, 2.8), tr)
+			if droop < 0.3:
+				Pen.soft(Pen.star_pts(p2, 2.2), tr)
 		"tall_stars":
 			Pen.star(mid, 6.5, tr, 1.5)
 			# мелкие звёзды без чернил (контур съедал золото), с тонкой кромкой цвета шляпы
-			for u: float in [0.56, 0.78]:
-				var p := Pen.qbez(bl, cl, tip, u) * 0.4 + Pen.qbez(br, cr, tip, u) * 0.6
-				Pen.blob(Pen.star_pts(p, 5.0 - u * 2.0), tr, 0.8, hd)
-			Pen.soft(Pen.star_pts(Pen.qbez(bl, cl, tip, 0.46) + Vector2(4.5, 0), 3.0), tr)
+			Pen.blob(Pen.star_pts(p1, 3.9), tr, 0.8, hd)
+			if droop < 0.3:
+				Pen.blob(Pen.star_pts(p2, 3.4), tr, 0.8, hd)
 		_:
 			Pen.star(mid, 6.5, tr, 1.5)
 
@@ -660,6 +688,18 @@ func _paint_oops_fx() -> void:
 
 
 # --- мелкие фигуры --------------------------------------------------------------
+
+## Погасший огонёк на поникшем колпаке: тлеющий уголёк и струйка дыма (у лавы свой дым).
+func _snuffed(ember: Vector2) -> void:
+	Pen.glow(ember, Vector2(7, 7), Color(1.0, 0.45, 0.15, 0.4 + 0.15 * sin(_t * 4.0)), 12)
+	Pen.dot(ember, 2.6, Color("ff7a2e"), 1.4)
+	if reason == "lava":
+		return
+	for i in 3:
+		var ph := fmod(_t * 0.6 + i / 3.0, 1.0)
+		Pen.disc(ember + Vector2(sin(ph * 5.0 + i) * 2.5 + ph * 3.0, -4.0 - ph * 22.0), 1.6 + ph * 3.4,
+			Color(SMOKE, (1.0 - ph) * 0.65))
+
 
 func _drop(c: Vector2, r: float, col: Color) -> void:
 	var pts := PackedVector2Array([c + Vector2(0, -r * 2.2)])
