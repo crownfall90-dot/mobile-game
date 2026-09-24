@@ -1,8 +1,12 @@
 {
-  "format": 1,
-  "id": "alchemy_001",
-  "title": "Горячий приём",
-  "hint": "Нажми на штырь, чтобы вытащить его",
+  "format": 2,
+  "id": "f1_05",
+  "floor": 1,
+  "title": { "ru": "Горячий приём", "en": "Hot Welcome" },
+  "hint": { "ru": "Не спеши: порядок засовов важен", "en": "Take your time: pin order matters" },
+  "tutorial": "",
+  "intro": "",
+  "hard": true,
   "tower": { "rect": [130, 200, 460, 1010] },
   "walls": [
     { "poly": [[100, 180], [130, 180], [130, 1240], [100, 1240]] },
@@ -28,5 +32,10 @@
   ],
   "hero": { "pos": [360, 1210], "zone": [130, 960, 460, 250] },
   "goal": { "gold": 0.7 },
-  "solution": ["lava", "water", "gold", "floor"]
+  "solution": ["lava", "water", "gold", "floor"],
+  "fails": [
+    ["water", "lava", "gold", "floor"],
+    ["floor", "lava", "water", "gold"]
+  ],
+  "verify": { "max_win_share": 0.17 }
 }
