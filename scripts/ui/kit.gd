@@ -730,6 +730,7 @@ class Pill extends Chunky:
 	var icon_rect := TextureRect.new()
 	var value_label: Label
 	var _shown := 0.0        # число на экране (во время счёта отстаёт от value)
+	var _has_value := false
 	var _count: Tween
 	var _bump: Tween
 
@@ -759,13 +760,17 @@ class Pill extends Chunky:
 		custom_minimum_size.x = maxf(180.0, value_label.get_combined_minimum_size().x + 84.0)
 
 	## Показать n; если anim — число «набегает» за dur секунд (после delay).
+	## Первый вызов ставит число сразу: экраны собираются заново при каждом переходе,
+	## и монеты не должны каждый раз «набегать» с нуля. Нужен счёт с первого
+	## показа — сперва set_value(старое, false).
 	## Новый вызов посреди счёта продолжает с числа, что сейчас на экране.
 	func set_value(n: int, anim := true, dur := 0.6, delay := 0.0) -> void:
 		if _count:
 			_count.kill()
 			_count = null
 		value = n
-		if not anim or roundi(_shown) == n:
+		if not anim or not _has_value or roundi(_shown) == n:
+			_has_value = true
 			_show(n)
 			return
 		_count = create_tween()
@@ -807,6 +812,7 @@ class StarRow extends Control:
 	var arc := false
 	var _tex: Texture2D
 	var _k := PackedFloat32Array()   # 0..1 — ход анимации каждой звезды, 1 — стоит
+	var _tws: Array[Tween] = []
 
 	func _init(n := 0, size_px := 48, total := 3) -> void:
 		count = total
@@ -821,7 +827,11 @@ class StarRow extends Control:
 		custom_minimum_size = Vector2(count * px + (count - 1) * spacing + (px * 0.5 if arc else 0.0), px * (1.35 if arc else 1.0))
 		set_stars(n)
 
+	## Поставить n звёзд сразу; недоигранная печать останавливается.
 	func set_stars(n: int) -> void:
+		for tw in _tws:
+			tw.kill()
+		_tws.clear()
 		filled = clampi(n, 0, count)
 		for i in count:
 			_k[i] = 1.0 if i < filled else 0.0
@@ -836,6 +846,7 @@ class StarRow extends Control:
 			tw.tween_interval(delay + step * i)
 			tw.tween_callback(_ping.bind(i))
 			tw.tween_method(_set_k.bind(i), 0.0, 1.0, 0.42)
+			_tws.append(tw)
 		return delay + step * maxi(0, filled - 1) + 0.42
 
 	func _ping(i: int) -> void:
