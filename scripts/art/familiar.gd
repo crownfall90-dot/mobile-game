@@ -2,6 +2,7 @@ class_name Familiar
 extends Node2D
 ## Питомец рядом с Миррой: кот Уголёк, сова Тиса, лягушка Мастер Алембик.
 ## Без коллизий, только рисунок. Позиция узла = точка между лапками.
+## Хвост кота — отдельный холст, который качается поворотом, без перерисовки.
 
 const INK := Pen.INK
 const CAT := Color("362c4c")
@@ -22,6 +23,7 @@ var kind: StringName = &"cat"
 var state: StringName = &"idle"    # idle, danger, win, oops
 
 var _rig: Pen.Canvas
+var _tail: Pen.Canvas
 var _t := 0.0
 var _blink := 3.0
 var _closed := false
@@ -34,6 +36,11 @@ func _init() -> void:
 	_rig = Pen.Canvas.new()
 	_rig.paint = _paint
 	add_child(_rig)
+	_tail = Pen.Canvas.new()
+	_tail.paint = _paint_tail
+	_tail.position = Vector2(10, -4)
+	_tail.show_behind_parent = true
+	_rig.add_child(_tail)
 
 
 func _ready() -> void:
@@ -43,7 +50,9 @@ func _ready() -> void:
 
 func setup(k: StringName) -> void:
 	kind = k if k in [&"cat", &"owl", &"frog"] else &"cat"
+	_tail.visible = kind == &"cat"
 	_rig.queue_redraw()
+	_tail.queue_redraw()
 
 
 ## &"win" — прыгает, &"danger" — закрывает глаза, &"oops" — грустит, &"idle" — покой.
@@ -52,7 +61,7 @@ func react(what: StringName) -> void:
 	if _tw:
 		_tw.kill()
 	_hop = 0.0
-	if state == &"win":
+	if state == &"win" and is_inside_tree():
 		_tw = create_tween().set_loops(5)
 		_tw.tween_property(self, "_hop", 14.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_tw.tween_property(self, "_hop", 0.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -65,8 +74,11 @@ func _process(delta: float) -> void:
 	var jit := sin(_t * 50.0) * 0.8 if state == &"danger" else 0.0
 	_rig.position = Vector2(jit, bob - _hop)
 	_rig.scale = Vector2(1.0 + sin(_t * 3.0) * 0.015, 1.0 - sin(_t * 3.0) * 0.015)
+	_tail.rotation = sin(_t * 2.0) * (0.25 if state == &"win" else 0.12)
 	_blink -= delta
 	var redraw := absf(Pen.pixel_scale(self) - _drawn_k) > _drawn_k * 0.08
+	if redraw:
+		_tail.queue_redraw()
 	if _blink <= 0.0 and not _closed:
 		_closed = true
 		redraw = true
@@ -92,11 +104,16 @@ func _paint(ci: CanvasItem) -> void:
 	Pen.end()
 
 
-func _cat() -> void:
-	var sway := sin(_t * 2.0) * 3.0
-	var tail := Pen.smooth([Vector2(10, -4), Vector2(21, -8), Vector2(22 + sway * 0.3, -20), Vector2(16 + sway, -28)])
+## Хвост от корня (10, -4); рисуется за телом.
+func _paint_tail(ci: CanvasItem) -> void:
+	Pen.begin(ci, Transform2D.IDENTITY, Pen.pixel_scale(self))
+	var tail := Pen.smooth([Vector2(-2, 0), Vector2(11, -4), Vector2(12, -16), Vector2(6, -24)])
 	Pen.pline(tail, CAT_RIM, 7.5)
 	Pen.pline(tail, CAT, 4.5)
+	Pen.end()
+
+
+func _cat() -> void:
 	var body := Pen.oval(Vector2(0, -14), Vector2(13, 14), 20)
 	for i in body.size():
 		body[i].y = minf(body[i].y, -1.0)
@@ -112,7 +129,10 @@ func _cat() -> void:
 		Pen.line(Vector2(7.0 * s, -30), Vector2(17.0 * s, -32), Color(1, 1, 1, 0.5), 1.0)
 		Pen.line(Vector2(7.0 * s, -29), Vector2(17.0 * s, -27), Color(1, 1, 1, 0.5), 1.0)
 	Pen.poly(PackedVector2Array([Vector2(-1.8, -31.5), Vector2(1.8, -31.5), Vector2(0, -29.5)]), PINK)
-	_face(Vector2(5, -35), AMBER, true, Vector2(0, -27.5), CAT)
+	if state == &"danger":
+		for s: float in [-1.0, 1.0]:
+			_paw(Vector2(8.5 * s, -18), Vector2(5.5 * s, -34.5), CAT, CAT_RIM, 4.8)
+	_face(Vector2(5, -35), AMBER, true, Vector2(0, -27.5))
 
 
 func _owl() -> void:
@@ -125,14 +145,23 @@ func _owl() -> void:
 		for j in 3 - row % 2:
 			var x := (j - (2 - row % 2) * 0.5) * 5.5
 			Pen.arc(Vector2(x, -19.0 + row * 5.0), 2.4, 0.3, PI - 0.3, OWL_DARK, 1.2, 5)
+	var hide := state == &"danger"
 	for s: float in [-1.0, 1.0]:
-		var wing := Vector2(14.5 * s, -30 if up else -18)
-		Pen.blob(Pen.oval(wing, Vector2(5, 11), 14, -0.9 * s if up else 0.15 * s), OWL_DARK, 2.0)
+		if not hide:
+			var wing := Vector2(14.5 * s, -30 if up else -18)
+			Pen.blob(Pen.oval(wing, Vector2(5, 11), 14, -0.9 * s if up else 0.15 * s), OWL_DARK, 2.0)
 		Pen.dot(Vector2(4.5 * s, -1.5), 2.6, BEAK, 1.5)
 		Pen.disc(Vector2(6.2 * s, -27.5), 7.4, Color("f3e6c8"))
 		Pen.ring(Vector2(6.2 * s, -27.5), 7.4, OWL_DARK, 1.2)
 	Pen.blob(PackedVector2Array([Vector2(-2.6, -24), Vector2(2.6, -24), Vector2(0, -19)]), BEAK, 1.5)
-	_face(Vector2(6.2, -27.5), AMBER, false, Vector2(0, -16), OWL)
+	if hide:
+		# крылья поднимаются от боков и закрывают глаза, как ладошки у Мирры
+		for s: float in [-1.0, 1.0]:
+			Pen.blob(Pen.oval(Vector2(10.5 * s, -21), Vector2(5.2, 10.5), 14, -0.62 * s), OWL_DARK, 2.0)
+			Pen.dot(Vector2(6.0 * s, -28), 6.4, OWL_DARK, 2.0)
+			for f in 3:
+				Pen.arc(Vector2(6.0 * s, -28), 3.5 + f * 1.2, PI * 0.25, PI * 0.75, OWL, 1.0, 5)
+	_face(Vector2(6.2, -27.5), AMBER, false, Vector2(0, -16))
 
 
 func _frog() -> void:
@@ -149,25 +178,43 @@ func _frog() -> void:
 	Pen.star(Vector2(0.5, -33), 2.2, GOLD, 0.0)
 	Pen.disc(Vector2(-9.5, -15.5), 2.6, Color(1.0, 0.45, 0.5, 0.45))
 	Pen.disc(Vector2(9.5, -15.5), 2.6, Color(1.0, 0.45, 0.5, 0.45))
-	_face(Vector2(8.5, -25), Color.WHITE, false, Vector2(0, -12), FROG)
+	if state == &"danger":
+		for s: float in [-1.0, 1.0]:
+			_paw(Vector2(12.0 * s, -6), Vector2(8.5 * s, -25), FROG, INK, 5.0)
+			for f in 3:
+				Pen.disc(Vector2(8.5 * s + (f - 1) * 3.2, -29.5), 1.6, FROG.lightened(0.15))
+	_face(Vector2(8.5, -25), Color.WHITE, false, Vector2(0, -12))
 	if state != &"danger":
 		for s: float in [-1.0, 1.0]:
 			Pen.ring(Vector2(8.5 * s, -25), 5.2, GOLD, 1.4)
 		Pen.arc(Vector2(0, -26), 3.0, PI + 0.4, TAU - 0.4, GOLD, 1.4, 6)
 
 
-## Глаза и рот по состоянию. e — правый глаз, m — рот, fur — цвет лапок, которыми закрываются.
-func _face(e: Vector2, iris: Color, slit: bool, m: Vector2, fur: Color) -> void:
+## Лапка от плеча к глазу: закрывается от опасности.
+func _paw(from: Vector2, to: Vector2, fur: Color, rim: Color, r: float) -> void:
+	Pen.line(from, to, rim, 7.5)
+	Pen.line(from, to, fur, 4.5)
+	Pen.dot(to, r, fur.lightened(0.1), 1.8, rim)
+
+
+## Глаза и рот по состоянию. e — правый глаз, m — рот.
+func _face(e: Vector2, iris: Color, slit: bool, m: Vector2) -> void:
 	for s: float in [-1.0, 1.0]:
 		var c := e * Vector2(s, 1)
 		match state:
 			&"win":
 				Pen.arc(c + Vector2(0, 1.5), 3.2, PI + 0.5, TAU - 0.5, INK, 2.2, 8)
 			&"oops":
-				Pen.line(c + Vector2(-2.5, -2.5), c + Vector2(2.5, 2.5), INK, 2.0)
-				Pen.line(c + Vector2(-2.5, 2.5), c + Vector2(2.5, -2.5), INK, 2.0)
+				# голова кружится: глаза-спиральки, а не «крестики»
+				Pen.dot(c, 4.2, iris, 1.4)
+				var sw := PackedVector2Array()
+				for i in 12:
+					sw.append(c + Vector2.from_angle(s * i * 0.85) * (0.4 + i * 0.27))
+				Pen.pline(sw, INK, 1.2)
 			&"danger":
-				Pen.dot(c + Vector2(-1.0 * s, 1.5), 4.6, fur.lightened(0.1), 1.8)
+				# зажмурился: складочка над лапкой (у лягушки глаза на макушке — ей некуда)
+				if kind != &"frog":
+					Pen.arc(c + Vector2(0, -7.5), 3.2, PI + 0.6, TAU - 0.6, CAT_RIM if kind == &"cat" else INK, 1.4, 6)
 			_:
 				if _closed:
 					Pen.arc(c + Vector2(0, -1.5), 3.2, 0.5, PI - 0.5, INK, 2.0, 8)
@@ -177,6 +224,8 @@ func _face(e: Vector2, iris: Color, slit: bool, m: Vector2, fur: Color) -> void:
 					Pen.disc(c + Vector2(1.3, -1.4), 1.1, Color.WHITE)
 	if state == &"oops":
 		Pen.arc(m + Vector2(0, 2.5), 3.0, PI + 0.5, TAU - 0.5, INK, 1.8, 8)
+	elif state == &"danger":
+		Pen.pline(PackedVector2Array([m + Vector2(-3, 0.5), m + Vector2(-1, -0.8), m + Vector2(1, 0.5), m + Vector2(3, -0.8)]), INK, 1.4)
 	elif kind == &"frog":
 		Pen.arc(m + Vector2(0, -5), 7.0, 0.4, PI - 0.4, INK, 1.8, 10)
 	elif kind == &"cat":
