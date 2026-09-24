@@ -18,9 +18,10 @@ extends Node
 ##   --smoke               открыть по очереди все готовые экраны и попапы, сообщить об ошибках
 ##
 ## Итог уровня печатается строкой RESULT: WON stars=3 gold=22/22 или RESULT: LOST reason=enemy
-## (плюс RESULT_JSON с --json), код выхода 0. Код 2 — таймаут, 3 — уровень или экран
-## не открылся, 1 — smoke нашёл ошибки. Сохранение не пишется (Profile.volatile), звука нет,
-## экрана загрузки нет.
+## (плюс RESULT_JSON с --json), код выхода 0. Код 2 — RESULT: TIMEOUT (итога нет за 20 игровых
+## секунд после последнего засова), 3 — RESULT: ERROR (уровень, засовы или экран не нашлись),
+## 1 — smoke нашёл ошибки. Без засовов по сценарию уровень ждёт игрока (в окне — без предела).
+## Сохранение не пишется (Profile.volatile), звука нет, экрана загрузки нет.
 
 const START_DELAY := 1.0
 const INTERVAL := 1.5
@@ -102,11 +103,18 @@ func _run_level() -> void:
 		_quit(3)
 		return
 	var order := _order()
+	var scripted: bool = _flags.has("pins") or _flags.get("autoplay", false) or _flags.get("all_at_once", false)
+	if scripted and order.is_empty():
+		print("RESULT: ERROR no pins to pull")
+		_quit(3)
+		return
+	_ticks = 0
 	if order.is_empty():
-		# ручная игра: без засовов по сценарию и без таймаута
+		# ручная игра без таймаута; без окна играть некому — там обычный предел
+		if DisplayServer.get_name() == "headless" and not _flags.has("shot"):
+			_deadline = _secs(AFTER_LAST)
 		return
 	_quit_after_shot = false
-	_ticks = 0
 	_play(order)
 
 
