@@ -29,5 +29,6 @@
   "lose.acid": {"ru": "Кислота добралась до Мирры", "en": "The acid reached Mirra"},
   "lose.enemy": {"ru": "Слизень добрался до Мирры", "en": "A slime reached Mirra"},
   "lose.stuck": {"ru": "Не хватило золота", "en": "Not enough gold"},
+  "lose.enemy_alive": {"ru": "Слизень ещё жив", "en": "A slime is still alive"},
   "lose.other": {"ru": "Попробуй другой порядок", "en": "Try another order"}
 }
