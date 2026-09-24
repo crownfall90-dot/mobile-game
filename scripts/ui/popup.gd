@@ -5,6 +5,9 @@ extends Control
 ## Наследник наполняет content (VBoxContainer) в open() и закрывает через close(result).
 ## Прямые дети content проявляются лесенкой до своей прозрачности; ребёнка с
 ## modulate.a = 0 (наследник анимирует его сам: pop_in, fade_in) лесенка не трогает.
+## Попап собирается в инициализаторах полей, а не в _init(): их GDScript выполняет
+## у каждого класса цепочки, поэтому наследник может завести свой _init() и без
+## super() — и уже в нём пользоваться panel и content.
 
 signal closed(result: Variant)
 
@@ -18,17 +21,18 @@ var dismissable := true:
 		if _close_btn:
 			_close_btn.visible = v
 var dim := ColorRect.new()
-var panel: PanelContainer
+var panel: PanelContainer = UiKit.panel(&"glass")
 var content := VBoxContainer.new()
-var _frame := PopupFrame.new()
-var _close_btn: UiKit.IconButton
+var _close_btn: UiKit.IconButton = UiKit.icon_button(&"close", "", &"danger")
+var _frame := _build()   # после частей, из которых рамка собирается
 var _ribbon: UiKit.Ribbon
 var _closing := false
 var _armed := false      # затемнение ловит тапы только после появления
 var _dim_down := false
 
 
-func _init() -> void:
+func _build() -> PopupFrame:
+	var frame := PopupFrame.new()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	# попапы живут и поверх поставленной на паузу игры
@@ -38,20 +42,24 @@ func _init() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.gui_input.connect(_on_dim_input)
 	add_child(dim)
-	add_child(_frame)
-	panel = UiKit.panel(&"glass")
+	add_child(frame)
 	panel.custom_minimum_size = Vector2(600, 0)
-	_frame.add_child(panel)
-	_frame.panel = panel
+	frame.add_child(panel)
+	frame.panel = panel
 	content.add_theme_constant_override(&"separation", 22)
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(content)
-	_close_btn = UiKit.icon_button(&"close", "", &"danger")
 	_close_btn.pressed.connect(func() -> void: close(null))
-	_frame.add_child(_close_btn)
-	_frame.close_btn = _close_btn
+	frame.add_child(_close_btn)
+	frame.close_btn = _close_btn
 	resized.connect(_layout)
-	_frame.minimum_size_changed.connect(_layout)
+	frame.minimum_size_changed.connect(_layout)
+	return frame
+
+
+## Пустой: всё собрано выше. Нужен, чтобы super() в _init() наследника был допустим.
+func _init() -> void:
+	pass
 
 
 ## Вызывается роутером после добавления в дерево. Наследник переопределяет.
