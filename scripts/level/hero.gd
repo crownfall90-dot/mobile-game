@@ -49,8 +49,8 @@ var hat := Color("8a4dff")
 var hat_dark := Color("5427b8")
 var trim := Color("f5c542")
 
-var _rig: _Canvas
-var _shadow: _Canvas
+var _rig: Pen.Canvas
+var _shadow: Pen.Canvas
 var _t := 0.0
 var _blink := 2.5
 var _closed := false
@@ -61,19 +61,11 @@ var _squash := 0.0
 var _hop_tw: Tween
 
 
-## Холст, который отдаёт рисование владельцу.
-class _Canvas extends Node2D:
-	var paint: Callable
-
-	func _draw() -> void:
-		paint.call(self)
-
-
 func _init() -> void:
-	_shadow = _Canvas.new()
+	_shadow = Pen.Canvas.new()
 	_shadow.paint = _paint_shadow
 	add_child(_shadow)
-	_rig = _Canvas.new()
+	_rig = Pen.Canvas.new()
 	_rig.paint = _paint
 	add_child(_rig)
 

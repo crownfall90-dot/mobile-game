@@ -17,6 +17,15 @@ static var _base := Transform2D.IDENTITY
 static var _up := Transform2D.IDENTITY
 
 
+## Дочерний холст, который отдаёт рисование владельцу: дыхание и прыжки двигают
+## только его трансформ, без перерисовки.
+class Canvas extends Node2D:
+	var paint: Callable
+
+	func _draw() -> void:
+		paint.call(self)
+
+
 ## Сколько пикселей экрана в единице холста (с учётом растяжения окна).
 static func pixel_scale(ci: CanvasItem) -> float:
 	if ci == null or not ci.is_inside_tree():
@@ -75,10 +84,10 @@ static func grad(pts: PackedVector2Array, cols: PackedColorArray) -> void:
 
 
 ## Заливка с чернильным контуром (стиль наклейки).
-static func blob(pts: PackedVector2Array, c: Color, w := 2.5) -> void:
+static func blob(pts: PackedVector2Array, c: Color, w := 2.5, edge := INK) -> void:
 	poly(pts, c)
 	if w > 0.0:
-		loop(pts, INK, w)
+		loop(pts, edge, w)
 
 
 ## Заливка без контура, но со сглаженным краем.
@@ -110,10 +119,10 @@ static func ring(p: Vector2, r: float, c: Color, w: float) -> void:
 
 
 ## Круг с чернильным контуром.
-static func dot(p: Vector2, r: float, c: Color, w := 2.0) -> void:
+static func dot(p: Vector2, r: float, c: Color, w := 2.0, edge := INK) -> void:
 	disc(p, r, c)
 	if w > 0.0:
-		ring(p, r, INK, w)
+		ring(p, r, edge, w)
 
 
 static func arc(p: Vector2, r: float, a0: float, a1: float, c: Color, w: float, n := 12) -> void:
