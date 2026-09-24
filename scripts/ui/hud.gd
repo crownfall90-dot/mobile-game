@@ -4,6 +4,9 @@ extends Control
 ## Всё строится кодом, без внешних ассетов. Временный: его заменит поток Game UX.
 
 signal restart_requested
+signal home_requested
+signal pause_requested
+signal hint_requested
 signal next_requested
 
 const ACCENT := Color("f5c542")
@@ -77,7 +80,7 @@ func show_result(won: bool, stars: int, text: String) -> void:
 	_res_title.text = Loc.t("level.won") if won else Loc.t("level.lost")
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
-	_res_button.text = Loc.t("common.next") if won else Loc.t("common.retry")
+	_res_button.text = "Вернуться домой" if won else Loc.t("common.retry")
 	_stars.visible = won
 	_stars.set_stars(0)
 	_overlay.visible = true
@@ -92,6 +95,21 @@ func show_result(won: bool, stars: int, text: String) -> void:
 
 
 func _build_top_bar() -> void:
+	var bottom := HBoxContainer.new()
+	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom.offset_top = -64
+	bottom.offset_bottom = -8
+	bottom.offset_left = 24
+	bottom.offset_right = -24
+	add_child(bottom)
+	for entry in [["Дом",home_requested],["Подсказка",hint_requested],["Пауза",pause_requested]]:
+		var button := UiKit.button(entry[0], &"secondary")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.y = 52
+		button.add_theme_font_size_override("font_size",22)
+		button.pressed.connect(func() -> void: entry[1].emit())
+		bottom.add_child(button)
+
 	_bar = HBoxContainer.new()
 	_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_bar.offset_left = 24.0
@@ -198,6 +216,9 @@ func _build_overlay() -> void:
 	_res_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	_res_button.pressed.connect(_on_result_button)
 	col.add_child(_res_button)
+	var home := UiKit.button("В квартиру", &"secondary")
+	col.add_child(home)
+	home.pressed.connect(func() -> void: home_requested.emit())
 
 
 func _on_result_button() -> void:

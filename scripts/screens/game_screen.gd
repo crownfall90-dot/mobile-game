@@ -30,6 +30,8 @@ var _hud: Hud
 var _attempt := 0
 var _result_tween: Tween
 var _pause: Node
+var _repair := ""
+var _result_recorded := false
 
 
 func _init() -> void:
@@ -65,6 +67,9 @@ func _ready() -> void:
 	ui.add_child(_hud)
 	_hud.restart_requested.connect(restart)
 	_hud.next_requested.connect(_go_next)
+	_hud.home_requested.connect(func() -> void: Router.go(&"hub", {"repaired": _repair}))
+	_hud.pause_requested.connect(func() -> void: _open_pause(false))
+	_hud.hint_requested.connect(_hint)
 
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -86,6 +91,8 @@ func open(args: Dictionary) -> void:
 
 
 func restart() -> void:
+	_repair = ""
+	_result_recorded = false
 	if _result_tween:
 		_result_tween.kill()
 	if level:
@@ -141,12 +148,17 @@ func _open_pause(restart_fallback: bool) -> void:
 
 
 func _on_pin_pulled(_pin: Pin) -> void:
+	Sfx.play(&"pin")
+	Sfx.haptic(15)
 	_hud.hide_hint()
 	if str(_data.get("tutorial", "")) == "hand":
 		level.set_hint_pin("")
 
 
 func _on_won(stars: int) -> void:
+	if _result_recorded:
+		return
+	_result_recorded = true
 	var res := level.result()
 	res["first_try"] = _attempt == 1 and (not _tracks_progress() or Profile.fails(level_id) == 0)
 	if _tracks_progress():
@@ -154,11 +166,17 @@ func _on_won(stars: int) -> void:
 		# разбивка награды пригодится окну итога
 		res["reward"] = Economy.level_reward(level_id, res, mods)
 		Profile.reset_fails(level_id)
+		_repair = Home.finish(level_id, true)
+	Sfx.play(&"win")
 	level_finished.emit(res)
-	_show_result_later(true, stars, Loc.t("level.gold", [res["pieces"], res["pieces_total"]]))
+	_show_result_later(true, stars, "Мама и дочка спасены!\nВернёмся домой и увидим результат." if _data.get("family", false) else Loc.t("level.gold", [res["pieces"], res["pieces_total"]]))
 
 
 func _on_lost(reason: String) -> void:
+	if _result_recorded:
+		return
+	_result_recorded = true
+	Sfx.play(&"lose")
 	var res := level.result()
 	res["first_try"] = false
 	if _tracks_progress():
@@ -184,6 +202,9 @@ func _show_result_later(won: bool, stars: int, text: String) -> void:
 
 
 func _go_next() -> void:
+	if not dev and not Home.task_for_level(level_id).is_empty():
+		Router.go(&"hub", {"repaired": _repair})
+		return
 	var next := ""
 	if _file == "" and mods.is_empty():
 		next = Game.next_level_after(level_id)
@@ -198,6 +219,9 @@ func _go_next() -> void:
 
 
 func _title() -> String:
+	var task := Home.task_for_level(level_id)
+	if not task.is_empty():
+		return "Починить: " + task.name
 	var title := Loc.pick(_data.get("title", ""))
 	var label := Game.level_label(level_id)
 	if label == "":
@@ -253,3 +277,18 @@ func _layout() -> void:
 	var win := DisplayServer.window_get_size()
 	if win.y > 0:
 		_hud.set_safe_top(maxf(0.0, safe.position.y) * vs.y / win.y)
+
+
+func _hint() -> void:
+	if level == null or level.finished:
+		return
+	var pulled := level.pulled_ids()
+	for order in Game.winning_orders(level_id):
+		var matches := true
+		for i in pulled.size():
+			if i >= order.size() or pulled[i] != str(order[i]):
+				matches = false
+		if matches and pulled.size() < order.size():
+			level.set_hint_pin(str(order[pulled.size()]))
+			return
+	Router.toast("Попробуй начать заново: порядок уже изменился")

@@ -1,9 +1,23 @@
-{"format": 2,
- "floors": [
-  {"id": "storeroom", "n": 1, "title": {"ru": "Кладовая", "en": "The Storeroom"}, "theme": "storeroom",
-   "levels": ["f1_01","f1_02","f1_03","f1_04","f1_05","f1_06"]},
-  {"id": "acid_lab", "n": 2, "title": {"ru": "Кислотная лаборатория", "en": "The Acid Lab"}, "theme": "acid_lab",
-   "levels": ["f2_01","f2_02","f2_03","f2_04","f2_05","f2_06"]},
-  {"id": "hall", "n": 3, "title": {"ru": "Зал превращений", "en": "The Transmutation Hall"}, "theme": "hall",
-   "levels": ["f3_01","f3_02","f3_03","f3_04","f3_05","f3_06"]}],
- "teaser": {"title": {"ru": "Ледник", "en": "The Frost Cellar"}, "text": {"ru": "Скоро: лёд и морозные флаконы", "en": "Coming soon: ice and frost flasks"}}}
+{
+  "format": 2,
+  "floors": [
+    {
+      "id": "apartment",
+      "n": 1,
+      "title": "Наша квартира",
+      "theme": "home",
+      "levels": [
+        "home_01",
+        "home_02",
+        "home_03",
+        "home_04",
+        "home_05",
+        "home_06",
+        "home_07",
+        "home_08",
+        "home_09",
+        "home_10"
+      ]
+    }
+  ]
+}

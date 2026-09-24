@@ -1,9 +1,9 @@
 {
-  "app.title": {"ru": "Зелья и засовы", "en": "Pins & Potions"},
+  "app.title": {"ru": "Vita", "en": "Vita"},
   "app.tagline": {"ru": "Тяни засов. Вари реакцию. Преврати лаву в золото.", "en": "Pull the pin. Brew the reaction. Turn lava into gold."},
   "app.version": {"ru": "Версия {0}", "en": "Version {0}"},
   "app.exit_title": {"ru": "Выйти?", "en": "Exit?"},
-  "app.exit_text": {"ru": "Мирра подождёт тебя в лаборатории.", "en": "Mirra will wait for you in the lab."},
+  "app.exit_text": {"ru": "Семья подождёт тебя дома.", "en": "Your family will wait at home."},
 
   "common.ok": {"ru": "ОК", "en": "OK"},
   "common.cancel": {"ru": "Отмена", "en": "Cancel"},
@@ -25,9 +25,9 @@
   "common.free": {"ru": "Бесплатно", "en": "Free"},
   "common.soon": {"ru": "Скоро", "en": "Coming soon"},
 
-  "lose.lava": {"ru": "Мирра обожглась о лаву", "en": "Mirra got burned by lava"},
-  "lose.acid": {"ru": "Кислота добралась до Мирры", "en": "The acid reached Mirra"},
-  "lose.enemy": {"ru": "Слизень добрался до Мирры", "en": "A slime reached Mirra"},
+  "lose.lava": {"ru": "Лава добралась до семьи", "en": "Mirra got burned by lava"},
+  "lose.acid": {"ru": "Кислота добралась до семьи", "en": "The acid reached Mirra"},
+  "lose.enemy": {"ru": "Слизень добрался до семьи", "en": "A slime reached Mirra"},
   "lose.stuck": {"ru": "Не хватило золота", "en": "Not enough gold"},
   "lose.enemy_alive": {"ru": "Слизень ещё жив", "en": "A slime is still alive"},
   "lose.other": {"ru": "Попробуй другой порядок", "en": "Try another order"}

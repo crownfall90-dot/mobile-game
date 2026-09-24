@@ -10,13 +10,13 @@ config_version=5
 
 [application]
 
-config/name="Зелья и засовы"
+config/name="Vita"
 config/name_localized={
-"en": "Pins & Potions",
-"ru": "Зелья и засовы"
+"en": "Vita",
+"ru": "Vita"
 }
-config/description="Головоломка «тяни засов»: спаси Мирру, ученицу алхимика, из башни зелий."
-config/version="0.1.0"
+config/description="Головоломка «тяни засов»: помоги маме и дочке обрести уютный дом."
+config/version="0.3.0"
 run/main_scene="res://scenes/main.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.5", "GL Compatibility")
