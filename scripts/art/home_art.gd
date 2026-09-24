@@ -2,6 +2,18 @@ class_name HomeArt
 extends Node2D
 ## Fixed drawing coordinates; the hub scales the complete room and touch targets together.
 
+const WORN_STUDIO = preload("res://art/home/studio_worn.png")
+const REPAIRED_STUDIO = preload("res://art/home/studio_repaired.png")
+const REPAIR_SHADER = preload("res://art/home/repair_mix.gdshader")
+
+const IMAGE_SLOTS := {
+	"tv": Rect2(566,397,154,210), "light": Rect2(300,0,120,166),
+	"window": Rect2(0,78,166,296), "bed": Rect2(543,683,177,442),
+	"sofa": Rect2(0,641,232,490), "kitchen": Rect2(0,270,260,276),
+	"bath": Rect2(492,183,150,235), "toilet": Rect2(548,346,98,154),
+	"walls": Rect2(379,177,108,207), "floor": Rect2(305,833,155,265),
+}
+
 const SLOTS := {
 	"tv": Rect2(377,460,194,125), "light": Rect2(308,242,90,95),
 	"window": Rect2(65,302,148,166), "bed": Rect2(56,854,229,128),
@@ -12,22 +24,51 @@ const SLOTS := {
 var repaired: Array[String] = []
 var highlight := ""
 var area := "flat"
+var _image: Sprite2D
+
+
+func _ready() -> void:
+	if area != "flat":
+		return
+	_image = Sprite2D.new()
+	_image.texture = WORN_STUDIO
+	_image.centered = false
+	_image.scale = Vector2(720.0,1280.0) / WORN_STUDIO.get_size()
+	var mat := ShaderMaterial.new()
+	mat.shader = REPAIR_SHADER
+	mat.set_shader_parameter("restored",REPAIRED_STUDIO)
+	_image.material = mat
+	add_child(_image)
 
 
 func _draw() -> void:
+	if area == "flat":
+		var mask := 0
+		for i in 10:
+			if repaired.has(Home.TASKS[i].id):
+				mask |= 1 << i
+		if _image:
+			(_image.material as ShaderMaterial).set_shader_parameter("repair_mask",mask)
+		if highlight != "" and IMAGE_SLOTS.has(highlight):
+			Pen.begin(self)
+			Pen.loop(Pen.rrect(IMAGE_SLOTS[highlight].grow(5),16),Color("ffe7a1"),4)
+			Pen.end()
+		return
 	Pen.begin(self)
 	var warm := repaired.size() >= 2
 	var wall := Color("e9dcc7") if repaired.has("walls") else Color("b2b2a7")
 	var floor_color := Color("b98d69") if repaired.has("floor") else Color("857768")
 	_box(Rect2(26,247,668,766),18,Color("263d43"))
-	_box(Rect2(36,257,648,481),10,wall)
-	for x in range(50,680,27):
-		Pen.line(Vector2(x,262),Vector2(x,735),Color(1,1,1,0.07),2)
-	_box(Rect2(36,735,648,266),3,floor_color)
-	for y in range(747,1000,38):
-		Pen.line(Vector2(37,y),Vector2(683,y),floor_color.darkened(0.2),2)
-		for x in range(40+(y%3)*70,680,135):
-			Pen.line(Vector2(x,y),Vector2(x,y+37),floor_color.darkened(0.15),1)
+	Pen.grad(PackedVector2Array([Vector2(36,257),Vector2(367,275),Vector2(367,738),Vector2(36,738)]),PackedColorArray([wall.darkened(0.16),wall,wall.darkened(0.04),wall.darkened(0.21)]))
+	Pen.grad(PackedVector2Array([Vector2(367,275),Vector2(684,257),Vector2(684,738),Vector2(367,738)]),PackedColorArray([wall,wall.lightened(0.09),wall.darkened(0.08),wall.darkened(0.04)]))
+	Pen.line(Vector2(367,275),Vector2(367,738),wall.darkened(0.27),3)
+	Pen.line(Vector2(36,273),Vector2(367,292),Color(1,1,1,0.17),3)
+	Pen.line(Vector2(367,292),Vector2(684,273),Color(1,1,1,0.17),3)
+	Pen.grad(PackedVector2Array([Vector2(36,738),Vector2(684,738),Vector2(684,1001),Vector2(36,1001)]),PackedColorArray([floor_color.lightened(0.1),floor_color.lightened(0.15),floor_color.darkened(0.2),floor_color.darkened(0.14)]))
+	for y in range(765,1000,42):
+		Pen.line(Vector2(37,y),Vector2(683,y),floor_color.darkened(0.25),2)
+		for x in range(42+(y%3)*64,680,142):
+			Pen.line(Vector2(x,y),Vector2(x+6,y+40),floor_color.darkened(0.2),1)
 	Pen.line(Vector2(36,731),Vector2(682,731),Color("eee0cc") if warm else Color("77766d"),9)
 	if not repaired.has("walls"):
 		for p in [Vector2(457,345),Vector2(240,415),Vector2(602,605)]:
