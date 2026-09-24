@@ -130,7 +130,12 @@ func go(screen: StringName, args := {}) -> void:
 
 
 ## Открыть screen поверх текущего; back() вернёт прежний.
+## Экрана ещё нет — тост «Скоро», текущий экран остаётся.
 func push(screen: StringName, args := {}) -> void:
+	if not _exists(SCREENS.get(screen, "")):
+		push_warning("Router: screen '%s' is not available yet" % screen)
+		toast(Loc.t("common.soon"))
+		return
 	_change(&"push", screen, args)
 
 
@@ -237,7 +242,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 		return
 	var path: String = SCREENS.get(screen, "")
 	if not _exists(path):
-		# экрана ещё нет: всё равно запускаемся во что-то играбельное
+		# go() на экран, которого ещё нет (загрузка, хаб): запускаемся во что-то играбельное
 		push_warning("Router: screen '%s' is not available yet, opening the game" % screen)
 		screen = &"game"
 		args = {"id": Profile.current_level_id()}
