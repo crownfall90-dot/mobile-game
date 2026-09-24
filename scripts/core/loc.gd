@@ -91,8 +91,12 @@ func _on_profile_changed(key: StringName) -> void:
 	if key != &"settings" or _setting_lang:
 		return
 	var now := _resolve()
-	if now != _lang:
-		_lang = now
+	if now == _lang:
+		return
+	# при старте язык ещё никто не спрашивал: сообщать некому
+	var known := _lang != ""
+	_lang = now
+	if known:
 		lang_changed.emit()
 
 
