@@ -1080,30 +1080,73 @@ class Dot extends Control:
 
 
 ## Лента-заголовок: полоса с губой и загнутые тёмные «хвосты» по краям.
+## fit(w) ужимает длинный текст, чтобы лента не шире w: сперва поля (текст ближе
+## к хвостам, но на полосе), потом кегль до 30, дальше «…».
 class Ribbon extends MarginContainer:
+	const SIDE := 76         # поля под хвосты
+	const SIDE_MIN := 56     # полоса начинается с 38 и скруглена на 16
+	const FONT := 44
+	const FONT_MIN := 30
 	var style: StringName
 	var text_label: Label
+	var _fit_w := 0.0
+	var _side := SIDE
 
 	func _init(txt: String, st: StringName = &"secondary") -> void:
 		style = st
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_theme_constant_override(&"margin_left", 76)
-		add_theme_constant_override(&"margin_right", 76)
+		add_theme_constant_override(&"margin_left", SIDE)
+		add_theme_constant_override(&"margin_right", SIDE)
 		add_theme_constant_override(&"margin_top", 6)
 		add_theme_constant_override(&"margin_bottom", 18)
-		text_label = UiKit.label(txt, 44)
-		text_label.label_settings.outline_color = UiKit.STYLES.get(st, UiKit.STYLES[&"secondary"])[3]
+		text_label = UiKit.label(txt, FONT)
+		var c := UiKit.colors(st, &"secondary")
+		text_label.label_settings.outline_color = c[3]
+		# высота ленты не зависит от кегля
+		text_label.custom_minimum_size.y = text_label.get_combined_minimum_size().y
 		add_child(text_label)
 
 	func set_text(t: String) -> void:
 		text_label.text = t
+		if _fit_w > 0.0:
+			fit(_fit_w)
+
+	## Уместить ленту в ширину w (0 — без ограничения).
+	func fit(w: float) -> void:
+		_fit_w = w
+		var side := SIDE
+		var fs := FONT
+		while w > 0.0 and _text_w(fs) > w - 2.0 * side:
+			if side > SIDE_MIN:
+				side = SIDE_MIN
+			elif fs > FONT_MIN:
+				fs -= 2
+			else:
+				break
+		if side != _side:
+			_side = side
+			add_theme_constant_override(&"margin_left", side)
+			add_theme_constant_override(&"margin_right", side)
+		var ls := text_label.label_settings
+		if ls.font_size != fs:
+			ls.font_size = fs
+			ls.outline_size = UiKit.outline_for(fs)
+			ls.shadow_size = ls.outline_size
+		var trim := w > 0.0 and _text_w(fs) > w - 2.0 * side
+		text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if trim else TextServer.OVERRUN_NO_TRIMMING
+		# обрезанный текст занимает всю доступную ширину
+		text_label.custom_minimum_size.x = w - 2.0 * side if trim else 0.0
+
+	func _text_w(fs: int) -> float:
+		# контур выступает за буквы с обеих сторон
+		return text_label.label_settings.font.get_string_size(text_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + UiKit.outline_for(fs)
 
 	func _draw() -> void:
-		var c: Array = UiKit.STYLES.get(style, UiKit.STYLES[&"secondary"])
+		var c := UiKit.colors(style, &"secondary")
 		var h := size.y - 12.0
 		var top := 16.0
 		var bot := size.y
-		var tail := Color(c[1]).darkened(0.1)
+		var tail := c[1].darkened(0.1)
 		for side: float in [-1.0, 1.0]:
 			var edge := 0.0 if side < 0 else size.x
 			var inner := 78.0 if side < 0 else size.x - 78.0
@@ -1114,5 +1157,5 @@ class Ribbon extends MarginContainer:
 			pts.append(pts[0])
 			draw_polyline(pts, UiKit.INK, 3.0, true)
 			# складка: тёмный треугольник между концом полосы и хвостом
-			draw_colored_polygon(PackedVector2Array([Vector2(band, h - 4), Vector2(inner, bot), Vector2(band, bot)]), Color(c[1]).darkened(0.55))
+			draw_colored_polygon(PackedVector2Array([Vector2(band, h - 4), Vector2(inner, bot), Vector2(band, bot)]), c[1].darkened(0.55))
 		UiKit.draw_chunky(self, Rect2(38, 0, size.x - 76, h), style, 16, 7)
