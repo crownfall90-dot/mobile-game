@@ -2,7 +2,8 @@ class_name Hero
 extends Node2D
 ## Мирра, ученица алхимика. Позиция узла = точка между ступнями.
 ## Рисунок живёт в дочернем узле _rig: дыхание и прыжки меняют только его трансформ,
-## а перерисовка нужна при смене позы, моргании и в анимированных состояниях.
+## а перерисовка нужна лишь при смене позы и моргании. Всё, что шевелится само (огонёк,
+## дым, пузыри, слизь, слёзы, глаза-спиральки), рисует маленький холст _fx поверх тела.
 ## Тело для физики (капсула) осталось прежним, поэтому проверенные уровни не меняются.
 
 enum Mood { IDLE, SCARED, HAPPY, OOPS }
@@ -32,8 +33,10 @@ const ROBE_R: Array[Vector2] = [Vector2(0, -64), Vector2(8, -63.5), Vector2(14, 
 	Vector2(20, -46), Vector2(23, -33), Vector2(27, -19), Vector2(30.5, -8), Vector2(29, -4.8),
 	Vector2(20, -3.2), Vector2(10, -2.4), Vector2(0, -2)]
 # кромка чёлки справа налево, потом сглаживается
-const FRINGE: Array[Vector2] = [Vector2(19.5, -77), Vector2(17.5, -86), Vector2(12, -84), Vector2(6.5, -90),
-	Vector2(0, -85), Vector2(-6.5, -90.5), Vector2(-12.5, -84.5), Vector2(-17.5, -87), Vector2(-19.5, -77)]
+const FRINGE: Array[Vector2] = [Vector2(19.5, -77), Vector2(17.5, -86), Vector2(12, -84.5), Vector2(6.5, -89.5),
+	Vector2(0, -88.5), Vector2(-6.5, -90), Vector2(-12.5, -85), Vector2(-17.5, -87), Vector2(-19.5, -77)]
+const TALL := 12.0          # насколько выше обычного колпак «tall_stars»
+const FAMILIAR_X := 46.0
 
 var mood := Mood.IDLE:
 	set(v):
@@ -49,11 +52,13 @@ var hat_dark := Color("5427b8")
 var trim := Color("f5c542")
 
 var _rig: Pen.Canvas
+var _fx: Pen.Canvas
 var _shadow: Pen.Canvas
+var _familiar: Familiar
 var _t := 0.0
 var _blink := 2.5
 var _closed := false
-var _live := false          # анимированное состояние: перерисовка 30 раз в секунду
+var _live := false          # есть анимация: _fx перерисовывается 30 раз в секунду
 var _tick := 0
 var _drawn_k := 0.0         # масштаб пикселя, при котором рисовали
 var _hop := 0.0
@@ -68,6 +73,9 @@ func _init() -> void:
 	_rig = Pen.Canvas.new()
 	_rig.paint = _paint
 	add_child(_rig)
+	_fx = Pen.Canvas.new()
+	_fx.paint = _paint_fx
+	_rig.add_child(_fx)
 
 
 ## with_body = false: превью без физики (хаб, гардероб, экран результата).
@@ -108,11 +116,26 @@ func set_outfit(o: Dictionary) -> void:
 	_refresh()
 
 
+## Питомец рядом с Миррой; пустой kind убирает его. Реакции Мирры передаются питомцу.
+func set_familiar(kind: StringName) -> void:
+	if _familiar:
+		_familiar.queue_free()
+		_familiar = null
+	if kind == &"":
+		return
+	_familiar = Familiar.new()
+	# у правой стены уровня питомец садится слева
+	_familiar.position = Vector2(-FAMILIAR_X if position.x > 560.0 else FAMILIAR_X, 0)
+	add_child(_familiar)
+	_familiar.setup(kind)
+
+
 func set_scared(value: bool) -> void:
 	if mood == Mood.IDLE or mood == Mood.SCARED:
 		var m := Mood.SCARED if value else Mood.IDLE
 		if m != mood:
 			mood = m
+			_pet(&"danger" if value else &"idle")
 
 
 ## Маленький подскок, когда в зону падает монета.
@@ -129,6 +152,7 @@ func hop() -> void:
 
 func celebrate() -> void:
 	mood = Mood.HAPPY
+	_pet(&"win")
 	_kill_hop()
 	_hop_tw = create_tween().set_loops(4)
 	_hop_tw.tween_property(self, "_squash", 0.12, 0.07)
@@ -148,10 +172,16 @@ func oops(why: String) -> void:
 	_squash = -0.1
 	_hop_tw = create_tween()
 	_hop_tw.tween_property(self, "_squash", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_pet(&"oops")
 
 
 func die() -> void:
 	oops("lava")
+
+
+func _pet(what: StringName) -> void:
+	if _familiar:
+		_familiar.react(what)
 
 
 func _jump(height: float, up: float, down: float, squash: float) -> void:
@@ -176,6 +206,7 @@ func _refresh() -> void:
 	_live = mood == Mood.OOPS or hat_style == "flame"
 	if _rig:
 		_rig.queue_redraw()
+		_fx.queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -186,22 +217,23 @@ func _process(delta: float) -> void:
 	_rig.scale = Vector2(1.0 - breath + _squash, 1.0 + breath - _squash)
 	_shadow.scale = Vector2.ONE * clampf(1.0 - _hop * 0.012, 0.6, 1.0)
 	_blink -= delta
-	var rescale := absf(Pen.pixel_scale(self) - _drawn_k) > _drawn_k * 0.08
-	if rescale:
+	if absf(Pen.pixel_scale(self) - _drawn_k) > _drawn_k * 0.08:
 		_shadow.queue_redraw()
-	var redraw := rescale
+		_rig.queue_redraw()
+		_fx.queue_redraw()
 	if _live and int(_t * 30.0) != _tick:
 		_tick = int(_t * 30.0)
-		redraw = true
+		_fx.queue_redraw()
+	# моргают только в покое: у остальных настроений свои глаза
 	if _blink <= 0.0 and not _closed:
 		_closed = true
-		redraw = true
+		if mood == Mood.IDLE:
+			_rig.queue_redraw()
 	elif _closed and _blink < -0.12:
 		_closed = false
 		_blink = 2.0 + fmod(_t * 7.31, 2.5)   # без глобального RNG
-		redraw = true
-	if redraw:
-		_rig.queue_redraw()
+		if mood == Mood.IDLE:
+			_rig.queue_redraw()
 
 
 # --- рисование ---------------------------------------------------------------
@@ -219,6 +251,11 @@ func _paint(ci: CanvasItem) -> void:
 	var r_top := robe.darkened(dim)
 	var r_bot := robe_dark.darkened(dim)
 	var tr := trim.darkened(dim)
+	# почти чёрная мантия (пиратка) тонет в тёмном фоне: светлее низ и светлая кромка
+	var rim := Color(0, 0, 0, 0)
+	if robe.get_luminance() < 0.19:
+		r_bot = r_bot.lerp(r_top, 0.5)
+		rim = r_top.lightened(0.42)
 
 	# сапожки и мантия
 	for s: float in [-1.0, 1.0]:
@@ -231,6 +268,8 @@ func _paint(ci: CanvasItem) -> void:
 		cols.append(r_top.lerp(r_bot, clampf((p.y + 64.0) / 62.0, 0.0, 1.0) * 0.85).lightened(0.07 if p.x < 0.0 else 0.0))
 	Pen.grad(pts, cols)
 	Pen.loop(pts, INK, 2.5)
+	if rim.a > 0.0:
+		Pen.loop(pts, rim, 1.0)
 	Pen.pline(PackedVector2Array([Vector2(-29, -8.5), Vector2(-19, -6), Vector2(0, -5), Vector2(19, -6), Vector2(29, -8.5)]), tr, 3.5)
 	for sp: Vector3 in [Vector3(-14, -21, 3.0), Vector3(13, -14, 2.5), Vector3(7, -29, 2.0)]:
 		Pen.sparkle(Vector2(sp.x, sp.y), sp.z, Color(tr, 0.9))
@@ -247,8 +286,11 @@ func _paint(ci: CanvasItem) -> void:
 		var d := (h - sh).normalized()
 		var n := d.orthogonal()
 		var cuff := h - d * 3.0
-		Pen.blob(PackedVector2Array([sh + n * 5.5, sh.lerp(cuff, 0.6) + n * 6.5, cuff + n * 8.5, cuff - n * 8.5,
-			sh.lerp(cuff, 0.6) - n * 6.5, sh - n * 5.5]), r_top.darkened(0.08), 2.2)
+		var sleeve := PackedVector2Array([sh + n * 5.5, sh.lerp(cuff, 0.6) + n * 6.5, cuff + n * 8.5, cuff - n * 8.5,
+			sh.lerp(cuff, 0.6) - n * 6.5, sh - n * 5.5])
+		Pen.blob(sleeve, r_top.darkened(0.08), 2.2)
+		if rim.a > 0.0:
+			Pen.loop(sleeve, rim, 0.9)
 		Pen.line(cuff + n * 7.5, cuff - n * 7.5, tr, 3.0)
 		if mood == Mood.IDLE and i == 1:
 			Pen.line(h + Vector2(0.5, 1), h + Vector2(1.5, 6), INK, 5.5)
@@ -264,8 +306,22 @@ func _paint(ci: CanvasItem) -> void:
 		for h: Vector2 in hands:
 			Pen.dot(h, 5.5, SKIN, 2.0)
 		_drop(Vector2(21, -97), 4.2, TEAR)
-	elif mood == Mood.OOPS:
-		_paint_oops()
+	Pen.end()
+
+
+## Анимированные мелочи на своём холсте поверх тела, чтобы не перерисовывать всю Мирру.
+func _paint_fx(ci: CanvasItem) -> void:
+	if not _live:
+		return
+	Pen.begin(ci, Transform2D.IDENTITY, Pen.pixel_scale(self))
+	if hat_style == "flame":
+		var tip := _cone_tip()
+		Pen.push(_hat_xf())
+		Pen.glow(tip + Vector2(0, -5), Vector2(12, 12), Color(1.0, 0.6, 0.2, 0.45), 14)
+		Pen.flame(tip + Vector2(0, 1), 6.5, 17.0, sin(_t * 13.0) * 1.2 + sin(_t * 7.0) * 0.8)
+		Pen.push(Transform2D.IDENTITY)
+	if mood == Mood.OOPS:
+		_paint_oops_fx()
 	Pen.end()
 
 
@@ -351,30 +407,27 @@ func _paint_face() -> void:
 				if _closed:
 					Pen.arc(e * Vector2(s, 1) + Vector2(0, -2), 4.4, 0.5, PI - 0.5, INK, 2.4, 8)
 				else:
-					_eye(e * Vector2(s, 1))
+					_eye(e * Vector2(s, 1), true)
 			Pen.arc(m + Vector2(0, -2.2), 3.4, 0.5, PI - 0.5, INK, 1.9, 8)
 
 
-func _eye(c: Vector2) -> void:
+func _eye(c: Vector2, lash: bool) -> void:
 	Pen.soft(Pen.oval(c, Vector2(4.0, 5.2), 16), INK)
 	Pen.disc(c + Vector2(1.3, -2.0), 1.8, Color.WHITE)
 	Pen.disc(c + Vector2(-1.1, 2.2), 0.9, Color(1, 1, 1, 0.7))
-	var out := signf(c.x)
-	Pen.line(c + Vector2(3.1 * out, -3.6), c + Vector2(5.8 * out, -5.4), INK, 1.8)
+	if lash:
+		# ресничка — короткий пологий хвостик: крутой и длинный читался как нахмуренная бровь
+		var out := signf(c.x)
+		var len := 1.8 if Pen.k < 1.3 else 2.6
+		Pen.line(c + Vector2(3.4 * out, -2.9), c + Vector2((3.4 + len) * out, -3.9), INK, 1.5)
 
 
 func _paint_oops_face(e: Vector2, m: Vector2) -> void:
 	match reason:
 		"lava":
-			# «обугленная» мордашка: тёмное лицо, белые глаза-спиральки
+			# «обугленная» мордашка: тёмное лицо, белые глаза (спиральки крутятся на _fx)
 			for s: float in [-1.0, 1.0]:
-				var c := e * Vector2(s, 1)
-				Pen.dot(c, 5.0, Color.WHITE, 1.6)
-				var sw := PackedVector2Array()
-				for i in 14:
-					var u := i / 13.0
-					sw.append(c + Vector2.from_angle(_t * 5.0 * s + u * TAU * 1.6) * (0.5 + u * 3.4))
-				Pen.pline(sw, INK, 1.5)
+				Pen.dot(e * Vector2(s, 1), 5.0, Color.WHITE, 1.6)
 			Pen.blob(Pen.oval(m + Vector2(0, 0.5), Vector2(2.6, 3.0), 10), Color("2a1a2e"), 1.2)
 			for p: Vector3 in [Vector3(-12, -93, 2.2), Vector3(11, -70, 1.6), Vector3(-15, -70, 1.4)]:
 				Pen.disc(Vector2(p.x, p.y), p.z, Color(1, 1, 1, 0.35))
@@ -393,19 +446,32 @@ func _paint_oops_face(e: Vector2, m: Vector2) -> void:
 		_:
 			for s: float in [-1.0, 1.0]:
 				var c := e * Vector2(s, 1)
-				_eye(c + Vector2(0, 1))
-				# грустное веко
-				Pen.poly(PackedVector2Array([c + Vector2(-5.5, -6), c + Vector2(5.5, -6), c + Vector2(5.5, -1.2 + 1.5 * s),
-					c + Vector2(-5.5, -1.2 - 1.5 * s)]), SKIN)
+				_eye(c + Vector2(0, 1), false)
+				# грустное веко: верх самого глаза до косой линии, за контур глаза не выходит
+				Pen.soft(_above(c + Vector2(0, 1), Vector2(4.6, 5.8), c.y - 1.2, 0.28 * s), SKIN)
 				Pen.line(c + Vector2(-5, -1.2 - 1.4 * s), c + Vector2(5, -1.2 + 1.4 * s), INK, 2.0)
-				var ty := fmod(_t * 0.9 + (0.5 if s > 0.0 else 0.0), 1.0)
-				_drop(c + Vector2(3.5 * s, 5.0 + ty * 14.0), 2.3, Color(TEAR, 1.0 - ty))
 			Pen.arc(m + Vector2(0, 3), 4.0, PI + 0.5, TAU - 0.5, INK, 2.2, 8)
 
 
 ## Наклон вокруг макушки (шляпа приподнята от кислоты, корона набекрень).
 func _tilt(rot: float, lift := 0.0) -> void:
 	Pen.push(Transform2D(rot, Vector2(0, -100 - lift)) * Transform2D(0.0, Vector2(0, 100)))
+
+
+## Наклон колпака, на кончике которого стоит огонёк с _fx (кислота подбрасывает шляпу).
+func _hat_xf() -> Transform2D:
+	if mood == Mood.OOPS and reason == "acid":
+		return Transform2D(0.2, Vector2(0, -108)) * Transform2D(0.0, Vector2(0, 100))
+	return Transform2D.IDENTITY
+
+
+## Кончик колпака; при неудаче он никнет, сильнее всего от грусти.
+func _cone_tip() -> Vector2:
+	var droop := 0.0
+	if mood == Mood.OOPS:
+		droop = 1.0 if reason == "stuck" else (0.55 if reason == "lava" else 0.0)
+	var tall := TALL if hat_style == "tall_stars" else 0.0
+	return Vector2(lerpf(16.0, 33.0, droop), lerpf(-154.0 - tall, -120.0, droop))
 
 
 func _paint_hat(dim: float) -> void:
@@ -430,35 +496,47 @@ func _paint_hat(dim: float) -> void:
 					Pen.disc(c + Vector2.from_angle(TAU * q / 5.0 + a) * 2.6, 2.6, tr)
 				Pen.disc(c, 1.8, Color("ffe27a"))
 		"bandana":
-			var cap := PackedVector2Array()
-			for i in 13:
-				cap.append(HEAD + Vector2(0, -1) + Vector2.from_angle(lerpf(PI + 0.12, TAU - 0.12, i / 12.0)) * 22.5)
-			cap.append_array(PackedVector2Array([Vector2(14, -91), Vector2(0, -93), Vector2(-14, -91)]))
-			Pen.blob(cap, h, 2.5)
-			for c: Vector2 in [Vector2(-9, -98), Vector2(3, -102), Vector2(12, -96), Vector2(-15, -93)]:
-				Pen.disc(c, 2.1, Color(1, 1, 1, 0.9))
-			Pen.blob(PackedVector2Array([Vector2(19, -93), Vector2(31, -86), Vector2(27, -80), Vector2(18, -88)]), hd, 2.0)
-			Pen.blob(PackedVector2Array([Vector2(19, -91), Vector2(33, -94), Vector2(34, -88), Vector2(20, -87)]), hd, 2.0)
-			Pen.dot(Vector2(20, -90), 4.2, h, 2.0)
+			# косынка облегает голову и спускается на виски; сбоку узел с длинными хвостами
+			Pen.blob(PackedVector2Array([Vector2(19, -95), Vector2(30, -100), Vector2(41, -94), Vector2(37, -91),
+				Vector2(28, -94), Vector2(20, -90)]), hd, 2.0)
+			Pen.blob(PackedVector2Array([Vector2(19, -92), Vector2(31, -86), Vector2(36, -73), Vector2(31, -72),
+				Vector2(26, -83), Vector2(18, -87)]), hd, 2.0)
+			var edge: Array[Vector2] = [Vector2(21.5, -80), Vector2(17, -90), Vector2(8, -94.5), Vector2(0, -95.5),
+				Vector2(-8, -94.5), Vector2(-17, -90), Vector2(-21.5, -80)]
+			var hem := Pen.smooth(edge, 3)
+			var scarf := hem.duplicate()
+			for i in 15:
+				scarf.append(Vector2(0, -86) + Vector2.from_angle(lerpf(PI - 0.28, TAU + 0.28, i / 14.0)) * Vector2(22.6, 21.5))
+			Pen.blob(scarf, h, 2.5)
+			for i in hem.size():
+				hem[i].y -= 2.8
+			Pen.pline(hem, hd, 3.2)
+			Pen.arc(Vector2(0, -86), 16.0, PI + 0.9, PI + 1.5, h.lightened(0.3), 2.5, 6)
+			# эмблема: череп и кости
+			Pen.line(Vector2(-10, -96.5), Vector2(-2, -103.5), Color.WHITE, 1.6)
+			Pen.line(Vector2(-10, -103.5), Vector2(-2, -96.5), Color.WHITE, 1.6)
+			Pen.disc(Vector2(-6, -101.5), 3.0, Color.WHITE)
+			for s: float in [-1.0, 1.0]:
+				Pen.disc(Vector2(-6 + 1.2 * s, -101.8), 0.8, INK)
+			Pen.dot(Vector2(21, -92), 4.2, h, 2.0)
 		"crown":
 			_tilt(-0.1 + (0.2 if frizz else 0.0), 8.0 if frizz else 0.0)
-			var pts := PackedVector2Array([Vector2(-16, -96), Vector2(16, -96), Vector2(19, -116), Vector2(9, -106),
-				Vector2(0, -121), Vector2(-9, -106), Vector2(-19, -116)])
-			Pen.grad(pts, PackedColorArray([hd, hd, h, h.lerp(hd, 0.3), h, h.lerp(hd, 0.3), h]))
+			# зубцы с плоской верхушкой: у острых золото съедал контур и шарики висели в воздухе
+			var pts := PackedVector2Array([Vector2(-16, -96), Vector2(16, -96), Vector2(21.6, -113), Vector2(18.2, -113.8),
+				Vector2(9, -106), Vector2(1.7, -117.4), Vector2(-1.7, -117.4), Vector2(-9, -106), Vector2(-18.2, -113.8),
+				Vector2(-21.6, -113)])
+			var mid := h.lerp(hd, 0.3)
+			Pen.grad(pts, PackedColorArray([hd, hd, h, h, mid, h, h, mid, h, h]))
 			Pen.loop(pts, INK, 2.2)
-			for c: Vector2 in [Vector2(19, -117), Vector2(0, -122), Vector2(-19, -117)]:
-				Pen.dot(c, 2.8, h, 1.5)
+			for c: Vector2 in [Vector2(19.9, -115.4), Vector2(0, -119.4), Vector2(-19.9, -115.4)]:
+				Pen.dot(c, 3.2, h, 1.4)
 			Pen.dot(Vector2(0, -102), 3.2, GEM, 1.4)
 			for s: float in [-1.0, 1.0]:
 				Pen.dot(Vector2(9.5 * s, -101.5), 2.2, Color("39d6ff"), 1.2)
 		"slime_crown":
 			_paint_slime_pet(h, hd, tr, frizz)
 		_:
-			var tall := 22.0 if hat_style == "tall_stars" else 0.0
-			var droop := 0.0
-			if mood == Mood.OOPS:
-				droop = 1.0 if reason == "stuck" else (0.55 if reason == "lava" else 0.0)
-			_paint_cone(h, hd, tr, tall, droop)
+			_paint_cone(h, hd, tr)
 	Pen.push(Transform2D.IDENTITY)
 
 
@@ -488,14 +566,16 @@ func _paint_slime_pet(h: Color, hd: Color, tr: Color, frizz: bool) -> void:
 	Pen.dot(Vector2(0, -118), 1.8, tr, 1.0)
 
 
-func _paint_cone(h: Color, hd: Color, tr: Color, tall: float, droop: float) -> void:
+func _paint_cone(h: Color, hd: Color, tr: Color) -> void:
+	var tip := _cone_tip()
+	var droop := (tip.x - 16.0) / 17.0
+	var tall := TALL if hat_style == "tall_stars" else 0.0
 	Pen.blob(Pen.oval(Vector2(0, -103), Vector2(30, 7), 28), hd, 2.5)
 	var rim := PackedVector2Array()
 	for i in 9:
 		var a := lerpf(0.45, PI - 0.45, i / 8.0)
 		rim.append(Vector2(cos(a) * 26.0, -103.0 + sin(a) * 4.2))
 	Pen.pline(rim, h.lerp(hd, 0.4), 2.0)
-	var tip := Vector2(lerpf(16.0, 33.0, droop), lerpf(-154.0 - tall, -120.0, droop))
 	var cl := Vector2(lerpf(-8.0, 6.0, droop), lerpf(-140.0 - tall * 0.8, -154.0, droop))
 	var cr := Vector2(lerpf(12.0, 22.0, droop), lerpf(-124.0 - tall * 0.5, -128.0, droop))
 	var bl := Vector2(-18.5, -104)
@@ -522,20 +602,25 @@ func _paint_cone(h: Color, hd: Color, tr: Color, tall: float, droop: float) -> v
 			Pen.star(Pen.qbez(br, cr, tip, 0.45) + Vector2(-4, 0), 2.2, tr, 0.0)
 		"tall_stars":
 			Pen.star(mid, 6.5, tr, 1.5)
-			for u: float in [0.55, 0.78]:
-				Pen.star(Pen.qbez(bl, cl, tip, u) * 0.4 + Pen.qbez(br, cr, tip, u) * 0.6, 3.8 - u * 1.5, tr, 1.2)
-			Pen.star(Pen.qbez(bl, cl, tip, 0.45) + Vector2(4, 0), 2.6, tr, 0.0)
+			# мелкие звёзды без чернил (контур съедал золото), с тонкой кромкой цвета шляпы
+			for u: float in [0.56, 0.78]:
+				var p := Pen.qbez(bl, cl, tip, u) * 0.4 + Pen.qbez(br, cr, tip, u) * 0.6
+				Pen.blob(Pen.star_pts(p, 5.0 - u * 2.0), tr, 0.8, hd)
+			Pen.soft(Pen.star_pts(Pen.qbez(bl, cl, tip, 0.46) + Vector2(4.5, 0), 3.0), tr)
 		_:
 			Pen.star(mid, 6.5, tr, 1.5)
-	if hat_style == "flame":
-		var f := sin(_t * 13.0) * 1.6 + sin(_t * 7.0) * 1.0
-		Pen.glow(tip + Vector2(0, -6), Vector2(15, 15), Color(1.0, 0.6, 0.2, 0.45), 16)
-		Pen.flame(tip + Vector2(0, 1), 7.5, 24.0, f)
 
 
-func _paint_oops() -> void:
+func _paint_oops_fx() -> void:
 	match reason:
 		"lava":
+			for s: float in [-1.0, 1.0]:
+				var c := Vector2(7.5 * s, -79)
+				var sw := PackedVector2Array()
+				for i in 14:
+					var u := i / 13.0
+					sw.append(c + Vector2.from_angle(_t * 5.0 * s + u * TAU * 1.6) * (0.5 + u * 3.4))
+				Pen.pline(sw, INK, 1.5)
 			var top := Vector2(0, -122)
 			match hat_style:
 				"pointy", "flame", "crescent", "tall_stars":
@@ -568,6 +653,10 @@ func _paint_oops() -> void:
 			Pen.dot(Vector2(15, -57), 6.5, GOO, 2.0)
 			for c: Vector2 in [Vector2(-9, -112), Vector2(7, -117), Vector2(13, -58.5)]:
 				Pen.disc(c, 2.5, Color(1, 1, 1, 0.6))
+		"stuck":
+			for s: float in [-1.0, 1.0]:
+				var ty := fmod(_t * 0.9 + (0.5 if s > 0.0 else 0.0), 1.0)
+				_drop(Vector2(11.0 * s, -73.0 + ty * 14.0), 2.3, Color(TEAR, 1.0 - ty))
 
 
 # --- мелкие фигуры --------------------------------------------------------------
@@ -578,6 +667,23 @@ func _drop(c: Vector2, r: float, col: Color) -> void:
 		pts.append(c + Vector2.from_angle(lerpf(-0.35, PI + 0.35, i / 8.0)) * r)
 	Pen.poly(pts, col)
 	Pen.loop(pts, Color(INK, col.a), 1.5)
+
+
+## Часть верхней половины овала выше прямой y = y0 + slope·(x − o.x): веко внутри глаза.
+func _above(o: Vector2, r: Vector2, y0: float, slope: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var prev := Vector2.ZERO
+	var fp := 0.0
+	for i in 17:
+		var p := o + Vector2.from_angle(PI + PI * i / 16.0) * r
+		var f := p.y - y0 - slope * (p.x - o.x)
+		if i > 0 and (f < 0.0) != (fp < 0.0):
+			pts.append(prev.lerp(p, fp / (fp - f)))
+		if f < 0.0:
+			pts.append(p)
+		prev = p
+		fp = f
+	return pts
 
 
 ## Полумесяц: внешняя дуга и дуга смещённого круга сходятся в точках пересечения кругов.
