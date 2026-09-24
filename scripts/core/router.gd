@@ -338,7 +338,9 @@ func _exists(path: String) -> bool:
 class Toasts extends CanvasLayer:
 	const HOLD := 2.0
 	const HOLD_BUSY := 1.3
-	const MAX_W := 560.0
+	const MAX_W := 600.0
+	## Под верхней панелью экрана (88 px кнопки + отступ), чтобы не закрывать счётчики.
+	const TOP := 124.0
 	const FONT_SIZE := 30
 	const ICONS := "res://scripts/ui/icons.gd"
 
@@ -363,7 +365,7 @@ class Toasts extends CanvasLayer:
 		var item: Array = _queue.pop_front()
 		var pill := _make(item[0], item[1])
 		add_child(pill)
-		var top := _safe_top() + 28.0
+		var top := _safe_top() + TOP
 		pill.position.y = top - 24.0
 		pill.modulate.a = 0.0
 		var tw := pill.create_tween()
