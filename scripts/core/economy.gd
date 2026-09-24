@@ -10,10 +10,13 @@ const CHEST_EVERY := 5
 
 
 ## result: {won, stars, pieces, pieces_total, coins_pieces, gems, relic, first_try}.
-## Уровень уже записан через Profile.record_result: first_clear и new_stars берём оттуда.
+## Уровень уже записан через Profile.record_result: first_clear и new_stars берём
+## из result, иначе из Profile.last_record; если записи не было, пишем сами.
 func level_reward(level_id: String, result: Dictionary, _mods: Dictionary = {}) -> Dictionary:
 	var rec: Dictionary = Profile.last_record
-	if rec.get("id", "") != level_id:
+	if result.has("first_clear"):
+		rec = result
+	elif rec.get("id", "") != level_id:
 		rec = Profile.record_result(level_id, int(result.get("stars", 0)))
 	Profile.last_record = {}
 	var coins := int(result.get("coins_pieces", 0))
