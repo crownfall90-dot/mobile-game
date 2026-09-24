@@ -405,6 +405,9 @@ static func draw_chunky(ci: CanvasItem, r: Rect2, style: StringName, radius: int
 	b[2].draw(ci.get_canvas_item(), inner)
 	var face := Rect2(inner.position + Vector2(0, d), inner.size - Vector2(0, lip))
 	b[3].draw(ci.get_canvas_item(), face)
+	# нижняя треть лица чуть темнее — объём без градиентов
+	var sh := face.size.y * 0.3
+	b[6].draw(ci.get_canvas_item(), Rect2(face.position + Vector2(0, face.size.y - sh), Vector2(face.size.x, sh)))
 	var gh := face.size.y * 0.46
 	b[4].draw(ci.get_canvas_item(), Rect2(face.position + Vector2(5, 4), Vector2(face.size.x - 10, gh)))
 	if face.size.x > 60:
@@ -433,7 +436,10 @@ static func _chunky_boxes(style: StringName, radius: int) -> Array:
 	gloss.corner_radius_bottom_left = maxi(4, int(radius / 3.0))
 	gloss.corner_radius_bottom_right = maxi(4, int(radius / 3.0))
 	var glint := _flat(Color(1, 1, 1, 0.8 if style != &"ghost" else 0.3), 4)
-	var arr := [ink, ink_down, lip, face, gloss, glint]
+	var shade := _flat(Color(c[1], 0.0 if style == &"ghost" else 0.22), radius)
+	shade.corner_radius_top_left = 0
+	shade.corner_radius_top_right = 0
+	var arr := [ink, ink_down, lip, face, gloss, glint, shade]
 	_boxes[key] = arr
 	return arr
 
@@ -682,12 +688,11 @@ class Pill extends Chunky:
 		value_label.offset_right = -18
 		value_label.offset_bottom = -2
 		add_child(value_label)
-		value_label.minimum_size_changed.connect(update_minimum_size)
+		# Button не зовёт _get_minimum_size, поэтому ширину под число держим сами
+		value_label.minimum_size_changed.connect(_fit)
 
-	func _get_minimum_size() -> Vector2:
-		if value_label == null:
-			return Vector2.ZERO
-		return Vector2(value_label.get_combined_minimum_size().x + 84, UiKit.TOUCH)
+	func _fit() -> void:
+		custom_minimum_size.x = maxf(180.0, value_label.get_combined_minimum_size().x + 84.0)
 
 	## Показать n; если anim — число «набегает» за dur секунд (после delay).
 	func set_value(n: int, anim := true, dur := 0.6, delay := 0.0) -> void:

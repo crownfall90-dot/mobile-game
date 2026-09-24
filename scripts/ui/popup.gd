@@ -59,13 +59,14 @@ func open(_args: Dictionary) -> void:
 ## Лента-заголовок над панелью; "" убирает её.
 func set_title(text: String, style := &"secondary") -> void:
 	var sb := panel.get_theme_stylebox(&"panel") as StyleBoxFlat
-	if text == "":
+	if text == "" or (_ribbon and _ribbon.style != style):
 		if _ribbon:
 			_ribbon.queue_free()
 			_ribbon = null
 			_frame.ribbon = null
 		sb.content_margin_top = 28
-		return
+		if text == "":
+			return
 	if _ribbon == null:
 		_ribbon = UiKit.ribbon(text, style)
 		_frame.add_child(_ribbon)
