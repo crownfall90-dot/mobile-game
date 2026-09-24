@@ -1,7 +1,7 @@
 class_name Substances
 extends RefCounted
 ## Каталог веществ башни: физика, цвета и слои столкновений.
-## Реакции между веществами — таблица Level.REACTIONS.
+## Реакции между веществами — таблица Level._reactions (заполняется в Level._init()).
 
 # Новые виды добавляются только в конец: числа видов не должны сдвигаться.
 enum Kind { WATER, LAVA, ACID, GOLD, STONE, GEM }
