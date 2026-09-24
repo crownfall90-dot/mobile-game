@@ -18,7 +18,7 @@ signal collected(kind: StringName, pos: Vector2)
 const DESIGN_SIZE := Vector2(720, 1280)
 const CHAIN_RADIUS := 25.0      # на каком расстоянии остывание перекидывается на соседнюю лаву
 const CHAIN_DELAY := 0.04       # скорость "волны" застывания
-const WIN_QUIET := 0.8          # победа, когда столько секунд не пришло ни монеты...
+const WIN_QUIET := 0.8          # победа, когда цель выполнена и столько секунд не пришло ни монеты...
 const WIN_CAP := 3.0            # ...но не позже, чем через столько после выполнения цели
 const STUCK_TIMEOUT := 5.0
 const FALL_LIMIT := 1500.0
@@ -400,9 +400,11 @@ func _update_outcome(delta: float) -> void:
 	if _pulled.is_empty():
 		return
 	if pieces >= pieces_needed and _alive_enemies() == 0:
-		# окно победы: ждём, пока докатятся монеты, но не бесконечно
+		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
+		# не раньше, чем цель выполнена: лава, убившая последнего врага, ещё может
+		# долететь до героини, и поражение должно успеть сработать.
 		_goal_time = maxf(_goal_time, 0.0) + delta
-		if _since_collect >= WIN_QUIET or _goal_time >= WIN_CAP:
+		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
 	if _stuck_timer >= 0.0:
