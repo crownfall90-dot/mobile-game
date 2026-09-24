@@ -1,0 +1,14 @@
+[
+  ["lava", "water", "gold", "floor", "exit"],
+  ["lava", "water", "floor", "gold", "exit"],
+  ["lava", "water", "floor", "exit", "gold"],
+  ["lava", "floor", "water", "gold", "exit"],
+  ["lava", "floor", "water", "exit", "gold"],
+  ["gold", "lava", "water", "floor", "exit"],
+  ["gold", "lava", "water", "exit", "floor"],
+  ["gold", "lava", "floor", "water", "exit"],
+  ["gold", "lava", "exit", "water", "floor"],
+  ["gold", "exit", "lava", "water", "floor"],
+  ["floor", "lava", "water", "gold", "exit"],
+  ["floor", "lava", "water", "exit", "gold"]
+]

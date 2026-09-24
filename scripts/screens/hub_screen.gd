@@ -19,7 +19,7 @@ func open(args: Dictionary) -> void:
 	_canvas.size = Vector2(720,1280)
 	add_child(_canvas)
 	_label("Vita",Rect2(34,43,400,72),56,Color("fff0ce"))
-	_label("МАЛЕНЬКИЕ ШАГИ К СЧАСТЬЮ",Rect2(38,111,620,32),18,Color("a8c3be"))
+	_label("ИСТОРИЯ О СЕМЬЕ",Rect2(38,111,310,32),18,Color("a8c3be"))
 	var settings := UiKit.button("Настройки", &"secondary")
 	settings.position = Vector2(483,60)
 	settings.custom_minimum_size = Vector2(199,66)
