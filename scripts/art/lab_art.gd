@@ -186,8 +186,9 @@ static func draw_object(ci: CanvasItem, obj_id: StringName, rect: Rect2, state: 
 	Pen.dim = 0.0
 	Pen.alpha = 1.0
 	if state == BROKEN:
+		var right := hash(obj_id) & 1 == 1
 		_cracks(s, hash(obj_id))
-		_web(Vector2(4, 4) if hash(obj_id) % 2 == 0 else Vector2(s.x - 4, 4), minf(46.0, s.x * 0.45), hash(obj_id) % 2 == 1)
+		_web(Vector2(s.x - 4, 4) if right else Vector2(4, 4), minf(46.0, s.x * 0.45), right)
 	elif state == GHOST:
 		_ghost_frame(s, t)
 	Pen.end()
@@ -428,11 +429,10 @@ static func _alembic(s: Vector2) -> void:
 	Pen.arc(Vector2(120, 236), 22, PI + 0.6, PI + 1.4, Color(1, 1, 1, 0.5), 3.0, 8)
 	# горлышко, стеклянный шлем и носик в приёмник
 	Pen.blob(Pen.rrect(Rect2(104, 142, 32, 22), 3), COPPER, 2.2)
-	Pen.pline(Pen.smooth([Vector2(146, 100), Vector2(190, 118), Vector2(212, 176), Vector2(212, 262)]), INK, 13.0)
-	Pen.pline(Pen.smooth([Vector2(146, 100), Vector2(190, 118), Vector2(212, 176), Vector2(212, 262)]), Color("c9e6f5"), 8.0)
-	Pen.dot(Vector2(120, 108), 40, GLASS, 3.0)
-	Pen.soft(_segment(Vector2(120, 108), 37, 0.55), Color(LIME, 0.55 if _lit else 0.3))
-	Pen.arc(Vector2(120, 108), 30, PI + 0.5, PI + 1.3, Color(1, 1, 1, 0.6), 4.0, 10)
+	var spout := Pen.smooth([Vector2(146, 100), Vector2(190, 118), Vector2(212, 176), Vector2(212, 262)])
+	Pen.pline(spout, INK, 13.0)
+	Pen.pline(spout, Color("c9e6f5"), 8.0)
+	_orb(Vector2(120, 108), 40, Color(LIME, 0.55 if _lit else 0.3), 0.55, 3.0)
 	Pen.dot(Vector2(120, 64), 7.0, COPPER, 2.0)
 	# приёмник на табурете
 	Pen.blob(Pen.rrect(Rect2(190, 326, 46, 10), 2), WOOD, 2.0)
@@ -440,9 +440,7 @@ static func _alembic(s: Vector2) -> void:
 	Pen.line(Vector2(230, 336), Vector2(232, 380), WOOD_DARK, 5.0)
 	if _lit:
 		Pen.glow(Vector2(213, 300), Vector2(46, 46), Color(0.5, 1.0, 0.3, 0.3), 16)
-	Pen.dot(Vector2(213, 300), 24, GLASS, 2.5)
-	Pen.soft(_segment(Vector2(213, 300), 21.5, 0.1), LIME if _lit else Color("5a7a4a"))
-	Pen.arc(Vector2(213, 300), 17, PI + 0.6, PI + 1.4, Color(1, 1, 1, 0.6), 3.0, 8)
+	_orb(Vector2(213, 300), 24, LIME if _lit else Color("5a7a4a"), 0.1, 2.5)
 
 
 # --- мелкие предметы --------------------------------------------------------
@@ -461,10 +459,7 @@ static func _flask(base: Vector2, r: float, liquid: Color) -> void:
 	if _lit:
 		Pen.glow(c, Vector2(r * 2.0, r * 2.0), Color(liquid, 0.3), 16)
 	Pen.blob(Pen.rrect(Rect2(c.x - r * 0.28, c.y - r * 1.9, r * 0.56, r * 1.2), 2), GLASS, 2.0)
-	Pen.disc(c, r, GLASS)
-	Pen.soft(_segment(c, r - 2.0, 0.35), liquid)
-	Pen.ring(c, r, INK, 2.0)
-	Pen.arc(c, r * 0.7, PI + 0.5, PI + 1.3, Color(1, 1, 1, 0.6), 2.5, 8)
+	_orb(c, r, liquid, 0.35, 2.0)
 	if _lit:
 		Pen.ring(c + Vector2(-r * 0.25, r * 0.3), r * 0.12, Color(1, 1, 1, 0.7), 1.2)
 		Pen.ring(c + Vector2(r * 0.2, r * 0.1), r * 0.08, Color(1, 1, 1, 0.7), 1.2)
@@ -475,6 +470,14 @@ static func _jar(base: Vector2, w: float, h: float, col: Color) -> void:
 	Pen.blob(Pen.rrect(Rect2(base.x - w * 0.5, base.y - h, w, h), 5), GLASS, 2.0)
 	Pen.blob(Pen.rrect(Rect2(base.x - w * 0.5 - 2, base.y - h - 6, w + 4, 8), 2), WOOD, 1.8)
 	Pen.line(Vector2(base.x - w * 0.3, base.y - h + 8), Vector2(base.x - w * 0.3, base.y - 10), Color(1, 1, 1, 0.5), 2.0)
+
+
+## Стеклянный шар с жидкостью до уровня level и бликом.
+static func _orb(c: Vector2, r: float, liquid: Color, level: float, w: float) -> void:
+	Pen.disc(c, r, GLASS)
+	Pen.soft(_segment(c, r - w, level), liquid)
+	Pen.ring(c, r, INK, w)
+	Pen.arc(c, r * 0.72, PI + 0.55, PI + 1.35, Color(1, 1, 1, 0.6), w + 1.0, 8)
 
 
 ## Нижний сегмент круга (жидкость): level 0 — полный, 1 — пустой.
