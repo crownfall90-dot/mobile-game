@@ -2,6 +2,7 @@ extends Control
 
 const SPLASH = preload("res://art/home/splash_outside.png")
 const TITLE_FONT = preload("res://art/fonts/Fredoka.ttf")
+const MIN_WAIT := 5.0
 
 var _canvas: Control
 var _bar: ColorRect
@@ -18,7 +19,7 @@ func open(_args: Dictionary) -> void:
 	scene.texture = SPLASH
 	scene.size = Vector2(720,1280)
 	scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	scene.stretch_mode = TextureRect.STRETCH_SCALE
 	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.add_child(scene)
 	var title := UiKit.label("Vita",112,Color("fff4d6"))
@@ -65,8 +66,8 @@ func _process(delta: float) -> void:
 		return
 	_elapsed += delta
 	var ready_audio := Sfx.prepare(4)
-	_bar.size.x = 500.0 * minf(0.95,_elapsed / 1.8)
-	if ready_audio and _elapsed >= 1.8:
+	_bar.size.x = 500.0 * minf(0.95,_elapsed / MIN_WAIT)
+	if ready_audio and _elapsed >= MIN_WAIT:
 		_done = true
 		_bar.size.x = 500
 		Router.go(&"hub")
@@ -76,6 +77,5 @@ func _layout() -> void:
 	if _canvas == null:
 		return
 	var view := get_viewport_rect().size
-	var k := minf(view.x / 720.0,view.y / 1280.0)
-	_canvas.scale = Vector2(k,k)
-	_canvas.position = (view - Vector2(720,1280) * k) * 0.5
+	_canvas.scale = Vector2(view.x / 720.0,view.y / 1280.0)
+	_canvas.position = Vector2.ZERO

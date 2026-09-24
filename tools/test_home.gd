@@ -31,6 +31,14 @@ static func run() -> void:
 	assert(Home.completed() == 2)
 	assert(profile.owns("vita_plant"))
 	assert(profile.coins() == 80)
+	profile.set_setting("music",false)
+	profile.reset_progress()
+	profile.flush()
+	profile.load()
+	assert(Home.completed() == 0)
+	assert(profile.coins() == 0)
+	assert(not profile.owns("vita_plant"))
+	assert(not profile.setting("music"))
 	profile.volatile = true
 	profile.save_path = old_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp))
