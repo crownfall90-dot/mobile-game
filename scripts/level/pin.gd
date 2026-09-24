@@ -1,6 +1,8 @@
 class_name Pin
 extends AnimatableBody2D
 ## Штырь: держит содержимое камеры, по тапу выезжает в сторону ручки.
+## Тень, стержень и кольцо один раз растеризуются из SVG в текстуру: один draw call
+## на кадр вместо семнадцати. Поверх рисуются только бегущий блик и подсказка.
 
 signal pulled_out(pin: Pin)
 
@@ -13,6 +15,10 @@ const GOLD_LIGHT := Color("fff1b8")
 const INK := Color("24163d")
 const CUFF := Color("8a4dff")
 const HAND_SCALE := 1.25
+const RASTER := 2.0         # растр крупнее поля: чётко и на экранах 1440p
+const MARGIN := 16.0        # запас вокруг кольца под тень и обводку
+const CACHE_MAX := 8        # текстуры переживают перезапуск уровня, но не копятся
+const SHADOW_OFFSET := Vector2(4, 7)
 # перчатка: указательный палец, три согнутых пальца, ладонь, большой палец
 const HAND_PARTS: Array[Rect2] = [
 	Rect2(-7, 0, 14, 36), Rect2(1, 18, 11, 16), Rect2(9, 20, 11, 15), Rect2(17, 23, 10, 14),
@@ -29,7 +35,10 @@ var _shape: CollisionShape2D
 var _glint := -1.0
 var _glint_wait := 0.0
 var _hint_t := 0.0
+var _tex: Texture2D
+var _tex_rect := Rect2()
 static var _hand_boxes: Array = []
+static var _cache: Dictionary = {}
 
 
 func setup(pin_id: String, from: Vector2, to: Vector2, glint_offset: float) -> void:
@@ -49,6 +58,7 @@ func setup(pin_id: String, from: Vector2, to: Vector2, glint_offset: float) -> v
 	_shape.position = Vector2(length * 0.5, 0)
 	add_child(_shape)
 	_glint_wait = 1.5 + glint_offset
+	_bake()
 
 
 ## Расстояние от точки (в координатах уровня) до штыря вместе с ручкой.
@@ -103,29 +113,74 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var up := Vector2(0, -1).rotated(-rotation)
-	var shadow := Vector2(4, 7).rotated(-rotation)
-	var a := Vector2(HANDLE_R * 0.8, 0)
-	var b := Vector2(length, 0)
-	# тень
-	draw_line(a + shadow, b + shadow, Color(0, 0, 0, 0.3), THICKNESS, true)
-	draw_circle(shadow, HANDLE_R, Color(0, 0, 0, 0.3), false, 9.0, true)
-	# стержень
-	draw_line(a, b, GOLD_DARK, THICKNESS, true)
-	draw_circle(b, THICKNESS * 0.5, GOLD_DARK, true, -1.0, true)
-	draw_line(a + up * 1.5, b + up * 1.5, GOLD, THICKNESS * 0.55, true)
-	draw_line(a + up * 3.5, b + up * 3.5, GOLD_LIGHT, 2.0, true)
-	# ручка-кольцо
-	draw_circle(Vector2.ZERO, HANDLE_R, GOLD_DARK, false, 10.0, true)
-	draw_circle(Vector2.ZERO, HANDLE_R, GOLD, false, 6.0, true)
-	draw_circle(up * 2.0, HANDLE_R, GOLD_LIGHT, false, 1.5, true)
+	if _tex:
+		draw_texture_rect(_tex, _tex_rect, false)
 	# пробегающий блик
 	if _glint >= 0.0:
+		var up := Vector2(0, -1).rotated(-rotation)
 		var x := lerpf(-HANDLE_R, length, _glint)
 		var alpha := sin(_glint * PI) * 0.9
 		draw_line(Vector2(x - 14, 0) + up * 2, Vector2(x + 14, 0) + up * 2, Color(1, 1, 1, alpha), 4.0, true)
 	if hinted and not pulled:
 		_draw_hint()
+
+
+# Статичная часть в осях штыря. Тень и светлая грань смотрят вниз и вверх экрана,
+# поэтому картинка своя для каждой пары (длина, поворот).
+func _bake() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var h := HANDLE_R + MARGIN
+	_tex_rect = Rect2(-h, -h, length + HANDLE_R + MARGIN * 2.0, h * 2.0)
+	var key := "%.1f:%.4f" % [length, rotation]
+	if not _cache.has(key):
+		if _cache.size() >= CACHE_MAX:
+			_cache.clear()
+		_cache[key] = _rasterize(_svg())
+	_tex = _cache[key]
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+
+func _svg() -> String:
+	var up := Vector2(0, -1).rotated(-rotation)
+	var shadow := SHADOW_OFFSET.rotated(-rotation)
+	var a := Vector2(HANDLE_R * 0.8, 0)
+	var b := Vector2(length, 0)
+	var body := ""
+	# тень
+	body += _line(a + shadow, b + shadow, Color(0, 0, 0, 0.3), THICKNESS)
+	body += _ring(shadow, Color(0, 0, 0, 0.3), 9.0)
+	# стержень
+	body += _line(a, b, GOLD_DARK, THICKNESS)
+	body += '<circle cx="%.2f" cy="%.2f" r="%.2f" fill="#%s"/>' % [b.x, b.y, THICKNESS * 0.5, GOLD_DARK.to_html(false)]
+	body += _line(a + up * 1.5, b + up * 1.5, GOLD, THICKNESS * 0.55)
+	body += _line(a + up * 3.5, b + up * 3.5, GOLD_LIGHT, 2.0)
+	# ручка-кольцо
+	body += _ring(Vector2.ZERO, GOLD_DARK, 10.0)
+	body += _ring(Vector2.ZERO, GOLD, 6.0)
+	body += _ring(up * 2.0, GOLD_LIGHT, 1.5)
+	var r := _tex_rect
+	return ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="%.2f %.2f %.2f %.2f">%s</svg>'
+		% [ceili(r.size.x), ceili(r.size.y), r.position.x, r.position.y, r.size.x, r.size.y, body])
+
+
+static func _line(a: Vector2, b: Vector2, c: Color, w: float) -> String:
+	return '<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="#%s" stroke-opacity="%.2f" stroke-width="%.2f"/>' % [
+		a.x, a.y, b.x, b.y, c.to_html(false), c.a, w]
+
+
+static func _ring(center: Vector2, c: Color, w: float) -> String:
+	return '<circle cx="%.2f" cy="%.2f" r="%.2f" fill="none" stroke="#%s" stroke-opacity="%.2f" stroke-width="%.2f"/>' % [
+		center.x, center.y, HANDLE_R, c.to_html(false), c.a, w]
+
+
+static func _rasterize(svg: String) -> Texture2D:
+	var img := Image.new()
+	if img.load_svg_from_string(svg, RASTER) != OK:
+		push_error("Pin: bad SVG")
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 # Кольцо и рука рисуются в осях экрана, как бы ни был повёрнут штырь.
