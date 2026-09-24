@@ -522,6 +522,7 @@ static func _empty(l: float, t: float, r: float, b: float) -> StyleBoxEmpty:
 ## Кнопка с «губой»: фон рисует внутренний узел позади текста и иконки самой кнопки,
 ## поэтому text и icon работают как у обычной Button. Нажатие — сжатие до 0.94 и щелчок.
 class Chunky extends Button:
+	const DISABLED_TEXT := Color("dcd8ea")
 	var style: StringName = &"primary"
 	var radius := UiKit.RADIUS
 	var lip := UiKit.LIP
@@ -557,13 +558,18 @@ class Chunky extends Button:
 
 	func set_style(st: StringName) -> void:
 		style = st
-		var c := UiKit.colors(st)
-		add_theme_color_override(&"font_outline_color", c[3])
 		for k: StringName in [&"font_color", &"font_pressed_color", &"font_hover_color", &"font_hover_pressed_color", &"font_focus_color"]:
 			add_theme_color_override(k, UiKit.TEXT)
-		add_theme_color_override(&"font_disabled_color", Color(1, 1, 1, 0.75))
+		# непрозрачный: сквозь полупрозрачные буквы просвечивал бы контур
+		add_theme_color_override(&"font_disabled_color", DISABLED_TEXT)
+		_sync_ink()
 		_apply_margins()
 		face.queue_redraw()
+
+	## Контур текста под состояние: у выключенной кнопки — серый, как её лицо.
+	func _sync_ink() -> void:
+		_was_off = disabled
+		add_theme_color_override(&"font_outline_color", UiKit.colors(&"disabled" if disabled else style)[3])
 
 	func set_font_size(px: int) -> void:
 		add_theme_font_size_override(&"font_size", px)
@@ -588,6 +594,9 @@ class Chunky extends Button:
 		if what == NOTIFICATION_ENTER_TREE:
 			UiKit.fit_mouse_filter(self)
 			_in_scroll = UiKit.scroll_parent(self) != null
+			# disabled, поставленный до входа в дерево: контур до первой отрисовки
+			if disabled != _was_off:
+				_sync_ink()
 		elif what == NOTIFICATION_SCROLL_BEGIN:
 			# палец начал листать список: это не нажатие — отпускаем кнопку без щелчка
 			if _press < 1.0 or button_pressed:
@@ -619,9 +628,10 @@ class Chunky extends Button:
 		if disabled == _was_off and dn == _drawn_down and text == _drawn_text:
 			return
 		if disabled != _was_off:
-			_was_off = disabled
-			var c := UiKit.colors(&"disabled" if disabled else style)
-			add_theme_color_override(&"font_outline_color", c[3])
+			# текст уже нарисован прежним контуром, а queue_redraw во время отрисовки
+			# теряется: перерисуемся сразу после неё, ещё до вывода кадра
+			_sync_ink()
+			queue_redraw.call_deferred()
 		_drawn_down = dn
 		_drawn_text = text
 		face.queue_redraw()
