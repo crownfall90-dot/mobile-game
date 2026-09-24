@@ -17,6 +17,20 @@ const NAMES: Array[StringName] = [
 # запасная иконка, если файла нет: знак вопроса без текста (ThorVG не рисует текст)
 const _MISSING := "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><circle cx=\"24\" cy=\"24\" r=\"20\" fill=\"#ff4fd8\" stroke=\"#1b1236\" stroke-width=\"3\"/><path d=\"M17,18 A7,7 0 1 1 24,25 V29\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"24\" cy=\"36\" r=\"3\" fill=\"#ffffff\"/></svg>"
 
+# что растрировать заранее, на экране загрузки: размеры, в которых иконки берёт UiKit
+# (52 — круглые кнопки и тосты, 56 — кнопки и летящие монеты, 64 — счётчики,
+# 43 — компактные кнопки, 48/80/120 — ряды звёзд и переключатели)
+const WARM: PackedStringArray = [
+	"coin@64", "star@64", "hint@64", "gem@64",
+	"coin@56", "star@56", "gem@56", "play@56", "check@56", "lock@56", "restart@56",
+	"map@56", "home@56", "hint@56", "back@56", "coin@43", "check@43",
+	"star@48", "star@80", "star@120", "sound_on@48", "music@48", "vibration@48",
+	"gear@52", "pause@52", "restart@52", "hint@52", "home@52", "map@52", "book@52",
+	"hanger@52", "calendar@52", "chest@52", "close@52", "back@52", "play@52",
+	"sound_on@52", "sound_off@52", "music@52", "vibration@52", "coin@52", "star@52",
+	"gem@52", "relic@52", "flame@52", "check@52", "lock@52", "hand@52",
+]
+
 static var _cache: Dictionary = {}   # "name@px" -> ImageTexture
 static var _src: Dictionary = {}     # name -> текст SVG
 static var _k := 0.0                 # масштаб окна, под который сделаны растры; 0 — ещё не знаем
@@ -35,6 +49,23 @@ static func tex(name: StringName, px := 64) -> Texture2D:
 	t.set_size_override(Vector2i(px, px))
 	_cache[key] = t
 	return t
+
+
+## Растрировать частые иконки (WARM) заранее: новые берёт, пока не прошло budget_ms
+## (одну — всегда; крупная сама может занять больше). Зови каждый кадр экрана
+## загрузки, пока не вернёт true — как Sfx.prepare; иначе первый показ хаба или
+## карты подвиснет на растеризации.
+static func prepare(budget_ms: int) -> bool:
+	var t0 := Time.get_ticks_usec()
+	var did := false
+	for key: String in WARM:
+		if _cache.has(key):
+			continue
+		if did and Time.get_ticks_usec() - t0 >= budget_ms * 1000:
+			return false
+		tex(StringName(key.get_slice("@", 0)), int(key.get_slice("@", 1)))
+		did = true
+	return true
 
 
 static func has(name: StringName) -> bool:
