@@ -13,14 +13,16 @@ extends Node
 ##   --jitter=<seed>       ±1 px к каждому телу и ±15% к паузам из этого seed; 0 — выкл.
 ##   --mods=golden         «Золотая лихорадка»: золото становится самоцветами
 ##   --json                напечатать итог строкой RESULT_JSON {...}
-##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию
+##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию;
+##                         без окна и без --shot — выйти через 30 кадров: RESULT: SCREEN <имя> ok|FAIL
 ##   --shot=путь.png@сек   сохранить скриншот через столько секунд (нужно окно, не headless)
 ##   --smoke               открыть по очереди все готовые экраны и попапы, сообщить об ошибках
 ##
 ## Итог уровня печатается строкой RESULT: WON stars=3 gold=22/22 или RESULT: LOST reason=enemy
 ## (плюс RESULT_JSON с --json), код выхода 0. Код 2 — RESULT: TIMEOUT (итога нет за 20 игровых
 ## секунд после последнего засова), 3 — RESULT: ERROR (уровень, засовы или экран не нашлись),
-## 1 — smoke нашёл ошибки. Без засовов по сценарию уровень ждёт игрока (в окне — без предела).
+## 1 — smoke или --screen нашли ошибки. Без окна любой запуск заканчивается сам; в окне без --shot
+## уровень без засовов по сценарию и --screen ждут человека без предела.
 ## Сохранение не пишется (Profile.volatile), звука нет, экрана загрузки нет.
 
 const START_DELAY := 1.0
@@ -29,7 +31,7 @@ const SETTLE_MIN := 0.6
 const SETTLE_MAX := 4.0
 const TIME_JITTER := 0.15
 const AFTER_LAST := 20.0        # сколько игровых секунд ждать итога после последнего засова
-const WALL_LIMIT_MS := 100000   # предел по часам: запуск никогда не виснет
+const WALL_LIMIT_MS := 100000   # предел по часам для прогона уровня (вдобавок к кадрам)
 const SMOKE_SCREEN_FRAMES := 30
 const SMOKE_POPUP_FRAMES := 20
 
@@ -257,16 +259,30 @@ func _open_screen(screen_name: String) -> void:
 		print("RESULT: ERROR no Router")
 		_quit(3)
 		return
+	# без окна и без снимка смотреть некому: проверяем, что открылось без ошибок, и выходим
+	var check := DisplayServer.get_name() == "headless" and not _flags.has("shot")
+	var errors := ErrorCounter.new()
+	if check:
+		OS.add_logger(errors)
 	var sn := StringName(screen_name)
 	if _registry(&"SCREENS").has(sn):
 		router.call(&"go", sn, _screen_args(sn))
+	else:
+		# попап показываем поверх лаборатории (или того, что Router откроет вместо неё)
+		router.call(&"go", &"hub", {})
+		await _frames(SMOKE_SCREEN_FRAMES)
+		if router.call(&"popup", sn, {}) == null:
+			print("RESULT: ERROR no screen or popup '%s'" % screen_name)
+			OS.remove_logger(errors)
+			_quit(3)
+			return
+	if not check:
 		return
-	# попап показываем поверх лаборатории (или того, что Router откроет вместо неё)
-	router.call(&"go", &"hub", {})
 	await _frames(SMOKE_SCREEN_FRAMES)
-	if router.call(&"popup", sn, {}) == null:
-		print("RESULT: ERROR no screen or popup '%s'" % screen_name)
-		_quit(3)
+	OS.remove_logger(errors)
+	var ok := errors.count == 0
+	print("RESULT: SCREEN %s %s" % [screen_name, "ok" if ok else "FAIL " + errors.last])
+	_quit(0 if ok else 1)
 
 
 func _screen_args(sn: StringName) -> Dictionary:
