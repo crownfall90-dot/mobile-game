@@ -1,6 +1,6 @@
 # Vita
 
-[Скачать тестовый APK первого акта (Android 64-bit, 26,9 МиБ)](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.0-android-test/Vita-first-act-v0.3.0-arm64.apk)
+[Скачать тестовый APK первого акта (Android 64-bit, 26,9 МиБ)](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-v0.3.1-android-test/Vita-first-act-v0.3.1-arm64.apk)
 
 Это сборка для проверки на телефоне. Все 10 ремонтов доступны, но шесть
 головоломок ещё предстоит усложнить, а работа на реальном устройстве пока
@@ -37,8 +37,10 @@ godot --headless --path . -- --smoke
 звёзды и намеренно неверные порядки. Полная проверка `tools/verify.py` также
 перебирает все порядки штырей; занимает заметно больше времени.
 
-Идентификатор приложения `com.alchemytower.game` сохранён ради обновления
-установленной тестовой версии. В Google Play ничего не опубликовано.
+Идентификатор приложения `com.crownfall90.vita`. Старая игра с
+`com.alchemytower.game` остаётся на телефоне отдельно: её не нужно удалять,
+чтобы установить Vita. Прогресс старой игры автоматически не переносится.
+В Google Play ничего не опубликовано.
 
 Продолжение для разработчика: [docs/HANDOFF.md](docs/HANDOFF.md) и
 [docs/FAMILY_HOME.md](docs/FAMILY_HOME.md).
