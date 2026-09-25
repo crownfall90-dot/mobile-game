@@ -116,13 +116,25 @@ func _paint_overlay(ci: CanvasItem) -> void:
 	Pen.end()
 
 
+const DECOR_TEXTURES := {"vita_teddy": TEDDY_PATH, "vita_clothes": "res://art/home/family_clothed.png"}
+static var _decor_cache := {}
+
+
+## Загрузить картинку вещи заранее: загрузка прямо во время рисования даёт белый кадр,
+## а холст потом не перерисовывается.
+static func preload_decor(id: String) -> Texture2D:
+	if not _decor_cache.has(id) and DECOR_TEXTURES.has(id):
+		_decor_cache[id] = load(DECOR_TEXTURES[id])
+	return _decor_cache.get(id)
+
+
 ## Рисует вещь магазина в прямоугольник r: в комнате и на карточке магазина.
 static func draw_decor(ci: CanvasItem, id: String, r: Rect2) -> void:
 	if id == "vita_teddy":
-		ci.draw_texture_rect(load(TEDDY_PATH), r, false)
+		ci.draw_texture_rect(preload_decor(id), r, false)
 		return
 	if id == "vita_clothes":
-		var tex: Texture2D = load("res://art/home/family_clothed.png")
+		var tex: Texture2D = preload_decor(id)
 		var w := r.size.y * tex.get_width() / tex.get_height()
 		ci.draw_texture_rect(tex, Rect2(r.get_center().x - w * 0.5, r.position.y, w, r.size.y), false)
 		return

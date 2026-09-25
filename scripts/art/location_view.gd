@@ -51,6 +51,10 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 		_tex[t["id"] + "_broken"] = _load(t["id"] + "_broken")
 		_tex[t["id"] + "_fixed"] = _load(t["id"] + "_fixed")
 		_done[t["id"]] = Home.is_done(t["id"])
+	# картинки декора — заранее, не во время рисования
+	for d: Dictionary in loc.get("decor", []):
+		_tex["decor_" + str(d["id"])] = _load(str(d["id"]))
+		HomeArt.preload_decor(str(d["id"]))
 	_family = Sprite2D.new()
 	_family.centered = false
 	add_child(_family)
@@ -123,7 +127,7 @@ func _draw() -> void:
 		if Profile.owns(d["id"]):
 			var v: Array = d["rect"]
 			var r := Rect2(v[0], v[1], v[2], v[3])
-			var tex := _load(d["id"])
+			var tex: Texture2D = _tex.get("decor_" + str(d["id"]))
 			if tex:
 				_fit(tex, r)
 			else:
