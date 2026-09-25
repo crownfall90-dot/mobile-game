@@ -148,6 +148,7 @@ func build(level_data: Dictionary) -> void:
 	if data.has("dirt"):
 		dirt = Dirt.new()
 		dirt.setup(DESIGN_SIZE, data["dirt"], data.get("holes", []))
+		dirt.rebuilt.connect(_wake_all)
 		add_child(dirt)
 	if data.has("exit"):
 		door = ExitDoor.new()

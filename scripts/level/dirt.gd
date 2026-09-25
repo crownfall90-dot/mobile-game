@@ -8,6 +8,8 @@ extends Node2D
 ##       "holes": [{"rect": ...} | {"circle": [x, y, r]}, ...] — заранее пустые карманы.
 
 signal dug(at: Vector2)
+## Столкновения земли пересобраны — спящие тела над выкопанным местом пора будить.
+signal rebuilt
 
 const CELL := 4
 const BRUSH := 24.0
@@ -76,8 +78,32 @@ func carve(a: Vector2, b: Vector2, radius := BRUSH) -> bool:
 		if _carve_circle(a.lerp(b, float(i) / steps), radius):
 			any = true
 	if any:
+		var box := Rect2(a, Vector2.ZERO).expand(b).grow(radius + CELL * 3)
+		_clean_slivers(box)
 		dug.emit(b)
 	return any
+
+
+## Убирает тонкие (в одну клетку) остатки земли у выкопанного: их почти не видно,
+## но они держали бы монеты и слизней.
+func _clean_slivers(box: Rect2) -> void:
+	var c0 := maxi(1, int(box.position.x / CELL))
+	var c1 := mini(cols - 2, int(box.end.x / CELL))
+	var r0 := maxi(1, int(box.position.y / CELL))
+	var r1 := mini(rows - 2, int(box.end.y / CELL))
+	for _pass in 2:
+		for r in range(r0, r1 + 1):
+			for c in range(c0, c1 + 1):
+				var i := r * cols + c
+				if _cells[i] == 0:
+					continue
+				var thin_x := _cells[i - 1] == 0 and _cells[i + 1] == 0
+				var thin_y := _cells[i - cols] == 0 and _cells[i + cols] == 0
+				if thin_x or thin_y:
+					_cells[i] = 0
+					_count -= 1
+					_dirty_rows[r] = true
+					_mask_dirty = true
 
 
 func _physics_process(_delta: float) -> void:
@@ -85,6 +111,7 @@ func _physics_process(_delta: float) -> void:
 		for r in _dirty_rows:
 			_build_row(r)
 		_dirty_rows.clear()
+		rebuilt.emit()
 	if _mask_dirty:
 		_mask_dirty = false
 		_update_image()

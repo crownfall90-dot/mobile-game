@@ -1,6 +1,7 @@
 [
-  ["acid", "water", "floor", "gold"],
-  ["water", "acid", "gold", "floor"],
-  ["water", "acid", "floor", "gold"],
-  ["acid", "water", "gold", "floor"]
+  ["gold", "left", "right"],
+  ["left", "right", "gold", "trap"],
+  ["left", "gold", "right", "trap"],
+  ["right", "left", "gold", "trap"],
+  ["right", "gold", "left", "trap"]
 ]
