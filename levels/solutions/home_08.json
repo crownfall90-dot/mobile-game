@@ -1,17 +1,6 @@
 [
-  ["lava", "water", "gold", "floor"],
-  ["water", "lava", "gold", "floor"],
-  ["water", "lava", "floor", "gold"],
-  ["water", "gold", "lava", "floor"],
-  ["water", "gold", "floor", "lava"],
-  ["water", "floor", "lava", "gold"],
-  ["water", "floor", "gold", "lava"],
-  ["lava", "water", "floor", "gold"],
-  ["gold", "water", "lava", "floor"],
-  ["gold", "water", "floor", "lava"],
-  ["gold", "lava", "water", "floor"],
-  ["gold", "floor", "water", "lava"],
-  ["floor", "water", "lava", "gold"],
-  ["floor", "water", "gold", "lava"],
-  ["floor", "gold", "water", "lava"]
+  ["acid", "water", "floor", "gold"],
+  ["water", "acid", "gold", "floor"],
+  ["water", "acid", "floor", "gold"],
+  ["acid", "water", "gold", "floor"]
 ]
