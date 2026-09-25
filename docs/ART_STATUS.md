@@ -5,17 +5,17 @@
 
 | Файл | Статус | Заметки |
 |---|---|---|
-| art/act1/family/family_mood0.png | черновик | Мама и дочь в бедной одежде, прозрачный 700×1120; проверить масштаб и положение ног в комнате. |
+| art/act1/family/family_mood0.png | в игре | Claude: масштаб и ноги в комнате в порядке (снимки 720×1280/1600). |
 | art/act1/family/family_mood1.png | нет | |
 | art/act1/family/family_mood2.png | нет | |
 | art/act1/family/family_mood3.png | нет | |
-| art/act1/room/background.png | черновик | Пустая целая архитектура 1440×3120, проба взгляда в центр под углом; при проверке оценить, достаточно ли бедно выглядит. |
-| art/act1/room/room_window_broken.png | черновик | Отдельный прозрачный слой 500×600. На предварительном кадре рама смещена относительно проёма фона; требуется совместная подгонка PNG/rect. |
-| art/act1/room/room_window_fixed.png | черновик | Парное окно 500×600 с тем же кадром; подогнать вместе со сломанным. |
-| art/act1/room/room_bed_broken.png | черновик | Отдельная кровать 620×600; проверить масштаб в комнате. |
-| art/act1/room/room_bed_fixed.png | черновик | Парная кровать 620×600 с тем же ракурсом. |
-| art/act1/room/room_floor_broken.png | черновик | Только повреждение, прозрачный слой 380×220. |
-| art/act1/room/room_wall_broken.png | черновик | Только повреждение, прозрачный слой 500×660. |
+| art/act1/room/background.png | в игре | Claude: подключён; окно на фоне в перспективе левой стены — слои окна подгоняются под него. |
+| art/act1/room/room_window_broken.png | переделать | Claude: нужен в перспективе проёма фона, 356×1044, шаблон docs/art_guides/room_window_guide.png. |
+| art/act1/room/room_window_fixed.png | переделать | Claude: то же — по шаблону проёма, 356×1044. |
+| art/act1/room/room_bed_broken.png | в игре |  |
+| art/act1/room/room_bed_fixed.png | в игре |  |
+| art/act1/room/room_floor_broken.png | в игре |  |
+| art/act1/room/room_wall_broken.png | в игре |  |
 
 ## Крупные планы мини-игр
 
