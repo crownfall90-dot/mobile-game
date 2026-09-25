@@ -35,6 +35,8 @@ var _pending := false
 var _save_left := 0.0
 # save.json прочитан без ошибок: только тогда он годится в save.bak
 var _main_ok := false
+# после сброса старый прогресс не должен вернуться из save.bak
+var _drop_bak := false
 
 
 func _init() -> void:
@@ -144,7 +146,9 @@ func reset_progress() -> void:
 	last_record = {}
 	for key in CHANGE_KEYS:
 		changed.emit(key)
-	save()
+	_drop_bak = true
+	_pending = true
+	flush()
 
 
 # --- валюты ------------------------------------------------------------------
@@ -459,7 +463,7 @@ func _write() -> void:
 		_retry_later()
 		return
 	# битый save.json не должен затереть хорошую копию
-	if _main_ok and FileAccess.file_exists(save_path):
+	if _main_ok and not _drop_bak and FileAccess.file_exists(save_path):
 		DirAccess.copy_absolute(save_path, _bak_path())
 	var err := DirAccess.rename_absolute(tmp, save_path)
 	if err != OK:
@@ -467,6 +471,10 @@ func _write() -> void:
 		_retry_later()
 		return
 	_main_ok = true
+	if _drop_bak:
+		# новое сохранение уже на месте: только теперь старую копию заменяем им же
+		DirAccess.copy_absolute(save_path, _bak_path())
+		_drop_bak = false
 
 
 ## Запись не удалась: данные в памяти целы, пробуем снова позже.
