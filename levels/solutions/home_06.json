@@ -1,4 +1,5 @@
 [
-  ["acid", "water", "floor", "gold"],
-  ["water", "acid", "floor", "gold"]
+  ["acid", "floor", "water", "gold"],
+  ["acid", "gold", "floor", "water"],
+  ["acid", "floor", "gold", "water"]
 ]
