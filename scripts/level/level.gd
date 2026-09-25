@@ -140,6 +140,8 @@ func build(level_data: Dictionary) -> void:
 	add_child(_bodies)
 
 	var walls := Walls.new()
+	if data.get("family", false):
+		walls.palette = [Color("9a6b4a"), Color("6e4a33"), Color("d8ac80")]
 	walls.setup(data.get("walls", []))
 	add_child(walls)
 

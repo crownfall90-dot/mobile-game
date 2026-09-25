@@ -17,6 +17,9 @@ const PALETTES := {
 	"floor": [Color("f0e6d6"), Color("d6b894"), Color("9c7650")],
 }
 
+const FULL_PAD := Vector2(700, 900)   # на сколько комната выходит за поле 720×1280
+const FLOOR := Color("c79a6e")
+
 var bounds := Rect2()
 var theme := ""
 
@@ -31,24 +34,31 @@ func _draw() -> void:
 	var wall: Color = pal[0]
 	var line: Color = pal[1]
 	var ink: Color = pal[2]
-	draw_rect(r.grow(14), Color("4c6a6b"))
-	draw_rect(r, wall)
+	# Комната на весь экран: стена с узором тянется за края поля на любой высоте телефона,
+	# снизу — пол. Поле головоломки — просто часть этой комнаты.
+	var full := Rect2(r.position.x - FULL_PAD.x, r.position.y - FULL_PAD.y,
+		r.size.x + FULL_PAD.x * 2.0, r.size.y + FULL_PAD.y * 2.0)
+	draw_rect(full, wall)
 	match theme:
 		"kitchen", "bath", "toilet":
-			_tiles(r, line, 46.0 if theme == "kitchen" else 34.0)
+			_tiles(full, line, 46.0 if theme == "kitchen" else 34.0)
 		"bed", "light":
-			_dots(r, line)
+			_dots(full, line)
 		"sofa":
-			_diamonds(r, line)
+			_diamonds(full, line)
 		"floor":
-			_boards(r, line)
+			_boards(full, line)
 		_:
-			_stripes(r, line)
+			_stripes(full, line)
 	_silhouette(r, Color(ink, 0.30))
+	var floor_top := r.end.y + 14.0
+	draw_rect(Rect2(full.position.x, floor_top, full.size.x, full.end.y - floor_top), FLOOR)
+	for y in range(int(floor_top) + 34, int(full.end.y), 34):
+		draw_line(Vector2(full.position.x, y), Vector2(full.end.x, y), FLOOR.darkened(0.12), 2)
 	# Деревянный карниз сверху и плинтус снизу — общие для всех комнат.
-	draw_rect(Rect2(r.position.x - 20, r.position.y - 18, r.size.x + 40, 23), Color("b98c66"))
-	draw_line(Vector2(r.position.x - 20, r.position.y + 4), Vector2(r.end.x + 20, r.position.y + 4), Color("735f52"), 4)
-	draw_rect(Rect2(r.position.x - 17, r.end.y - 7, r.size.x + 34, 21), Color("aa8668"))
+	draw_rect(Rect2(full.position.x, r.position.y - 18, full.size.x, 23), Color("b98c66"))
+	draw_line(Vector2(full.position.x, r.position.y + 4), Vector2(full.end.x, r.position.y + 4), Color("735f52"), 4)
+	draw_rect(Rect2(full.position.x, r.end.y - 7, full.size.x, 21), Color("aa8668"))
 
 
 func _stripes(r: Rect2, c: Color) -> void:

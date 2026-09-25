@@ -12,6 +12,9 @@ const SIEVE_FILL := Color("c9d3dc")
 const SIEVE_EDGE := Color("6f7f8f")
 const SIEVE_HOLE := Color("56657a")
 
+## Тёплое дерево для семейных уровней (комнаты квартиры); у башни Мирры — фиолетовый камень.
+var palette := [FILL_TOP, FILL_BOTTOM, EDGE]
+
 var _polys: Array[PackedVector2Array] = []
 var _colors: Array[PackedColorArray] = []
 var _sieves: Array[PackedVector2Array] = []
@@ -39,7 +42,7 @@ func setup(list: Array) -> void:
 			bottom = maxf(bottom, p.y)
 		var cols := PackedColorArray()
 		for p in pts:
-			cols.append(FILL_TOP.lerp(FILL_BOTTOM, inverse_lerp(top, bottom + 1.0, p.y)))
+			cols.append((palette[0] as Color).lerp(palette[1], inverse_lerp(top, bottom + 1.0, p.y)))
 		_colors.append(cols)
 	add_child(body)
 	add_child(sieve)
@@ -63,7 +66,7 @@ func _draw() -> void:
 		draw_polygon(pts, _colors[i])
 		var outline := pts.duplicate()
 		outline.append(pts[0])
-		draw_polyline(outline, EDGE, 2.0, true)
+		draw_polyline(outline, palette[2], 2.0, true)
 	for pts in _sieves:
 		_draw_sieve(pts)
 

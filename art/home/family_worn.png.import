@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://qmqn1i32m7hd"
-path="res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.ctex"
+path.s3tc="res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.s3tc.ctex"
+path.etc2="res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/home/family_worn.png"
-dest_files=["res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.ctex"]
+dest_files=["res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.s3tc.ctex", "res://.godot/imported/family_worn.png-4f45bdac75c410bd0cd0637b4abcd257.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
