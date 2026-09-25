@@ -262,14 +262,20 @@ func _draw_fx(t: Dictionary, k: float) -> void:
 func _update_family() -> void:
 	var fam: Dictionary = loc.get("family", {})
 	var mood := Home.mood()
-	var path := "%sfamily/family_mood%d.png" % [ART, mood]
 	var tex: Texture2D = null
 	if Profile.owns("vita_clothes") and ResourceLoader.exists(CLOTHED):
 		tex = load(CLOTHED)
-	elif ResourceLoader.exists(path):
-		tex = load(path)
 	else:
-		tex = load(OLD_FAMILY[mood])
+		# та же пара во всех сценах: если нужного настроения ещё нет, берём ближайшее из новых
+		# картинок семьи; старую картинку — только если новых нет совсем
+		for d in [0, -1, 1, -2, 2, -3, 3]:
+			var m := mood + d
+			var path := "%sfamily/family_mood%d.png" % [ART, m]
+			if m >= 0 and m <= 3 and ResourceLoader.exists(path):
+				tex = load(path)
+				break
+		if tex == null:
+			tex = load(OLD_FAMILY[mood])
 	_family.texture = tex
 	var h: float = fam.get("height", 560.0)
 	var k := h / tex.get_height()
