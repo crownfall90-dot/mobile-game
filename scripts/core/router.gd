@@ -220,7 +220,7 @@ func _change(mode: StringName, screen: StringName, args: Dictionary) -> void:
 		if is_instance_valid(p):
 			p.queue_free()
 	get_tree().paused = false
-	_swap(mode, screen, args)
+	await _swap(mode, screen, args)
 	await _fade_to(0.0)
 	_busy = false
 	if not _queued.is_empty():
@@ -260,6 +260,9 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 			_drop(s)
 		_stack.clear()
 		_names.clear()
+		# старый экран освобождается до создания нового: на слабых телефонах два экрана
+		# с большими картинками в памяти одновременно могут уронить игру
+		await get_tree().process_frame
 	var node: Node = script.new()
 	node.name = String(screen).to_pascal_case() + "Screen"
 	_screens.add_child(node)

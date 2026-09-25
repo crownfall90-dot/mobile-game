@@ -4,9 +4,9 @@ extends Hero
 ## Мультяшные реакции 0+: дрожат при опасности, при неудаче падают без сил — копоть от лавы,
 ## пузыри в воде, зелёные пузырьки от кислоты, слизь от слизня; над головами кружат звёздочки.
 
-const FAMILY_WORN = preload("res://art/home/family_worn.png")
-const FAMILY_HAPPY = preload("res://art/home/family_happy.png")
-const FAMILY_CLOTHED = preload("res://art/home/family_clothed.png")
+# Грузим только нужную картинку семьи, а не все три: экономим память на слабых телефонах.
+const FAMILY_PATHS := ["res://art/home/family_worn.png", "res://art/home/family_worn.png",
+	"res://art/home/family_happy.png", "res://art/home/family_clothed.png"]
 const HEIGHT := 148.0
 const FALL_ANGLE := -1.25        # лежат на боку, ногами к месту, где стояли
 const TINT := {
@@ -23,6 +23,19 @@ var stage := 0
 var walking := false
 var _fall := 0.0
 var _fall_tw: Tween
+var _tex: Texture2D
+
+
+## Картинка семьи грузится один раз и заранее, не во время рисования.
+func _enter_tree() -> void:
+	_picture()
+
+
+func _picture() -> Texture2D:
+	if _tex == null:
+		var mood_path := "res://art/act1/family/family_mood%d.png" % Home.mood()
+		_tex = load(mood_path if stage < 3 and ResourceLoader.exists(mood_path) else FAMILY_PATHS[clampi(stage, 0, 3)])
+	return _tex
 
 
 func oops(why: String) -> void:
@@ -66,7 +79,7 @@ func _process(delta: float) -> void:
 
 func _paint(ci: CanvasItem) -> void:
 	_drawn_k = Pen.pixel_scale(self)
-	var picture: Texture2D = FAMILY_CLOTHED if stage == 3 else (FAMILY_HAPPY if stage >= 2 else FAMILY_WORN)
+	var picture := _picture()
 	var width := HEIGHT * picture.get_width() / picture.get_height()
 	ci.draw_texture_rect(picture, Rect2(-width * 0.5, -HEIGHT, width, HEIGHT), false)
 

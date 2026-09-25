@@ -64,6 +64,16 @@ func setup(level: Level, design_size: Vector2, capacity: int) -> void:
 	_sprite = sprite
 
 
+## Уходим со сцены: сначала отвязываем текстуру вьюпорта и останавливаем его, потом освобождаемся.
+## Освобождение SubViewport, чью текстуру ещё рисует спрайт, роняет некоторые GLES-драйверы.
+func _exit_tree() -> void:
+	if _sprite:
+		_sprite.texture = null
+		_sprite.visible = false
+	if _vp:
+		_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
 func _process(_delta: float) -> void:
 	# дешёвый проход: только читаем флаги, пока не встретим движущуюся каплю
 	var n := 0

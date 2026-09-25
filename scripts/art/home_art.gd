@@ -2,12 +2,8 @@ class_name HomeArt
 extends Node2D
 ## Fixed drawing coordinates; the hub scales the complete room and touch targets together.
 
-const WORN_STUDIO = preload("res://art/home/studio_worn.png")
-const REPAIRED_STUDIO = preload("res://art/home/studio_repaired.png")
-const REPAIR_SHADER = preload("res://art/home/repair_mix.gdshader")
-const TEDDY = preload("res://art/home/teddy.png")
-# ponytail: Two aligned room plates keep the APK small, but regional blends can
-# show seams. Replace them with per-object layers if the final art needs it.
+# Большие картинки грузятся только по требованию: на слабых телефонах важна память.
+const TEDDY_PATH := "res://art/home/teddy.png"
 
 const IMAGE_SLOTS := {
 	"tv": Rect2(566,397,154,210), "light": Rect2(300,0,120,166),
@@ -27,22 +23,13 @@ const SLOTS := {
 var repaired: Array[String] = []
 var highlight := ""
 var area := "flat"
-var _image: Sprite2D
 var _decor: Pen.Canvas
 
 
 func _ready() -> void:
 	if area != "flat":
 		return
-	_image = Sprite2D.new()
-	_image.texture = WORN_STUDIO
-	_image.centered = false
-	_image.scale = Vector2(720.0,1280.0) / WORN_STUDIO.get_size()
-	var mat := ShaderMaterial.new()
-	mat.shader = REPAIR_SHADER
-	mat.set_shader_parameter("restored",REPAIRED_STUDIO)
-	_image.material = mat
-	add_child(_image)
+	# старая квартира из двух целых картинок больше не используется: первый акт — LocationView
 	_decor = Pen.Canvas.new()
 	_decor.paint = _paint_overlay
 	add_child(_decor)
@@ -50,12 +37,6 @@ func _ready() -> void:
 
 func _draw() -> void:
 	if area == "flat":
-		var mask := 0
-		for i in 10:
-			if repaired.has(Home.OLD_ORDER[i]):
-				mask |= 1 << i
-		if _image:
-			(_image.material as ShaderMaterial).set_shader_parameter("repair_mask",mask)
 		if _decor:
 			_decor.queue_redraw()
 		return
@@ -138,7 +119,7 @@ func _paint_overlay(ci: CanvasItem) -> void:
 ## Рисует вещь магазина в прямоугольник r: в комнате и на карточке магазина.
 static func draw_decor(ci: CanvasItem, id: String, r: Rect2) -> void:
 	if id == "vita_teddy":
-		ci.draw_texture_rect(TEDDY, r, false)
+		ci.draw_texture_rect(load(TEDDY_PATH), r, false)
 		return
 	if id == "vita_clothes":
 		var tex: Texture2D = load("res://art/home/family_clothed.png")
