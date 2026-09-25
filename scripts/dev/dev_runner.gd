@@ -35,6 +35,7 @@ const SETTLE_MAX := 4.0
 const TIME_JITTER := 0.15
 const AFTER_LAST := 20.0        # сколько игровых секунд ждать итога после последнего засова
 const WALL_LIMIT_MS := 100000   # предел по часам для прогона уровня (вдобавок к кадрам)
+const DIG_SPEED := 900.0         # скорость пальца в мазках "strokes", px/с
 const SMOKE_SCREEN_FRAMES := 30
 const SMOKE_POPUP_FRAMES := 20
 const SMOKE_RESULT_WAIT := 2.0  # секунд после итога: окно итога успевает открыться и отыграть
@@ -141,6 +142,8 @@ func _order() -> PackedStringArray:
 	if _flags.get("all_at_once", false):
 		for pin in _level.pins:
 			order.append(pin.id)
+		for id in _level.data.get("strokes", {}):
+			order.append(str(id))
 	elif _flags.get("autoplay", false):
 		for id in _level.data.get("solution", []):
 			order.append(str(id))
@@ -162,13 +165,38 @@ func _play(order: PackedStringArray) -> void:
 	for i in order.size():
 		if _done:
 			return
-		_pull(order[i])
+		await _act(order[i])
+		if i == order.size() - 1:
+			_level.actions_done()
 		if all_at_once or i == order.size() - 1:
 			continue
 		if settle:
 			await _settle()
 		else:
 			await _wait(interval)
+
+
+## Ход сценария: засов по id или мазок пальцем из "strokes" уровня.
+func _act(id: String) -> void:
+	var strokes: Dictionary = _level.data.get("strokes", {})
+	if _level.pin_by_id(id) == null and strokes.has(id):
+		await _stroke(strokes[id])
+	else:
+		_pull(id)
+
+
+## Ведёт палец по ломаной со скоростью DIG_SPEED px/с, копая по пути.
+func _stroke(points: Array) -> void:
+	print("dig ", points.size(), " pts")
+	var prev := Vector2(points[0][0], points[0][1])
+	_level.dig(prev, prev)
+	for k in range(1, points.size()):
+		var target := Vector2(points[k][0], points[k][1])
+		while prev.distance_to(target) > 0.5 and not _done:
+			await get_tree().physics_frame
+			var next := prev.move_toward(target, DIG_SPEED / 60.0)
+			_level.dig(prev, next)
+			prev = next
 
 
 func _pull(id: String) -> void:

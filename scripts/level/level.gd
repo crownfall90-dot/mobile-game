@@ -15,6 +15,8 @@ signal pin_pulled(pin: Pin)
 signal reaction(id: StringName, pos: Vector2, info: Dictionary)
 ## &"coin", &"gem", &"relic"
 signal collected(kind: StringName, pos: Vector2)
+## Палец выкопал землю (для звука и лёгкой вибрации).
+signal dug(pos: Vector2)
 
 const DESIGN_SIZE := Vector2(720, 1280)
 const CHAIN_RADIUS := 25.0      # на каком расстоянии остывание перекидывается на соседнюю лаву
@@ -24,6 +26,17 @@ const WIN_CAP := 3.0            # ...но не позже, чем через с�
 const STUCK_TIMEOUT := 5.0
 const FALL_LIMIT := 1500.0
 const SCARE_DISTANCE := 260.0
+const DROWN_HEAD := 118.0        # высота голов семьи над ступнями
+const DROWN_HALF_WIDTH := 46.0
+const DROWN_SPEED := 70.0        # быстрее — это пролетающие капли, а не стоящая вода
+const DROWN_DROPS := 3
+const DROWN_TIME := 0.5
+# Ходьба семьи к двери на уровнях с "exit".
+const WALK_SPEED := 95.0
+const WALK_DELAY := 0.8
+const STEP_UP := 34.0
+const STEP_DOWN := 46.0
+const WALK_ZONE := Rect2(-46, -150, 92, 146)   # зона семьи относительно ступней
 const THREE_STAR_PERCENT := 95  # 3 звезды за столько % сокровищ (для цели-доли)
 
 ## Кого чем можно убить: вид врага -> вещества.
@@ -73,7 +86,15 @@ var _wave_pos := Vector2.ZERO
 var _noble_seen := false
 var _goal_time := -1.0      # сколько цель уже выполнена (-1 — ещё нет)
 var _since_collect := 0.0
+var dirt: Dirt = null
+var door: ExitDoor = null
+var _zone: Area2D
+var _zone_origin := Vector2.ZERO
+var _acted := false          # был ли первый ход: засов или копание
+var _dig_from = null         # Vector2 последней точки пальца, null — палец не копает
+var _walk_time := 0.0
 var _stuck_timer := -1.0
+var _drown_time := 0.0
 var _shake := 0.0
 var _scare_timer := 0.0
 
@@ -95,13 +116,16 @@ func build(level_data: Dictionary) -> void:
 		_jitter.seed = jitter_seed
 
 	var backdrop: Node2D = HOME_BACKDROP.new() if data.get("family", false) else Backdrop.new()
+	if backdrop is HomePuzzleBackdrop:
+		backdrop.theme = str(data.get("theme", ""))
 	backdrop.setup(_rect(data["tower"]["rect"]))
 	add_child(backdrop)
 
 	hero = FamilyHero.new() if data.get("family", false) else Hero.new()
 	if hero is FamilyHero:
 		hero.stage = Home.stage()
-	hero.setup(_vec(data["hero"]["pos"]))
+	# идущая семья без твёрдого тела: не толкает камни, вода и лава обтекают её зону
+	hero.setup(_vec(data["hero"]["pos"]), not data.has("exit"))
 	if not hero_outfit.is_empty() and hero.has_method(&"set_outfit"):
 		hero.call(&"set_outfit", hero_outfit)
 	if familiar_kind != &"" and hero.has_method(&"set_familiar"):
@@ -117,6 +141,16 @@ func build(level_data: Dictionary) -> void:
 	var walls := Walls.new()
 	walls.setup(data.get("walls", []))
 	add_child(walls)
+
+	if data.has("dirt"):
+		dirt = Dirt.new()
+		dirt.setup(DESIGN_SIZE, data["dirt"], data.get("holes", []))
+		add_child(dirt)
+	if data.has("exit"):
+		door = ExitDoor.new()
+		door.position = _vec(data["exit"]["pos"])
+		add_child(door)
+		move_child(door, get_children().find(hero))
 
 	var glint := 0.0
 	for p in data.get("pins", []):
@@ -134,7 +168,7 @@ func build(level_data: Dictionary) -> void:
 	zone.collision_layer = 0
 	zone.collision_mask = Substances.LAYER_ITEMS | Substances.LAYER_ENEMY
 	zone.monitorable = false
-	var zr := _rect(data["hero"]["zone"])
+	var zr := _rect(data["hero"]["zone"]) if not door else Rect2(hero.position + WALK_ZONE.position, WALK_ZONE.size)
 	var zshape := RectangleShape2D.new()
 	zshape.size = zr.size
 	var zcs := CollisionShape2D.new()
@@ -143,6 +177,8 @@ func build(level_data: Dictionary) -> void:
 	zone.add_child(zcs)
 	zone.body_entered.connect(func(b: Node2D) -> void: _zone_hits.append(b))
 	add_child(zone)
+	_zone = zone
+	_zone_origin = hero.position
 
 	var fluid_count := 0
 	for fill in data.get("fills", []):
@@ -178,6 +214,7 @@ func pull_pin(pin: Pin) -> void:
 		return
 	pin.pull()
 	_pulled.append(pin.id)
+	_acted = true
 	fx.ring(pin.position, Pin.GOLD, 42.0)
 	_wake_all()
 	pin_pulled.emit(pin)
@@ -210,6 +247,15 @@ func report_contact(other: Node, source: Node) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if finished:
 		return
+	if dirt:
+		if event is InputEventScreenTouch and not event.pressed:
+			_dig_from = null
+		elif event is InputEventScreenDrag and _dig_from != null:
+			var q: Vector2 = make_input_local(event).position
+			dig(_dig_from, q)
+			_dig_from = q
+			get_viewport().set_input_as_handled()
+			return
 	if not (event is InputEventScreenTouch and event.pressed):
 		return
 	var p: Vector2 = make_input_local(event).position
@@ -225,6 +271,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	if best:
 		pull_pin(best)
 		get_viewport().set_input_as_handled()
+	elif dirt:
+		_dig_from = p
+		dig(p, p)
+		get_viewport().set_input_as_handled()
+
+
+## Выкопать землю по отрезку a→b (палец или DevRunner).
+func dig(a: Vector2, b: Vector2) -> void:
+	if finished or dirt == null:
+		return
+	if dirt.carve(a, b):
+		_acted = true
+		_wake_all()
+		dug.emit(b)
+
+
+## DevRunner: сценарий ходов закончился — дальше без победы считается «застряли».
+func actions_done() -> void:
+	if _stuck_timer < 0.0:
+		_stuck_timer = 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -239,6 +305,8 @@ func _physics_process(delta: float) -> void:
 		for b in hits:
 			_on_zone_hit(b)
 	_process_cooling(delta)
+	_check_drowning(delta)
+	_walk(delta)
 	_cull_fallen()
 	_update_outcome(delta)
 
@@ -399,8 +467,15 @@ func _update_outcome(delta: float) -> void:
 	if finished:
 		return
 	_since_collect += delta
-	# до первого засова уровень не решается, даже если собирать нечего
-	if _pulled.is_empty():
+	# до первого хода уровень не решается, даже если собирать нечего
+	if not _acted:
+		return
+	if door:
+		# уровень с дверью выигрывается только у двери (_walk); здесь — «застряли»
+		if _stuck_timer >= 0.0:
+			_stuck_timer += delta
+			if _stuck_timer > STUCK_TIMEOUT:
+				_lose("stuck")
 		return
 	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe():
 		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
@@ -416,14 +491,102 @@ func _update_outcome(delta: float) -> void:
 			_lose("stuck")
 
 
+## Семья идёт к двери, пока впереди безопасно; у ямы, стены или опасности — ждёт.
+func _walk(delta: float) -> void:
+	if door == null or finished:
+		return
+	_walk_time += delta
+	var fam := hero as FamilyHero
+	var dir := signf(door.position.x - hero.position.x)
+	if absf(door.position.x - hero.position.x) < 10.0:
+		if fam:
+			fam.walking = false
+		door.open()
+		_win()
+		return
+	var moved := false
+	if _walk_time >= WALK_DELAY and not _hazard_ahead(dir):
+		var nx := hero.position.x + dir * WALK_SPEED * delta
+		var ground := _ground_y(nx + dir * 14.0, hero.position.y)
+		var dy := ground - hero.position.y
+		if dy > -STEP_UP and dy < STEP_DOWN and not _wall_ahead(dir):
+			hero.position = Vector2(nx, move_toward(hero.position.y, ground, 260.0 * delta + maxf(0.0, -dy) * 0.5))
+			moved = true
+	elif _walk_time >= WALK_DELAY:
+		hero.set_scared(true)
+	if fam:
+		fam.walking = moved
+	if moved:
+		_zone.position = hero.position - _zone_origin
+		if _stuck_timer > 0.0:
+			_stuck_timer = 0.0
+
+
+## Верх твёрдой опоры под x: стены, земля, засовы, камни. Жидкости и монеты не держат.
+func _ground_y(x: float, y: float) -> float:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(Vector2(x, y - 60.0), Vector2(x, y + 400.0),
+		Substances.LAYER_WORLD | Substances.LAYER_ITEMS)
+	var skip: Array[RID] = []
+	for i in 8:
+		q.exclude = skip
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return INF
+		var col: Object = hit["collider"]
+		if col is Item and (Substances.is_fluid(col.kind) or Substances.is_piece(col.kind)):
+			skip.append(hit["rid"])
+			continue
+		return hit["position"].y
+	return INF
+
+
+func _wall_ahead(dir: float) -> bool:
+	var space := get_world_2d().direct_space_state
+	for h in [40.0, 100.0]:
+		var from := hero.position + Vector2(0, -h)
+		var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(dir * 34.0, 0), Substances.LAYER_WORLD)
+		if not space.intersect_ray(q).is_empty():
+			return true
+	return false
+
+
+func _hazard_ahead(dir: float) -> bool:
+	for item in items:
+		if Substances.is_deadly(item.kind) and not item.removed:
+			var dx := (item.position.x - hero.position.x) * dir
+			var dy := item.position.y - hero.position.y
+			if dx > -30.0 and dx < 130.0 and dy > -200.0 and dy < 30.0:
+				return true
+	for e in enemies:
+		if e.alive:
+			var dx := (e.position.x - hero.position.x) * dir
+			if dx > -30.0 and dx < 170.0 and absf(e.position.y - hero.position.y) < 200.0:
+				return true
+	return false
+
+
+## Вода поднялась до голов семьи и стоит там — семья тонет (только семейные уровни).
+func _check_drowning(delta: float) -> void:
+	if finished or not data.get("family", false):
+		return
+	var head := hero.position + Vector2(0, -DROWN_HEAD)
+	var n := 0
+	for item in items:
+		if item.kind == Substances.Kind.WATER and not item.removed \
+				and absf(item.position.x - head.x) < DROWN_HALF_WIDTH \
+				and item.position.y > head.y - 12.0 and item.position.y < head.y + 40.0 \
+				and item.linear_velocity.length() < DROWN_SPEED:
+			n += 1
+	_drown_time = _drown_time + delta if n >= DROWN_DROPS else 0.0
+	if _drown_time >= DROWN_TIME:
+		_lose("water")
+
+
 func _family_safe() -> bool:
 	if not data.get("family", false):
 		return true
-	# ponytail: the first acts keep both characters in one shared rescue zone.
-	# Split this into per-character zones only when a level separates the family.
-	if _pulled.size() != pins.size():
-		_goal_time = -1.0
-		return false
+	# Не все засовы обязательны: хватает собранного золота и отсутствия летящей опасности.
 	for item in items:
 		if _alive(item) and Substances.is_deadly(item.kind) and item.linear_velocity.length() > 12.0:
 			_goal_time = -1.0
@@ -489,6 +652,9 @@ func _stars_for(n: int) -> int:
 
 func _on_pin_out(_pin: Pin) -> void:
 	_wake_all()
+	# где можно копать, игрок ещё не исчерпал ходы: «застряли» не объявляем
+	if dirt or door:
+		return
 	for pin in pins:
 		if not pin.pulled:
 			return

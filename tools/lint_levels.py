@@ -44,7 +44,8 @@ RELICS = {"star_mushroom", "phoenix_feather", "moon_dew", "dragon_scale", "frog_
 ENEMY_KINDS = {"slime", "magma"}
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
-            "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal",
+            "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
+            "dirt", "holes", "strokes", "exit",
             "solution", "fails", "verify"}
 
 
@@ -347,8 +348,27 @@ def _lint(d, path, index, rep):
                 rep.err(f"pin '{p['id']}': handle {p['from']} is inside the tower rect")
             elif tx - HANDLE_R < hx < tx + tw + HANDLE_R and ty - HANDLE_R < hy < ty + th + HANDLE_R:
                 rep.warn(f"pin '{p['id']}': handle ring overlaps the tower rect")
+    # мазки пальцем по земле — такие же ходы, как засовы
+    strokes = d.get("strokes", {})
+    if not isinstance(strokes, dict):
+        rep.err("strokes must be an object {name: [[x, y], ...]}")
+        strokes = {}
+    for name, pts in strokes.items():
+        if name in pin_ids:
+            rep.err(f"stroke '{name}' has the same id as a pin")
+        if not isinstance(pts, list) or not pts or not all(is_point(q) for q in pts):
+            rep.err(f"stroke '{name}' must be a list of [x, y] points")
+        pin_ids.append(name)
+    if strokes and "dirt" not in d:
+        rep.err("strokes need dirt to dig")
+    for key in ("dirt", "holes"):
+        for i, sh in enumerate(d.get(key, [])):
+            if not isinstance(sh, dict) or not (is_rect(sh.get("rect")) or "poly" in sh or "circle" in sh):
+                rep.err(f"{key}[{i}]: needs rect [x, y, w, h], poly or circle [x, y, r]")
+    if "exit" in d and not (isinstance(d["exit"], dict) and is_point(d["exit"].get("pos"))):
+        rep.err("exit must be {\"pos\": [x, y]}")
     if not pin_ids:
-        rep.err("a level needs at least one pin")
+        rep.err("a level needs at least one pin or stroke")
     elif len(pin_ids) > MAX_PINS:
         rep.err(f"{len(pin_ids)} pins (max {MAX_PINS})")
 

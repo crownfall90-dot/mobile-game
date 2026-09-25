@@ -1,32 +1,131 @@
 class_name FamilyHero
 extends Hero
 ## Shared art for the apartment and rescue puzzles; Hero still owns animation and collision.
+## Мультяшные реакции 0+: дрожат при опасности, при неудаче падают без сил — копоть от лавы,
+## пузыри в воде, зелёные пузырьки от кислоты, слизь от слизня; над головами кружат звёздочки.
 
 const FAMILY_WORN = preload("res://art/home/family_worn.png")
 const FAMILY_HAPPY = preload("res://art/home/family_happy.png")
 const FAMILY_CLOTHED = preload("res://art/home/family_clothed.png")
+const HEIGHT := 148.0
+const FALL_ANGLE := -1.25        # лежат на боку, ногами к месту, где стояли
+const TINT := {
+	"lava": Color(0.58, 0.47, 0.45),
+	"acid": Color(0.78, 1.0, 0.72),
+	"water": Color(0.72, 0.86, 1.0),
+	"enemy": Color(0.9, 0.8, 1.0),
+}
+const SWEAT := Color("8ce6ff")
+const STAR := Color("ffd84a")
+const BUBBLE := Color(0.8, 0.95, 1.0, 0.9)
 
 var stage := 0
+var walking := false
+var _fall := 0.0
+var _fall_tw: Tween
+
+
+func oops(why: String) -> void:
+	super.oops(why)
+	reason = why if why in ["lava", "acid", "enemy", "stuck", "water"] else "stuck"
+	walking = false
+	_live = true
+	if _fall_tw:
+		_fall_tw.kill()
+	_fall_tw = create_tween()
+	_fall_tw.tween_interval(0.25)
+	_fall_tw.tween_property(self, "_fall", 1.0, 0.55).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	if _rig:
+		_rig.modulate = TINT.get(reason, Color.WHITE)
+		_rig.queue_redraw()
+
+
+func set_scared(value: bool) -> void:
+	super.set_scared(value)
+	_live = mood == Mood.SCARED or mood == Mood.OOPS or mood == Mood.HAPPY
+
+
+func celebrate() -> void:
+	super.celebrate()
+	walking = false
+	_live = true
+
+
+func _process(delta: float) -> void:
+	super._process(delta)
+	if walking:
+		_rig.position.y -= absf(sin(_t * 9.0)) * 5.0
+		_rig.rotation = sin(_t * 9.0) * 0.04
+	else:
+		_rig.rotation = FALL_ANGLE * _fall
+	# при падении они ещё и оседают: ноги остаются на полу
+	_rig.position.y += _fall * 10.0
+	if _fall > 0.0 and _fall < 1.0:
+		_shadow.queue_redraw()
 
 
 func _paint(ci: CanvasItem) -> void:
 	_drawn_k = Pen.pixel_scale(self)
 	var picture: Texture2D = FAMILY_CLOTHED if stage == 3 else (FAMILY_HAPPY if stage >= 2 else FAMILY_WORN)
-	var height := 148.0
-	var width := height * picture.get_width() / picture.get_height()
-	ci.draw_texture_rect(picture,Rect2(-width * 0.5,-height,width,height),false)
+	var width := HEIGHT * picture.get_width() / picture.get_height()
+	ci.draw_texture_rect(picture, Rect2(-width * 0.5, -HEIGHT, width, HEIGHT), false)
 
 
 func _paint_fx(ci: CanvasItem) -> void:
-	if mood != Mood.HAPPY:
-		return
 	Pen.begin(ci)
-	Pen.sparkle(Vector2(-57,-91),6,Color("ffd88b"))
-	Pen.sparkle(Vector2(66,-64),5,Color("ffd88b"))
+	match mood:
+		Mood.HAPPY:
+			Pen.sparkle(Vector2(-57, -91), 6, Color("ffd88b"))
+			Pen.sparkle(Vector2(66, -64), 5, Color("ffd88b"))
+			for i in 4:
+				var ph := fmod(_t * 0.5 + i * 0.25, 1.0)
+				Pen.sparkle(Vector2(-60.0 + i * 40.0, -150.0 - ph * 40.0), 4.0 + 3.0 * (1.0 - ph),
+					Color(1.0, 0.85, 0.45, 1.0 - ph))
+		Mood.SCARED:
+			for s: float in [-1.0, 1.0]:
+				var ph := fmod(_t * 1.6 + (0.5 if s > 0.0 else 0.0), 1.0)
+				_drop(Vector2(30.0 * s, -128.0 + ph * 22.0), 3.0, Color(SWEAT, 1.0 - ph))
+			Pen.pline(PackedVector2Array([Vector2(-8, -165), Vector2(0, -180), Vector2(8, -165)]), Color("ff6b5b"), 3.0)
+			Pen.disc(Vector2(0, -158), 2.5, Color("ff6b5b"))
+		Mood.OOPS:
+			_paint_down()
 	Pen.end()
+
+
+## Эффекты поверх упавшей семьи: головы после поворота — сбоку от ступней.
+func _paint_down() -> void:
+	var head := Vector2(0, -HEIGHT * 0.78).rotated(FALL_ANGLE * _fall) + Vector2(0, _fall * 10.0)
+	match reason:
+		"lava":
+			for i in 4:
+				var ph := fmod(_t * 0.6 + i / 4.0, 1.0)
+				Pen.disc(head + Vector2(sin(ph * 6.0 + i) * 8.0 + i * 12.0 - 18.0, -20.0 - ph * 60.0),
+					5.0 + ph * 10.0, Color(SMOKE, (1.0 - ph) * 0.7))
+		"water":
+			for i in 6:
+				var ph := fmod(_t * 0.9 + i * 0.29, 1.0)
+				Pen.ring(head + Vector2(-25.0 + i * 10.0 + sin(ph * 7.0 + i) * 4.0, -10.0 - ph * 70.0),
+					2.5 + ph * 3.0, Color(BUBBLE, 1.0 - ph), 1.8)
+		"acid":
+			for i in 5:
+				var ph := fmod(_t * 0.8 + i * 0.37, 1.0)
+				Pen.ring(head + Vector2(-24.0 + i * 12.0 + sin(ph * 8.0 + i) * 3.0, -10.0 - ph * 55.0),
+					2.0 + ph * 2.5, Color(0.71, 1.0, 0.42, 1.0 - ph), 1.5)
+		"enemy":
+			for d: Vector3 in [Vector3(-14, -6, 10), Vector3(4, -12, 13), Vector3(20, -4, 9)]:
+				Pen.disc(head + Vector2(d.x, d.y), d.z, GOO)
+		"stuck":
+			for s: float in [-1.0, 1.0]:
+				var ty := fmod(_t * 0.9 + (0.5 if s > 0.0 else 0.0), 1.0)
+				_drop(head + Vector2(10.0 * s, ty * 14.0), 2.6, Color(TEAR, 1.0 - ty))
+			return
+	# кружащиеся звёздочки: им плохо, но они живы
+	for i in 3:
+		var a := _t * 3.0 + i * TAU / 3.0
+		Pen.sparkle(head + Vector2(cos(a) * 30.0, -26.0 + sin(a) * 9.0), 5.0, STAR)
 
 
 func _paint_shadow(ci: CanvasItem) -> void:
 	Pen.begin(ci)
-	Pen.soft(Pen.oval(Vector2(4,0),Vector2(62,10)),Color(0,0,0,0.19))
+	Pen.soft(Pen.oval(Vector2(4 - _fall * 40.0, 0), Vector2(62 + _fall * 30.0, 10)), Color(0, 0, 0, 0.19))
 	Pen.end()
