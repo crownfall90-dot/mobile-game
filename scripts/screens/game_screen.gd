@@ -16,6 +16,7 @@ const BG_SHADER := preload("res://shaders/background.gdshader")
 const RESULT_DELAY := 1.0   # героиня празднует или пугается, потом окно итога
 const LOSE_REASONS: PackedStringArray = ["lava", "acid", "enemy", "stuck", "water", "blocked"]
 
+var _dug_ms := 0
 var level: Level
 var level_id := ""
 var mods: Dictionary = {}
@@ -114,6 +115,7 @@ func restart() -> void:
 	level.build(_data)
 	level.gold_changed.connect(_hud.set_gold)
 	level.pin_pulled.connect(_on_pin_pulled)
+	level.dug.connect(_on_dug)
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
@@ -122,7 +124,10 @@ func restart() -> void:
 	# обучение «рука»: показать первый засов решения
 	var sol: Array = _data.get("solution", [])
 	if not dev and str(_data.get("tutorial", "")) == "hand" and not sol.is_empty():
-		level.set_hint_pin(str(sol[0]))
+		if level.has_strokes():
+			level.show_dig_hint(sol)
+		else:
+			level.set_hint_pin(str(sol[0]))
 	level_ready.emit(level)
 
 
@@ -153,6 +158,16 @@ func _on_pin_pulled(_pin: Pin) -> void:
 	_hud.hide_hint()
 	if str(_data.get("tutorial", "")) == "hand":
 		level.set_hint_pin("")
+
+
+## Копание: мягкий шорох (стук камешка) и лёгкая вибрация не чаще раза в 0,12 с.
+func _on_dug(_pos: Vector2) -> void:
+	_hud.hide_hint()
+	var now := Time.get_ticks_msec()
+	if now - _dug_ms > 120:
+		_dug_ms = now
+		Sfx.play(&"stone_tock")
+		Sfx.haptic(6)
 
 
 func _on_won(stars: int) -> void:
@@ -281,6 +296,15 @@ func _layout() -> void:
 
 func _hint() -> void:
 	if level == null or level.finished:
+		return
+	if level.has_strokes():
+		# копать можно где угодно: показываем весь путь решения, засовы — кольцом
+		var order: Array = Game.winning_orders(level_id)[0] if not Game.winning_orders(level_id).is_empty() else []
+		level.show_dig_hint(order)
+		for id in order:
+			if level.pin_by_id(str(id)) and not level.pin_by_id(str(id)).pulled:
+				level.set_hint_pin(str(id))
+				break
 		return
 	var pulled := level.pulled_ids()
 	for order in Game.winning_orders(level_id):
