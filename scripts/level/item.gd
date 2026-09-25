@@ -39,6 +39,8 @@ func set_kind(k: int) -> void:
 	if contact_monitor != active:
 		contact_monitor = active
 	max_contacts_reported = 3 if active else 0
+	# быстрые капли (гравитация 1800) иначе проскакивают тонкий засов
+	continuous_cd = RigidBody2D.CCD_MODE_CAST_RAY if Substances.is_fluid(k) else RigidBody2D.CCD_MODE_DISABLED
 	# монеты не вращают картинку вместе с телом: блик всегда сверху-слева
 	material = ItemArt.upright_material() if Substances.is_piece(k) else null
 	visible = not Substances.is_fluid(k)
