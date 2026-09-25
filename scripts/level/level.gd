@@ -93,6 +93,7 @@ var _zone_origin := Vector2.ZERO
 var _acted := false          # был ли первый ход: засов или копание
 var _dig_from = null         # Vector2 последней точки пальца, null — палец не копает
 var _walk_time := 0.0
+var _dig_hint: DigHint = null
 var _stuck_timer := -1.0
 var _drown_time := 0.0
 var _shake := 0.0
@@ -229,6 +230,27 @@ func pulled_ids() -> PackedStringArray:
 func set_hint_pin(pin_id: String) -> void:
 	for pin in pins:
 		pin.set_hint(pin_id != "" and pin.id == pin_id and not pin.pulled)
+	if _dig_hint and pin_id == "":
+		_dig_hint.set_paths([])
+
+
+## Подсказка копания: палец проходит по мазкам решения (ids из "strokes") по очереди.
+func show_dig_hint(ids: Array) -> void:
+	var strokes: Dictionary = data.get("strokes", {})
+	var paths: Array = []
+	for id in ids:
+		if strokes.has(str(id)):
+			paths.append(strokes[str(id)])
+	if paths.is_empty():
+		return
+	if _dig_hint == null:
+		_dig_hint = DigHint.new()
+		add_child(_dig_hint)
+	_dig_hint.set_paths(paths)
+
+
+func has_strokes() -> bool:
+	return not data.get("strokes", {}).is_empty()
 
 
 ## Итог уровня: {won, stars, pieces, pieces_total, needed, coins_pieces, gems, relic, reason}.
@@ -282,6 +304,8 @@ func dig(a: Vector2, b: Vector2) -> void:
 	if finished or dirt == null:
 		return
 	if dirt.carve(a, b):
+		if _dig_hint and _dig_hint.visible and not _acted:
+			_dig_hint.set_paths([])
 		_acted = true
 		_wake_all()
 		dug.emit(b)
