@@ -4,7 +4,7 @@
     {
       "id": "apartment",
       "n": 1,
-      "title": "Наша квартира",
+      "title": "Первый акт",
       "theme": "home",
       "levels": [
         "home_01",
@@ -16,7 +16,16 @@
         "home_07",
         "home_08",
         "home_09",
-        "home_10"
+        "home_10",
+        "home_11",
+        "home_12",
+        "home_13",
+        "home_14",
+        "home_15",
+        "home_16",
+        "home_17",
+        "home_18",
+        "home_19"
       ]
     }
   ]

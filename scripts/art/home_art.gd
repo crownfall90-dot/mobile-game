@@ -52,7 +52,7 @@ func _draw() -> void:
 	if area == "flat":
 		var mask := 0
 		for i in 10:
-			if repaired.has(Home.TASKS[i].id):
+			if repaired.has(Home.OLD_ORDER[i]):
 				mask |= 1 << i
 		if _image:
 			(_image.material as ShaderMaterial).set_shader_parameter("repair_mask",mask)

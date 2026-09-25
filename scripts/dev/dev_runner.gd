@@ -66,8 +66,9 @@ func run(flags: Dictionary) -> void:
 	if profile:
 		profile.set(&"volatile", true)
 	if flags.has("home-stage"):
-		for i in mini(int(flags["home-stage"]), 10):
-			Profile.set_flag("home." + Home.TASKS[i].id)
+		Home.migrate()
+		for i in mini(int(flags["home-stage"]), Home.total()):
+			Profile.set_flag("home." + Home.tasks()[i]["id"])
 	if flags.has("home-items"):
 		for id in str(flags["home-items"]).split(",", false):
 			Profile.grant(id)
