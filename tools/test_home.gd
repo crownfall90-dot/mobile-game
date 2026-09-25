@@ -39,8 +39,18 @@ static func run() -> void:
 	assert(profile.coins() == 0)
 	assert(not profile.owns("vita_plant"))
 	assert(not profile.setting("music"))
+	# битый save.json после сброса: из save.bak должен вернуться сброшенный прогресс, а не старый
+	var f := FileAccess.open(temp, FileAccess.WRITE)
+	f.store_string("{broken")
+	f.close()
+	profile.data = profile.defaults()
+	profile.load()
+	assert(Home.completed() == 0)
+	assert(profile.coins() == 0)
+	assert(not profile.owns("vita_plant"))
 	profile.volatile = true
 	profile.save_path = old_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp.get_basename() + ".bak"))
 	print("HOME SELF-CHECK OK")
 	(Engine.get_main_loop() as SceneTree).quit(0)
