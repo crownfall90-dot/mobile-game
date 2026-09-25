@@ -499,9 +499,10 @@ func _update_outcome(delta: float) -> void:
 	if not _acted:
 		return
 	if door:
-		# уровень с дверью выигрывается только у двери (_walk); здесь — «застряли»
+		# уровень с дверью выигрывается только у двери (_walk); здесь — «застряли»,
+		# но только когда всё успокоилось: вода может долго бежать по длинному ходу
 		if _stuck_timer >= 0.0:
-			_stuck_timer += delta
+			_stuck_timer = 0.0 if _anything_moving() else _stuck_timer + delta
 			if _stuck_timer > STUCK_TIMEOUT:
 				_lose("blocked")
 		return
@@ -756,6 +757,13 @@ func _danger_near() -> bool:
 			return true
 	for item in items:
 		if Substances.is_deadly(item.kind) and item.position.distance_squared_to(head) < d2:
+			return true
+	return false
+
+
+func _anything_moving() -> bool:
+	for item in items:
+		if not item.removed and not item.sleeping and item.linear_velocity.length() > 25.0:
 			return true
 	return false
 
