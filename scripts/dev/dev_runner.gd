@@ -13,7 +13,8 @@ extends Node
 ##   --jitter=<seed>       ±1 px к каждому телу и ±15% к паузам из этого seed; 0 — выкл.
 ##   --mods=golden         «Золотая лихорадка»: золото становится самоцветами
 ##   --json                напечатать итог строкой RESULT_JSON {...}
-##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию;
+##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию
+##                         (или --screen-args=ключ:значение,…, например repaired:room_wall);
 ##                         без окна и без --shot — выйти через 30 кадров: RESULT: SCREEN <имя> ok|FAIL
 ##   --shot=путь.png@сек   сохранить скриншот через столько секунд (нужно окно, не headless)
 ##   --smoke               открыть по очереди все готовые экраны и попапы, потом сыграть первый
@@ -342,7 +343,13 @@ func _open_screen(screen_name: String) -> void:
 func _screen_args(sn: StringName) -> Dictionary:
 	if sn == &"game":
 		return {"id": _resolve_level(str(_flags.get("level", ""))), "mods": _flags.get("mods", {})}
-	return {}
+	# --screen-args=repaired:room_wall,location:kitchen — аргументы экрана для проверок хаба
+	var args := {}
+	for pair in str(_flags.get("screen-args", "")).split(",", false):
+		var kv := pair.split(":", true, 1)
+		if kv.size() == 2:
+			args[kv[0]] = kv[1]
+	return args
 
 
 func _registry(key: StringName) -> Dictionary:
