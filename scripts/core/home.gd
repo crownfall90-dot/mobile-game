@@ -1,29 +1,15 @@
 class_name Home
 extends RefCounted
-## A single ordered catalog ties repairs to levels. Profile owns persistence.
+## Первый акт: 4 локации открываются по очереди (data/act1.json), в каждой — свои ремонты.
+## Внутри открытой локации игрок сам выбирает, что чинить; одна победа чинит ровно одну цель.
+## Прогресс — флаги Profile "home.<id цели>". Profile отвечает за сохранение.
 
-const TASKS := [
-	{"id":"tv", "name":"Телевизор", "title":"Первый лучик радости", "text":"Пусть у дочки снова будут любимые мультики.", "level":"home_01"},
-	{"id":"light", "name":"Свет", "title":"Тёплый свет", "text":"По вечерам дома больше не будет темно.", "level":"home_02"},
-	{"id":"window", "name":"Окно", "title":"Больше никаких сквозняков", "text":"Поможем семье сохранить тепло.", "level":"home_03"},
-	{"id":"bed", "name":"Кровать", "title":"Спокойной ночи", "text":"Мягкая постель для маленьких снов.", "level":"home_04"},
-	{"id":"sofa", "name":"Диван", "title":"Рядом с мамой", "text":"Уютный уголок для сказок и объятий.", "level":"home_05"},
-	{"id":"kitchen", "name":"Кухня", "title":"Завтрак дома", "text":"Чистая кухня и горячий ужин для двоих.", "level":"home_06"},
-	{"id":"bath", "name":"Ванна", "title":"Тёплая вода", "text":"Починим ванну и уберём ржавчину.", "level":"home_07"},
-	{"id":"toilet", "name":"Санузел", "title":"Забота каждый день", "text":"В маленьком санузле всё должно работать.", "level":"home_08"},
-	{"id":"walls", "name":"Стены", "title":"Цвет нового начала", "text":"Светлые стены изменят всю квартиру.", "level":"home_09"},
-	{"id":"floor", "name":"Пол", "title":"Наш счастливый дом", "text":"Последний штрих: тёплый пол и мягкий ковёр.", "level":"home_10"},
-	{"id":"house_door", "slot":"tv", "area":"house", "name":"Входная дверь", "title":"Снова в безопасности", "text":"Починим дверь после ограбления.", "level":"house_01"},
-	{"id":"house_light", "slot":"light", "area":"house", "name":"Свет в доме", "title":"Тьма отступает", "text":"Вернём свет в наш новый дом.", "level":"house_02"},
-	{"id":"house_kitchen", "slot":"kitchen", "area":"house", "name":"Камин и кухня", "title":"Тепло большого дома", "text":"Починим очаг и снова соберёмся за ужином.", "level":"house_03"},
-	{"id":"house_sofa", "slot":"sofa", "area":"house", "name":"Гостиная", "title":"Место для всей семьи", "text":"Восстановим просторную гостиную.", "level":"house_04"},
-	{"id":"house_bed", "slot":"bed", "area":"house", "name":"Спальня", "title":"Новые мечты", "text":"У дочки будет собственный уютный уголок.", "level":"house_05"},
-	{"id":"house_bath", "slot":"bath", "area":"house", "name":"Ванная", "title":"Дом снова наш", "text":"Последний ремонт в доме. Дальше — во двор!", "level":"house_06"},
-	{"id":"yard_gate", "slot":"gate", "area":"yard", "name":"Ворота", "title":"Добро пожаловать", "text":"Восстановим ворота нашего участка.", "level":"yard_01"},
-	{"id":"yard_path", "slot":"path", "area":"yard", "name":"Дорожка", "title":"Дорога домой", "text":"Уложим дорожку от ворот к крыльцу.", "level":"yard_02"},
-	{"id":"yard_garden", "slot":"garden", "area":"yard", "name":"Сад", "title":"Пусть всё расцветает", "text":"Маленькая дочь мечтает о своём саде.", "level":"yard_03"},
-	{"id":"yard_bench", "slot":"bench", "area":"yard", "name":"Зона отдыха", "title":"Вместе под открытым небом", "text":"Место для чая, сказок и счастливых вечеров.", "level":"yard_04"},
-]
+const DATA_PATH := "res://data/act1.json"
+# Старый первый акт (10 ремонтов по порядку): переносим число сделанных ремонтов.
+const OLD_ORDER := ["tv", "light", "window", "bed", "sofa", "kitchen", "bath", "toilet", "walls", "floor"]
+
+static var _data: Dictionary = {}
+static var _tasks: Array = []
 
 const SHOP := [
 	{"id":"vita_plant", "name":"Зелёный друг", "text":"Растение для дома", "price":120},
@@ -33,49 +19,142 @@ const SHOP := [
 ]
 
 
-static func completed() -> int:
-	var n := 0
-	for task in TASKS:
-		if not Profile.flag("home." + task.id):
+static func data() -> Dictionary:
+	if _data.is_empty():
+		var f := FileAccess.open(DATA_PATH, FileAccess.READ)
+		_data = JSON.parse_string(f.get_as_text()) if f else {}
+		for loc in _data.get("locations", []):
+			for t in loc["targets"]:
+				t["loc"] = loc["id"]
+				_tasks.append(t)
+	return _data
+
+
+static func locations() -> Array:
+	return data().get("locations", [])
+
+
+## Все цели по порядку локаций: {id, name, title, text, level, rect, loc, ...}.
+static func tasks() -> Array:
+	data()
+	return _tasks
+
+
+static func location(loc_id: String) -> Dictionary:
+	for loc in locations():
+		if loc["id"] == loc_id:
+			return loc
+	return {}
+
+
+static func task(task_id: String) -> Dictionary:
+	for t in tasks():
+		if t["id"] == task_id:
+			return t
+	return {}
+
+
+static func is_done(task_id: String) -> bool:
+	migrate()
+	return Profile.flag("home." + task_id)
+
+
+static func location_done(loc_id: String) -> bool:
+	for t in location(loc_id).get("targets", []):
+		if not is_done(t["id"]):
+			return false
+	return true
+
+
+## Сколько локаций открыто: первая всегда, следующая — когда готова предыдущая.
+static func unlocked_count() -> int:
+	var n := 1
+	var locs := locations()
+	for i in range(locs.size() - 1):
+		if not location_done(locs[i]["id"]):
 			break
 		n += 1
 	return n
 
 
+static func is_unlocked(loc_id: String) -> bool:
+	var locs := locations()
+	for i in unlocked_count():
+		if locs[i]["id"] == loc_id:
+			return true
+	return false
+
+
+## Последняя открытая локация — туда hub ведёт по умолчанию.
+static func current_location() -> String:
+	return str(locations()[unlocked_count() - 1]["id"])
+
+
+static func completed() -> int:
+	var n := 0
+	for t in tasks():
+		if is_done(t["id"]):
+			n += 1
+	return n
+
+
+static func total() -> int:
+	return tasks().size()
+
+
+## Первая несделанная цель в текущей локации (для подсказки «с чего начать»).
 static func next_task() -> Dictionary:
-	var n := completed()
-	return TASKS[n] if n < TASKS.size() else {}
-
-
-static func task_for_level(id: String) -> Dictionary:
-	for task in TASKS:
-		if task.level == id:
-			return task
+	for t in location(current_location()).get("targets", []):
+		if not is_done(t["id"]):
+			return t
 	return {}
 
 
+static func task_for_level(id: String) -> Dictionary:
+	for t in tasks():
+		if t["level"] == id:
+			return t
+	return {}
+
+
+## Победа в уровне цели чинит её, если локация открыта и цель ещё сломана. Возвращает id цели.
 static func finish(level_id: String, won: bool) -> String:
-	var task := next_task()
-	if not won or task.is_empty() or task.level != level_id:
+	var t := task_for_level(level_id)
+	if not won or t.is_empty() or is_done(t["id"]) or not is_unlocked(t["loc"]):
 		return ""
-	Profile.set_flag("home." + task.id)
-	# Persist before the result animation; closing the app cannot lose a repair.
+	Profile.set_flag("home." + t["id"])
+	# Сохраняем до анимации итога: закрытие игры не потеряет ремонт.
 	Profile.flush()
-	return task.id
+	return t["id"]
 
 
+## Настроение семьи по общему прогрессу: 0 устали, 1 надеются, 2 рады, 3 счастливы.
+static func mood() -> int:
+	var n := completed()
+	return 0 if n < 4 else (1 if n < 9 else (2 if n < 14 else 3))
+
+
+## Картинка семьи в головоломке и старых сценах: 3 — купленная одежда, 2 — радостные, иначе будни.
 static func stage() -> int:
 	if Profile.owns("vita_clothes"):
 		return 3
-	return 0 if completed() < 2 else (1 if completed() < 6 else 2)
+	return 2 if mood() >= 2 else (1 if mood() == 1 else 0)
 
 
-static func slot(task: Dictionary) -> String:
-	return str(task.get("slot",task.get("id","")))
-
-
-static func area(task: Dictionary) -> String:
-	return str(task.get("area","flat"))
+## Один раз переносит старый прогресс (10 ремонтов подряд) на столько же первых целей акта.
+static func migrate() -> void:
+	if Profile.flag("home.v2"):
+		return
+	Profile.set_flag("home.v2")
+	var old := 0
+	for id in OLD_ORDER:
+		if not Profile.flag("home." + id):
+			break
+		old += 1
+	var list := tasks()
+	for i in mini(old, list.size()):
+		Profile.set_flag("home." + list[i]["id"])
+	Profile.flush()
 
 
 static func buy(id: String) -> bool:
