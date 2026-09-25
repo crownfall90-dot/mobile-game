@@ -14,7 +14,7 @@ signal level_finished(result: Dictionary)
 
 const BG_SHADER := preload("res://shaders/background.gdshader")
 const RESULT_DELAY := 1.0   # героиня празднует или пугается, потом окно итога
-const LOSE_REASONS: PackedStringArray = ["lava", "acid", "enemy", "stuck"]
+const LOSE_REASONS: PackedStringArray = ["lava", "acid", "enemy", "stuck", "water", "blocked"]
 
 var level: Level
 var level_id := ""

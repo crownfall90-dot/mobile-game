@@ -25,6 +25,7 @@ var _res_sub: Label
 var _stars: StarRow
 var _res_button: Button
 var _won := false
+var _res_home: Button
 
 
 func _ready() -> void:
@@ -80,7 +81,8 @@ func show_result(won: bool, stars: int, text: String) -> void:
 	_res_title.text = Loc.t("level.won") if won else Loc.t("level.lost")
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
-	_res_button.text = "Вернуться домой" if won else Loc.t("common.retry")
+	_res_button.text = "Хорошо" if won else Loc.t("common.retry")
+	_res_home.visible = not won
 	_stars.visible = won
 	_stars.set_stars(0)
 	_overlay.visible = true
@@ -216,9 +218,9 @@ func _build_overlay() -> void:
 	_res_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	_res_button.pressed.connect(_on_result_button)
 	col.add_child(_res_button)
-	var home := UiKit.button("В квартиру", &"secondary")
-	col.add_child(home)
-	home.pressed.connect(func() -> void: home_requested.emit())
+	_res_home = UiKit.button("Домой", &"secondary")
+	col.add_child(_res_home)
+	_res_home.pressed.connect(func() -> void: home_requested.emit())
 
 
 func _on_result_button() -> void:

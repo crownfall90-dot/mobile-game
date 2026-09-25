@@ -117,23 +117,56 @@ func _draw() -> void:
 	Pen.end()
 
 
+## Купленный декор: крупно и на свободных местах, не за героинями (координаты 720×1280).
+const DECOR_SLOTS := {
+	"vita_plant": Rect2(22, 1000, 118, 190),
+	"vita_teddy": Rect2(566, 1030, 136, 142),
+	"vita_picture": Rect2(452, 118, 118, 96),
+}
+
+
 func _paint_overlay(ci: CanvasItem) -> void:
+	for id in DECOR_SLOTS:
+		if Profile.owns(id):
+			draw_decor(ci, id, DECOR_SLOTS[id])
 	Pen.begin(ci)
-	if Profile.owns("vita_plant"):
-		Pen.blob(Pen.rrect(Rect2(642,612,36,35),5),Color("ad7450"),1,Color("654a38"))
-		Pen.line(Vector2(660,612),Vector2(660,550),Color("4b7650"),4)
-		for p in [Vector2(646,579),Vector2(672,566),Vector2(647,553),Vector2(676,590)]:
-			Pen.soft(Pen.oval(p,Vector2(19,8),20,0.3),Color("558963"))
-	if Profile.owns("vita_teddy"):
-		ci.draw_texture_rect(TEDDY,Rect2(604,772,92,96),false)
-	if Profile.owns("vita_picture"):
-		Pen.blob(Pen.rrect(Rect2(491,212,55,68),4),Color("9b6b43"),2)
-		Pen.soft(Pen.rrect(Rect2(497,218,43,56),2),Color("f4e8cc"))
-		Pen.dot(Vector2(509,238),7,Color("c98f78"),1)
-		Pen.dot(Vector2(529,245),6,Color("d7a78c"),1)
-		Pen.line(Vector2(507,258),Vector2(531,258),Color("729481"),7)
 	if highlight != "" and IMAGE_SLOTS.has(highlight):
 		Pen.loop(Pen.rrect(IMAGE_SLOTS[highlight].grow(4),14),Color("ffe7a1"),3)
+	Pen.end()
+
+
+## Рисует вещь магазина в прямоугольник r: в комнате и на карточке магазина.
+static func draw_decor(ci: CanvasItem, id: String, r: Rect2) -> void:
+	if id == "vita_teddy":
+		ci.draw_texture_rect(TEDDY, r, false)
+		return
+	if id == "vita_clothes":
+		var tex: Texture2D = load("res://art/home/family_clothed.png")
+		var w := r.size.y * tex.get_width() / tex.get_height()
+		ci.draw_texture_rect(tex, Rect2(r.get_center().x - w * 0.5, r.position.y, w, r.size.y), false)
+		return
+	# рисунки заданы в квадрате 100×100 и растягиваются в r
+	var xf := Transform2D(0.0, r.size / 100.0, 0.0, r.position)
+	Pen.begin(ci, xf)
+	match id:
+		"vita_plant":
+			for leaf in [[Vector2(50, 40), 0.0], [Vector2(30, 34), -0.7], [Vector2(70, 34), 0.7],
+					[Vector2(22, 52), -1.1], [Vector2(78, 52), 1.1], [Vector2(40, 18), -0.3], [Vector2(60, 18), 0.3]]:
+				Pen.blob(Pen.oval(leaf[0], Vector2(9, 20), 18, leaf[1]), Color("5fae62"), 1.6, Color("2f6b3a"))
+				Pen.line(leaf[0] + Vector2(0, 14).rotated(leaf[1]), Vector2(50, 66), Color("3f8a45"), 2.0)
+			Pen.blob(PackedVector2Array([Vector2(28, 64), Vector2(72, 64), Vector2(64, 98), Vector2(36, 98)]), Color("d9825a"), 2.0, Color("8a4a2e"))
+			Pen.blob(Pen.rrect(Rect2(24, 60, 52, 10), 3), Color("e89a6e"), 2.0, Color("8a4a2e"))
+		"vita_picture":
+			Pen.blob(Pen.rrect(Rect2(2, 2, 96, 96), 6), Color("b07a45"), 2.0, Color("6b4526"))
+			Pen.soft(Pen.rrect(Rect2(12, 12, 76, 76), 3), Color("bfe3f2"))
+			Pen.disc(Vector2(70, 30), 9, Color("ffd65a"))
+			Pen.soft(PackedVector2Array([Vector2(12, 88), Vector2(12, 66), Vector2(40, 58), Vector2(88, 70), Vector2(88, 88)]), Color("8fcf78"))
+			# мама и дочка держатся за руки
+			Pen.disc(Vector2(38, 42), 8, Color("f2c9a8"))
+			Pen.blob(PackedVector2Array([Vector2(30, 52), Vector2(46, 52), Vector2(50, 80), Vector2(26, 80)]), Color("c0506a"), 1.4, Color("6b2a3a"))
+			Pen.disc(Vector2(62, 56), 6, Color("f2c9a8"))
+			Pen.blob(PackedVector2Array([Vector2(56, 63), Vector2(68, 63), Vector2(71, 82), Vector2(53, 82)]), Color("4f86c6"), 1.4, Color("2a4a70"))
+			Pen.line(Vector2(47, 64), Vector2(56, 68), Color("f2c9a8"), 2.5)
 	Pen.end()
 
 
