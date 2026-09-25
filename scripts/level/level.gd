@@ -142,12 +142,18 @@ func build(level_data: Dictionary) -> void:
 	var walls := Walls.new()
 	if data.get("family", false):
 		walls.palette = [Color("9a6b4a"), Color("6e4a33"), Color("d8ac80")]
+		walls.pattern = "wood"
+		var skin := LevelSkin.wall_palette(str(data.get("theme", "")))
+		if not skin.is_empty():
+			walls.palette = [skin[0], skin[1], skin[2]]
+			walls.pattern = skin[3]
 	walls.setup(data.get("walls", []))
 	add_child(walls)
 
 	if data.has("dirt"):
 		dirt = Dirt.new()
 		dirt.setup(DESIGN_SIZE, data["dirt"], data.get("holes", []))
+		dirt.set_colors(LevelSkin.dirt_colors(str(data.get("theme", ""))))
 		dirt.rebuilt.connect(_wake_all)
 		add_child(dirt)
 	if data.has("exit"):

@@ -60,6 +60,17 @@ func setup(size: Vector2, shapes: Array, holes: Array) -> void:
 	add_child(_sprite)
 
 
+## Материал «грязи» по теме уровня: засор, пыль, нагар, лёд… [основной, тёмный, кромка, контур].
+func set_colors(cols: Array) -> void:
+	if cols.size() < 4 or _sprite == null:
+		return
+	var mat := _sprite.material as ShaderMaterial
+	mat.set_shader_parameter(&"soil", cols[0])
+	mat.set_shader_parameter(&"soil_dark", cols[1])
+	mat.set_shader_parameter(&"rim", cols[2])
+	mat.set_shader_parameter(&"outline", cols[3])
+
+
 func is_empty() -> bool:
 	return _count == 0
 

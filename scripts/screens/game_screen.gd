@@ -119,6 +119,8 @@ func restart() -> void:
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
+	if _attempt <= 1:
+		_hud.show_place(LevelSkin.place(str(_data.get("theme", ""))))
 	_world.modulate.a = 0.0
 	create_tween().tween_property(_world, "modulate:a", 1.0, 0.35)
 	# обучение «рука»: показать первый засов решения
