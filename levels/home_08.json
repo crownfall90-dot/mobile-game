@@ -2,12 +2,12 @@
  "format": 2,
  "id": "home_08",
  "floor": 1,
- "title": "Шкафы: две ямы",
+ "title": "Шкаф: две ямы",
  "hint": "Одного ручья мало — раздели воду на два",
  "tutorial": "",
  "intro": "",
  "hard": false,
- "theme": "kitchen",
+ "theme": "cabinet",
  "tower": {
   "rect": [
    130,

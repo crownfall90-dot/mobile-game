@@ -14,6 +14,8 @@ const SIEVE_HOLE := Color("56657a")
 
 ## Тёплое дерево для семейных уровней (комнаты квартиры); у башни Мирры — фиолетовый камень.
 var palette := [FILL_TOP, FILL_BOTTOM, EDGE]
+## Узор материала (LevelSkin): wood — волокна, pipe — блик и кольца стыков, tile/enamel — глянец.
+var pattern := "plain"
 
 var _polys: Array[PackedVector2Array] = []
 var _colors: Array[PackedColorArray] = []
@@ -67,6 +69,7 @@ func _draw() -> void:
 		var outline := pts.duplicate()
 		outline.append(pts[0])
 		draw_polyline(outline, palette[2], 2.0, true)
+		_draw_pattern(pts)
 	for pts in _sieves:
 		_draw_sieve(pts)
 
@@ -94,3 +97,43 @@ func _draw_sieve(pts: PackedVector2Array) -> void:
 	for k in range(1, n):
 		var p := a + dir * (18.0 * k) + (c - mid)
 		draw_circle(p, 3.0, SIEVE_HOLE)
+
+
+## Узор по длинной стороне «планки» (засова, полки, трубы). Большие блоки остаются гладкими.
+func _draw_pattern(pts: PackedVector2Array) -> void:
+	if pattern == "plain" or pts.size() < 3:
+		return
+	var a := pts[0]
+	var b := pts[1]
+	for i in pts.size():
+		var p := pts[i]
+		var q := pts[(i + 1) % pts.size()]
+		if p.distance_to(q) > a.distance_to(b):
+			a = p
+			b = q
+	var c := Vector2.ZERO
+	for p in pts:
+		c += p
+	c /= pts.size()
+	var along := (b - a).normalized()
+	var inward := along.orthogonal()
+	if inward.dot(c - a) < 0.0:
+		inward = -inward
+	var thick := absf((c - a).dot(inward)) * 2.0
+	if thick > 60.0 or thick < 6.0 or a.distance_to(b) < 30.0:
+		return
+	var light := (palette[2] as Color)
+	var dark := (palette[1] as Color).darkened(0.35)
+	match pattern:
+		"wood":
+			for k in [0.3, 0.68]:
+				draw_line(a + inward * thick * k + along * 6.0, b + inward * thick * k - along * 6.0, Color(dark, 0.35), 1.5, true)
+		"pipe":
+			draw_line(a + inward * thick * 0.28 + along * 4.0, b + inward * thick * 0.28 - along * 4.0, Color(light, 0.75), 3.0, true)
+			draw_line(a + inward * thick * 0.8 + along * 4.0, b + inward * thick * 0.8 - along * 4.0, Color(dark, 0.3), 2.0, true)
+			var n := int(a.distance_to(b) / 90.0)
+			for k in range(1, n + 1):
+				var m := a + along * (a.distance_to(b) * k / (n + 1))
+				draw_line(m + inward * 1.0, m + inward * (thick - 1.0), Color(dark, 0.45), 5.0, true)
+		"tile", "enamel":
+			draw_line(a + inward * thick * 0.25 + along * 6.0, b + inward * thick * 0.25 - along * 6.0, Color(1, 1, 1, 0.6), 3.0, true)

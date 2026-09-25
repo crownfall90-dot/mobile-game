@@ -2,12 +2,12 @@
  "format": 2,
  "id": "home_09",
  "floor": 1,
- "title": "Потолок: капель",
- "hint": "Веди воду зигзагом через щели между камнями",
+ "title": "Потолок: течь",
+ "hint": "Веди воду зигзагом между балками",
  "tutorial": "",
  "intro": "",
  "hard": false,
- "theme": "kitchen",
+ "theme": "ceiling",
  "tower": {
   "rect": [
    130,

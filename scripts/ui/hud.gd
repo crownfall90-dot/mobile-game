@@ -41,6 +41,34 @@ func set_safe_top(px: float) -> void:
 	_bar.offset_bottom = _bar.offset_top + 88.0
 
 
+## Заставка в начале уровня: где мы («Внутри раковины»), крупно, на пару секунд.
+func show_place(text: String) -> void:
+	if text == "":
+		return
+	var label := Label.new()
+	label.text = text
+	label.label_settings = _label_settings(46, Color("fff0ce"), 12)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.anchor_left = 0.0
+	label.anchor_right = 1.0
+	label.anchor_top = 0.3
+	label.anchor_bottom = 0.3
+	label.offset_top = -40.0
+	label.offset_bottom = 40.0
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.modulate.a = 0.0
+	label.pivot_offset = Vector2(size.x * 0.5, 40)
+	label.scale = Vector2(0.85, 0.85)
+	add_child(label)
+	var tw := create_tween()
+	tw.tween_property(label, "modulate:a", 1.0, 0.3)
+	tw.parallel().tween_property(label, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.4)
+	tw.tween_property(label, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(label.queue_free)
+
+
 func set_level(title: String, hint: String) -> void:
 	_title.text = title
 	_hint.text = hint
