@@ -1,25 +1,26 @@
 class_name UiKit
 extends RefCounted
-## Общий набор интерфейса (DESIGN §10): цвета, шрифты и конструкторы виджетов.
+## Общий набор интерфейса: цвета, шрифты и конструкторы виджетов. Палитра Vita — тёплый дом:
+## панели цвета какао с медной рамкой, золотые главные кнопки, бирюзовые вторичные, деревянное «стекло».
 ## Всё рисуется кодом; стили кнопок кэшируются, перерисовка только при смене состояния.
 ## Анимации появления, тряски и переходов — в UiTransition (transition.gd).
 
 # --- токены ---------------------------------------------------------------
-const BG_TOP := Color("120c24")
-const BG_BOTTOM := Color("2a1a4a")
-const PANEL := Color("2a2147")
+const BG_TOP := Color("2a1d18")
+const BG_BOTTOM := Color("4a3326")
+const PANEL := Color("33261f")
 const PANEL_ALPHA := 0.88
-const PANEL_BORDER := Color("9d8fd0")
-const INK := Color("1b1236")
-const INK_CHAR := Color("24163d")
+const PANEL_BORDER := Color("e0b27a")
+const INK := Color("2a1b14")
+const INK_CHAR := Color("2f2018")
 const TEXT := Color(1, 1, 1)
 const TEXT_MUTED := Color(1, 1, 1, 0.7)
 const GOLD := Color("f5c542")
 const GOLD_DARK := Color("a8741a")
 const GOLD_LIGHT := Color("fff1b8")
-const VIOLET := Color("8a4dff")
-const VIOLET_DARK := Color("5427b8")
-const VIOLET_LIGHT := Color("c4a3ff")
+const VIOLET := Color("3fa796")
+const VIOLET_DARK := Color("25705f")
+const VIOLET_LIGHT := Color("a8e6d8")
 const MAGENTA := Color("ff4fd8")
 const DANGER := Color("ff5a5a")
 const WATER := Color("1a6bfa")
@@ -45,12 +46,12 @@ const GAP := 24
 # стиль кнопки: лицо, губа снизу, блик, обводка текста (читать через colors())
 const STYLES := {
 	&"primary": [Color("f5c542"), Color("a8741a"), Color("fff1b8"), Color("6e3f06")],
-	&"secondary": [Color("8a4dff"), Color("5427b8"), Color("c9adff"), Color("2c1170")],
+	&"secondary": [Color("3fa796"), Color("25705f"), Color("a8e6d8"), Color("143d33")],
 	&"danger": [Color("ff5a5a"), Color("b3263d"), Color("ffc4c4"), Color("67101f")],
 	&"green": [Color("56cf22"), Color("2d8410"), Color("d9ff73"), Color("1c4a07")],
-	&"glass": [Color("4a3d88"), Color("231a45"), Color("9384dc"), Color("1b1236")],
-	&"ghost": [Color(0.62, 0.56, 0.82, 0.16), Color(0.11, 0.07, 0.21, 0.55), Color(1, 1, 1, 0.25), Color("1b1236")],
-	&"disabled": [Color("7a7396"), Color("46405e"), Color("aaa4c4"), Color("2f2a45")],
+	&"glass": [Color("6b5140"), Color("3a2a20"), Color("c7a17c"), Color("2a1b14")],
+	&"ghost": [Color(0.95, 0.85, 0.7, 0.16), Color(0.2, 0.12, 0.08, 0.55), Color(1, 1, 1, 0.25), Color("2a1b14")],
+	&"disabled": [Color("8c8078"), Color("5a524c"), Color("bdb3aa"), Color("3a332e")],
 }
 
 static var _bold: FontVariation
@@ -175,7 +176,7 @@ static func panel_box(style := &"glass") -> StyleBoxFlat:
 	var sb: StyleBoxFlat
 	match style:
 		&"card":
-			sb = _flat(Color("3a2e68"), 18, Color("211a40"), BORDER)
+			sb = _flat(Color("4a372c"), 18, Color("2a1b14"), BORDER)
 			sb.border_width_bottom = LIP
 			_margins(sb, 20, 16, 20, 16 + LIP)
 		&"inset":
@@ -468,7 +469,7 @@ static func _chunky_boxes(style: StringName, radius: int) -> Array[StyleBoxFlat]
 static func _pill_boxes() -> Array[StyleBoxFlat]:
 	if not _boxes.has("pill"):
 		var ink := _chunky_boxes(&"glass", 29)
-		var capsule := _flat(Color("241b44"), 26, Color(PANEL_BORDER, 0.55), 2)
+		var capsule := _flat(Color("2e211a"), 26, Color(PANEL_BORDER, 0.55), 2)
 		var hl := _flat(Color(1, 1, 1, 0.07), 22)
 		hl.corner_radius_bottom_left = 6
 		hl.corner_radius_bottom_right = 6
@@ -968,7 +969,7 @@ class Bar extends Control:
 		ink.shadow_color = Color(0, 0, 0, 0.3)
 		ink.shadow_size = 6
 		ink.shadow_offset = Vector2(0, 3)
-		var track := UiKit._flat(Color("120c24"), r - 3)
+		var track := UiKit._flat(Color("1f1510"), r - 3)
 		var fill := UiKit._flat(c[0], r - 3)
 		var low := UiKit._flat(c[1], r - 3)
 		low.corner_radius_top_left = 0

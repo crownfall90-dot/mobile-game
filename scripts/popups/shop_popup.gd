@@ -6,6 +6,10 @@ extends UiPopup
 class Preview extends Control:
 	var id := ""
 
+	func _ready() -> void:
+		HomeArt.preload_decor(id)
+		queue_redraw()
+
 	func _draw() -> void:
 		HomeArt.draw_decor(self, id, Rect2(Vector2(6, 6), size - Vector2(12, 12)))
 

@@ -10,7 +10,7 @@ signal hint_requested
 signal next_requested
 
 const ACCENT := Color("f5c542")
-const PANEL := Color("2a2147")
+const PANEL := Color("33261f")
 const MUTED := Color(1, 1, 1, 0.7)
 
 var _bar: HBoxContainer
@@ -99,18 +99,23 @@ func show_result(won: bool, stars: int, text: String) -> void:
 func _build_top_bar() -> void:
 	var bottom := HBoxContainer.new()
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -64
-	bottom.offset_bottom = -8
+	bottom.offset_top = -104
+	bottom.offset_bottom = -12
 	bottom.offset_left = 24
 	bottom.offset_right = -24
 	add_child(bottom)
-	for entry in [["Дом",home_requested],["Подсказка",hint_requested],["Пауза",pause_requested]]:
-		var button := UiKit.button(entry[0], &"secondary")
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.custom_minimum_size.y = 52
-		button.add_theme_font_size_override("font_size",22)
-		button.pressed.connect(func() -> void: entry[1].emit())
+	# круглые кнопки с иконками внизу: дом слева, подсказка по центру, пауза справа
+	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
+	for entry in [[&"home","Домой",home_requested],[&"hint","Подсказка",hint_requested],[&"pause","Пауза",pause_requested]]:
+		var button := UiKit.icon_button(entry[0], "", &"glass")
+		button.tooltip_text = entry[1]
+		button.pressed.connect(func() -> void: entry[2].emit())
 		bottom.add_child(button)
+		if entry[0] != &"pause":
+			var spacer := Control.new()
+			spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			bottom.add_child(spacer)
 
 	_bar = HBoxContainer.new()
 	_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -155,13 +160,14 @@ func _build_hint() -> void:
 	# в пустой нижней камере, над героиней
 	_hint.anchor_top = 0.7
 	_hint.anchor_bottom = 0.7
-	_hint.offset_left = 0.0
-	_hint.offset_right = 0.0
-	_hint.offset_top = -30.0
-	_hint.offset_bottom = 30.0
+	_hint.offset_left = 36.0
+	_hint.offset_right = -36.0
+	_hint.offset_top = -60.0
+	_hint.offset_bottom = 60.0
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.label_settings = _label_settings(28, Color.WHITE, 8)
+	_hint.label_settings = _label_settings(26, Color.WHITE, 8)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hint)
 
