@@ -1,6 +1,8 @@
 [
-  ["lava", "water", "gold", "floor"],
   ["water", "lava", "gold", "floor"],
   ["water", "lava", "floor", "gold"],
-  ["lava", "water", "floor", "gold"]
+  ["water", "gold", "lava", "floor"],
+  ["water", "floor", "lava", "gold"],
+  ["gold", "water", "lava", "floor"],
+  ["floor", "water", "lava", "gold"]
 ]
