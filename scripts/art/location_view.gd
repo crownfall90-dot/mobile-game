@@ -148,7 +148,14 @@ func paint_front(ci: Node2D) -> void:
 		for t: Dictionary in list:
 			if not _done.get(t["id"], false) and not _anim.has(t["id"]):
 				var a := 0.35 + 0.35 * sin(_t * 3.0 + _rect(t).position.x * 0.01)
-				ci.draw_rect(_rect(t).grow(6), Color(GLOW, a), false, 4.0)
+				if _tex.get(t["id"] + "_broken"):
+					# у нарисованной вещи — мягкое кольцо с искрой: «нажми меня», без рамки поверх картинки
+					var c := _rect(t).get_center()
+					var pulse := 1.0 + 0.15 * sin(_t * 3.0 + c.x * 0.01)
+					ci.draw_arc(c, 34.0 * pulse, 0.0, TAU, 32, Color(GLOW, a + 0.2), 5.0, true)
+					ci.draw_circle(c, 9.0, Color(GLOW, a + 0.3))
+				else:
+					ci.draw_rect(_rect(t).grow(6), Color(GLOW, a), false, 4.0)
 	_canvas = self
 
 
