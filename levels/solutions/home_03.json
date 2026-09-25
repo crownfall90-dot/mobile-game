@@ -1,4 +1,3 @@
 [
-  ["water", "gold", "acid"],
-  ["water", "acid", "gold"]
+  ["gold", "dig"]
 ]

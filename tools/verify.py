@@ -91,6 +91,8 @@ class Level:
         self.lint = report
         self.info = index.get(path.stem) if data and path.parent == LEVELS.resolve() else None
         self.pins = [str(p["id"]) for p in _items(data, "pins") if isinstance(p, dict) and "id" in p]
+        strokes = data.get("strokes", {}) if data else {}
+        self.pins += [str(k) for k in strokes] if isinstance(strokes, dict) else []
         self.solution = tuple(str(x) for x in _items(data, "solution"))
         self.fails = [tuple(str(x) for x in o) for o in _items(data, "fails") if isinstance(o, list)]
         fills = _items(data, "fills")
