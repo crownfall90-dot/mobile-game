@@ -1,5 +1,3 @@
 [
-  ["acid", "floor", "water", "gold"],
-  ["acid", "gold", "floor", "water"],
-  ["acid", "floor", "gold", "water"]
+  ["gold", "lava", "water"]
 ]
