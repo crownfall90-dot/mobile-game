@@ -1,5 +1,6 @@
 [
   ["lava", "water", "gold", "floor"],
   ["lava", "water", "floor", "gold"],
+  ["lava", "gold", "water", "floor"],
   ["gold", "lava", "water", "floor"]
 ]
