@@ -1,3 +1,4 @@
 [
-  ["water", "lava", "gold"]
+  ["drain", "water", "gold"],
+  ["water", "drain", "gold"]
 ]

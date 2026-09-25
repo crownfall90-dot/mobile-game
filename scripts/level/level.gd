@@ -26,11 +26,10 @@ const WIN_CAP := 3.0            # ...но не позже, чем через с�
 const STUCK_TIMEOUT := 5.0
 const FALL_LIMIT := 1500.0
 const SCARE_DISTANCE := 260.0
-const DROWN_HEAD := 118.0        # высота голов семьи над ступнями
-const DROWN_HALF_WIDTH := 46.0
-const DROWN_SPEED := 70.0        # быстрее — это пролетающие капли, а не стоящая вода
-const DROWN_DROPS := 3
-const DROWN_TIME := 0.5
+const DROWN_CELL := 380.0       # площадь зоны на одну каплю воды при плотной укладке
+const DROWN_FILL := 0.45
+const DROWN_SPEED := 150.0       # быстрее — это поток, а не стоящая вода
+const DROWN_TIME := 0.35
 # Ходьба семьи к двери на уровнях с "exit".
 const WALK_SPEED := 95.0
 const WALK_DELAY := 0.8
@@ -90,6 +89,7 @@ var dirt: Dirt = null
 var door: ExitDoor = null
 var _zone: Area2D
 var _zone_origin := Vector2.ZERO
+var _zone_rect := Rect2()
 var _acted := false          # был ли первый ход: засов или копание
 var _dig_from = null         # Vector2 последней точки пальца, null — палец не копает
 var _walk_time := 0.0
@@ -180,6 +180,7 @@ func build(level_data: Dictionary) -> void:
 	add_child(zone)
 	_zone = zone
 	_zone_origin = hero.position
+	_zone_rect = zr
 
 	var fluid_count := 0
 	for fill in data.get("fills", []):
@@ -590,19 +591,19 @@ func _hazard_ahead(dir: float) -> bool:
 	return false
 
 
-## Вода поднялась до голов семьи и стоит там — семья тонет (только семейные уровни).
+## Вода стоит в зоне семьи и заполняет больше половины её — семья тонет (только семейные уровни).
+## Пролетающий над головами поток не считается: капли должны почти стоять.
 func _check_drowning(delta: float) -> void:
 	if finished or not data.get("family", false):
 		return
-	var head := hero.position + Vector2(0, -DROWN_HEAD)
+	var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size)
+	var capacity := zr.get_area() / DROWN_CELL
 	var n := 0
 	for item in items:
-		if item.kind == Substances.Kind.WATER and not item.removed \
-				and absf(item.position.x - head.x) < DROWN_HALF_WIDTH \
-				and item.position.y > head.y - 12.0 and item.position.y < head.y + 40.0 \
+		if item.kind == Substances.Kind.WATER and not item.removed and zr.has_point(item.position) \
 				and item.linear_velocity.length() < DROWN_SPEED:
 			n += 1
-	_drown_time = _drown_time + delta if n >= DROWN_DROPS else 0.0
+	_drown_time = _drown_time + delta if n >= capacity * DROWN_FILL else 0.0
 	if _drown_time >= DROWN_TIME:
 		_lose("water")
 
@@ -611,8 +612,16 @@ func _family_safe() -> bool:
 	if not data.get("family", false):
 		return true
 	# Не все засовы обязательны: хватает собранного золота и отсутствия летящей опасности.
+	var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size).grow(40.0)
 	for item in items:
-		if _alive(item) and Substances.is_deadly(item.kind) and item.linear_velocity.length() > 12.0:
+		if not _alive(item):
+			continue
+		if Substances.is_deadly(item.kind) and item.linear_velocity.length() > 12.0:
+			_goal_time = -1.0
+			return false
+		# вода ещё льётся на семью: сначала посмотрим, не затопит ли
+		if item.kind == Substances.Kind.WATER and item.linear_velocity.length() > DROWN_SPEED \
+				and zr.has_point(item.position):
 			_goal_time = -1.0
 			return false
 	return true
