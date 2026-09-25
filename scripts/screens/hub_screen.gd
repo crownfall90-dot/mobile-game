@@ -20,14 +20,6 @@ var _canvas: Control
 var _room: HomeArt
 var _family: Sprite2D
 var _title: Label
-var _act: Label
-var _count: Label
-var _progress: ProgressBar
-var _top_shade: ColorRect
-var _bottom_shade: ColorRect
-var _bottom_title: Label
-var _bottom_text: Label
-var _stars: Label
 var _settings: Button
 var _shop: Button
 var _target: Button
@@ -47,16 +39,8 @@ func open(args: Dictionary) -> void:
 	_canvas = Control.new()
 	_canvas.size = Vector2(720,1280)
 	add_child(_canvas)
-	_title = _label("Vita",Rect2(505,20,180,60),48,Color("fff0ce"))
-	_act = _label("АКТ 1  /  НАША КВАРТИРА",Rect2(20,52,440,28),21,Color("e7d9b6"))
-	_count = _label("%d / 10 ремонтов" % Home.completed(),Rect2(20,91,270,38),23,Color("fff0ce"))
-	_progress = ProgressBar.new()
-	_progress.position = Vector2(20,137)
-	_progress.size = Vector2(430,8)
-	_progress.max_value = 10
-	_progress.value = Home.completed()
-	_progress.show_percentage = false
-	_canvas.add_child(_progress)
+	# Сверху только название слева и две кнопки справа: комната видна целиком.
+	_title = _label("Vita",Rect2(22,14,200,60),48,Color("fff0ce"))
 	_room = HomeArt.new()
 	for task in Home.TASKS:
 		if Profile.flag("home."+task.id) and task.id != _repair:
@@ -71,44 +55,24 @@ func open(args: Dictionary) -> void:
 	_canvas.add_child(_family)
 	_canvas.move_child(_room,0)
 	_canvas.move_child(_family,1)
-	_top_shade = ColorRect.new()
-	_top_shade.color = Color(0.05,0.09,0.12,0.42)
-	_top_shade.size = Vector2(720,165)
-	_top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.add_child(_top_shade)
-	_canvas.move_child(_top_shade,2)
-	_bottom_shade = ColorRect.new()
-	_bottom_shade.color = Color(0.05,0.09,0.12,0.78)
-	_bottom_shade.position = Vector2(0,1050)
-	_bottom_shade.size = Vector2(720,230)
-	_bottom_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.add_child(_bottom_shade)
-	_canvas.move_child(_bottom_shade,3)
 	_settings = UiKit.icon_button(&"gear","",&"glass")
-	_settings.position = Vector2(614,170)
+	_settings.position = Vector2(614,14)
 	_settings.tooltip_text = "Настройки"
 	_settings.pressed.connect(func() -> void: Router.popup(&"settings"))
 	_canvas.add_child(_settings)
 	_shop = UiKit.icon_button(&"coin",str(Profile.coins()),&"glass")
-	_shop.position = Vector2(614,270)
+	_shop.position = Vector2(508,14)
 	_shop.tooltip_text = "Магазин · %d монет" % Profile.coins()
 	_shop.pressed.connect(func() -> void:
 		var popup := Router.popup(&"shop")
 		popup.closed.connect(func(result: Variant) -> void:
-			if result == true:
-				Router.go(&"hub")))
+			if result is String and result != "":
+				Router.go(&"hub", {"bought": result})))
 	_canvas.add_child(_shop)
-	_stars = _label("★ %d  ·  %d монет" % [Profile.stars_total(),Profile.coins()],Rect2(38,1200,350,38),23,Color("edcf88"))
 	var task := Home.next_task()
 	if task.is_empty() or not Game.has_level(str(task.get("level",""))):
-		_bottom_title = _label("Здесь живёт счастье",Rect2(38,1070,644,52),34,Color("fff0ce"))
-		_bottom_text = _label("Вы подарили семье уютный дом.",Rect2(38,1120,644,70),25,Color("c3d5ca"))
 		_family.modulate = Color("fff0ca")
 	else:
-		var first_step := Home.completed() == 0
-		_bottom_title = _label("Нажми на сломанный телевизор" if first_step else task.title,Rect2(38,1070,644,49),31,Color("fff0ce"))
-		_bottom_text = _label("Спаси семью · получи монеты и звёзды" if first_step else task.text,Rect2(38,1120,644,64),24,Color("c3d5ca"))
-		
 		var screen_rect: Rect2 = HomeArt.IMAGE_SLOTS[task.id]
 		var target := Button.new()
 		_target = target
@@ -121,7 +85,7 @@ func open(args: Dictionary) -> void:
 		_canvas.add_child(target)
 		_button = UiKit.button("Починить", &"primary")
 		var button_y := screen_rect.position.y-20 if task.id == "tv" else screen_rect.get_center().y-28
-		_button.position = Vector2(clampf(screen_rect.get_center().x-75,18,480),clampf(button_y,195,980))
+		_button.position = Vector2(clampf(screen_rect.get_center().x-75,18,530),clampf(button_y,120,1180))
 		_button.custom_minimum_size = Vector2(150,56)
 		_button.size = Vector2(150,56)
 		_button.add_theme_font_size_override("font_size",24)
@@ -142,6 +106,8 @@ func open(args: Dictionary) -> void:
 	_layout()
 	if _repair != "":
 		_animate_repair()
+	elif str(args.get("bought", "")) != "":
+		_show_bought(str(args["bought"]))
 
 
 func _animate_repair() -> void:
@@ -163,6 +129,26 @@ func _animate_repair() -> void:
 	await get_tree().create_timer(0.9).timeout
 	_room.highlight = str(Home.next_task().get("id","")) if Home.completed() < 10 else ""
 	_room.queue_redraw()
+
+
+## Только что купленная вещь: вспышка на её месте и короткая реплика.
+func _show_bought(id: String) -> void:
+	var at := Vector2(360, 700)
+	if HomeArt.DECOR_SLOTS.has(id):
+		var r: Rect2 = HomeArt.DECOR_SLOTS[id]
+		at = Vector2(r.get_center().x, r.get_center().y * _room.scale.y)
+	var fx := Fx.new()
+	_canvas.add_child(fx)
+	fx.burst(at, Color("ffe5a3"), 30, 260, 5, 300, 1.0)
+	fx.ring(at, Color("ffe5a3"), 90.0, 0.5)
+	Sfx.haptic(30)
+	var lines := {
+		"vita_plant": "Дочка: «Я буду его поливать!»",
+		"vita_teddy": "Дочка: «Мишка, ты теперь наш!»",
+		"vita_clothes": "Мама: «Какие мы нарядные!»",
+		"vita_picture": "Мама: «Наши счастливые дни — на стене.»",
+	}
+	Router.toast(lines.get(id, "Новая вещь дома!"))
 
 
 func _play() -> void:
@@ -194,22 +180,14 @@ func _layout() -> void:
 	_canvas.position = Vector2.ZERO
 	_room.scale.y = h / 1280.0
 	_family.position.y = 250.0 * h / 1280.0
-	_top_shade.size.y = top + 165
-	_title.position.y = top + 20
-	_act.position.y = top + 52
-	_count.position.y = top + 91
-	_progress.position.y = top + 137
-	_settings.position.y = top + 170
-	_shop.position.y = top + 270
-	_bottom_shade.position.y = h - bottom - 230
-	_bottom_title.position.y = h - bottom - 210
-	_bottom_text.position.y = h - bottom - 160
-	_stars.position.y = h - bottom - 73
+	_title.position.y = top + 14
+	_settings.position.y = top + 14
+	_shop.position.y = top + 14
 	if _target:
 		_target.position.y = _target_rect.position.y * _room.scale.y
 		_target.size.y = _target_rect.size.y * _room.scale.y
 		var button_y := _target_rect.position.y - 20 if Home.next_task().id == "tv" else _target_rect.get_center().y - 28
-		_button.position.y = clampf(button_y * _room.scale.y,top + 355,h - bottom - 300)
+		_button.position.y = clampf(button_y * _room.scale.y,top + 120,h - bottom - 90)
 
 
 func _label(text: String, rect: Rect2, px: int, color: Color) -> Label:

@@ -475,7 +475,7 @@ func _update_outcome(delta: float) -> void:
 		if _stuck_timer >= 0.0:
 			_stuck_timer += delta
 			if _stuck_timer > STUCK_TIMEOUT:
-				_lose("stuck")
+				_lose("blocked")
 		return
 	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe():
 		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается

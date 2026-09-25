@@ -25,10 +25,12 @@
   "common.free": {"ru": "Бесплатно", "en": "Free"},
   "common.soon": {"ru": "Скоро", "en": "Coming soon"},
 
-  "lose.lava": {"ru": "Лава добралась до семьи", "en": "Mirra got burned by lava"},
-  "lose.acid": {"ru": "Кислота добралась до семьи", "en": "The acid reached Mirra"},
-  "lose.enemy": {"ru": "Слизень добрался до семьи", "en": "A slime reached Mirra"},
+  "lose.lava": {"ru": "Лава добралась до семьи", "en": "The lava reached the family"},
+  "lose.acid": {"ru": "Кислота добралась до семьи", "en": "The acid reached the family"},
+  "lose.enemy": {"ru": "Слизень добрался до семьи", "en": "A slime reached the family"},
   "lose.stuck": {"ru": "Не хватило золота", "en": "Not enough gold"},
   "lose.enemy_alive": {"ru": "Слизень ещё жив", "en": "A slime is still alive"},
+  "lose.water": {"ru": "Вода поднялась слишком высоко", "en": "The water rose too high"},
+  "lose.blocked": {"ru": "Семья не может пройти к двери", "en": "The family can't reach the door"},
   "lose.other": {"ru": "Попробуй другой порядок", "en": "Try another order"}
 }

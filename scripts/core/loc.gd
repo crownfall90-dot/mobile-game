@@ -79,7 +79,8 @@ func _resolve() -> String:
 	var code := str(Profile.setting(&"lang"))
 	if code == "ru" or code == "en":
 		return code
-	return "ru" if RU_LOCALES.has(OS.get_locale_language()) else "en"
+	# Vita пока русская игра: часть текстов квартиры задана только по-русски
+	return "ru"
 
 
 func _watch_profile() -> void:
