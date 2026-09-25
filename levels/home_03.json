@@ -2,12 +2,12 @@
  "format": 2,
  "id": "home_03",
  "floor": 1,
- "title": "Окно: дождь и ветер",
+ "title": "Пол: дождь и лава",
  "hint": "Проведи пальцем путь для воды к лаве",
  "tutorial": "",
  "intro": "",
  "hard": false,
- "theme": "window",
+ "theme": "floor",
  "tower": {
   "rect": [
    130,

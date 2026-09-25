@@ -2,12 +2,12 @@
  "format": 2,
  "id": "home_02",
  "floor": 1,
- "title": "Свет: первый подкоп",
+ "title": "Кровать: первый подкоп",
  "hint": "Проведи пальцем вниз — вода потушит лаву",
  "tutorial": "hand",
  "intro": "",
  "hard": false,
- "theme": "light",
+ "theme": "bed",
  "tower": {
   "rect": [
    130,

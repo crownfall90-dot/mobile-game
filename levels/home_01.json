@@ -2,12 +2,12 @@
  "format": 2,
  "id": "home_01",
  "floor": 1,
- "title": "Телевизор: первый лучик",
+ "title": "Окно: горка для монет",
  "hint": "Нажми на золотое кольцо засова",
  "tutorial": "hand",
  "intro": "",
  "hard": false,
- "theme": "tv",
+ "theme": "window",
  "tower": {
   "rect": [
    130,
