@@ -54,7 +54,7 @@ func _card(item: Dictionary) -> Control:
 		buy.tooltip_text = "Не хватает %d монет" % (item.price - Profile.coins())
 	buy.pressed.connect(func() -> void:
 		if Home.buy(item.id):
-			Sfx.play(&"restore")
+			Sfx.play(&"purchase")
 			close(item.id))
 	row.add_child(buy)
 	return card

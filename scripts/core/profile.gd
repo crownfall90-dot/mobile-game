@@ -12,21 +12,14 @@ signal changed(key: StringName)
 const VERSION := 2
 const SAVE_DELAY := 0.5
 const RETRY_DELAY := 5.0        # запись не удалась (диск полон): повтор через столько секунд
-const OLD_SAVE := "user://progress.cfg"
-## Старые уровни по индексу из progress.cfg: level_001 стал f1_05.
-const OLD_LEVELS: PackedStringArray = ["f1_05"]
 const SETTINGS := {"sfx": true, "music": true, "vibration": true, "lang": "auto", "low_fx": false}
-const CHANGE_KEYS: Array[StringName] = [&"coins", &"hints", &"stars", &"levels", &"owned",
-		&"equipped", &"lab", &"grimoire", &"settings", &"daily"]
+const CHANGE_KEYS: Array[StringName] = [&"coins", &"stars", &"levels", &"owned", &"settings"]
 
 ## true: никогда не трогать диск (dev-запуски и проверки).
 var volatile := false
-## Подмена даты для тестов: "YYYY-MM-DD" или "".
-var fake_today := ""
 ## Путь сохранения; .tmp и .bak лежат рядом.
 var save_path := "user://save.json"
-## Всё сохранение как есть. Economy может менять поля без отдельного API
-## (streak, chest, daily, last_open) и затем звать mark_changed().
+## Всё сохранение как есть: монеты, уровни (звёзды), покупки, флаги, настройки, статистика.
 var data: Dictionary = {}
 ## Итог последнего record_result: {id, first_clear, new_stars}.
 var last_record: Dictionary = {}
@@ -72,12 +65,7 @@ func _notification(what: int) -> void:
 
 static func defaults() -> Dictionary:
 	return {
-		"v": VERSION, "coins": 0, "hints": 3, "stars_spent": 0,
-		"levels": {}, "fails": {}, "streak": 0, "chest": 0,
-		"owned": ["apprentice"], "equipped": {"outfit": "apprentice", "familiar": ""},
-		"lab": [], "grimoire": [],
-		"daily": {"slot": 0, "cycle": 0, "last_claim": "", "potion_done": "", "owl_last": ""},
-		"last_open": "", "flags": {},
+		"v": VERSION, "coins": 0, "levels": {}, "fails": {}, "owned": [], "flags": {},
 		"settings": SETTINGS.duplicate(),
 		"stats": {},
 	}
@@ -85,11 +73,10 @@ static func defaults() -> Dictionary:
 
 # --- сохранение --------------------------------------------------------------
 
-## Читает сохранение с диска (или .bak, или переносит progress.cfg).
+## Читает сохранение с диска (или .bak, если основное испорчено).
 func load() -> void:
 	flush()
 	var loaded := {}
-	var migrated := false
 	if not volatile:
 		loaded = _read(save_path)
 		_main_ok = not loaded.is_empty()
@@ -97,19 +84,7 @@ func load() -> void:
 			push_warning("Profile: %s is broken, using the backup" % save_path)
 		if loaded.is_empty():
 			loaded = _read(_bak_path())
-		if loaded.is_empty() and not FileAccess.file_exists(save_path) \
-				and not FileAccess.file_exists(_bak_path()):
-			loaded = _migrate_v1()
-			migrated = not loaded.is_empty()
-		if loaded.is_empty() and not FileAccess.file_exists(save_path) and not FileAccess.file_exists(_bak_path()):
-			var old_dir := OS.get_user_data_dir().get_base_dir().path_join("Зелья и засовы")
-			loaded = _read(old_dir.path_join("save.json"))
-			if loaded.is_empty():
-				loaded = _read(old_dir.path_join("save.bak"))
-			migrated = not loaded.is_empty()
 	data = _sanitize(loaded)
-	if migrated:
-		_write()
 	for key in CHANGE_KEYS:
 		changed.emit(key)
 
@@ -176,25 +151,6 @@ func spend_coins(n: int, reason: String) -> bool:
 	return true
 
 
-func hints() -> int:
-	return int(data["hints"])
-
-
-func add_hints(n: int) -> void:
-	data["hints"] = maxi(0, hints() + n)
-	changed.emit(&"hints")
-	save()
-
-
-func spend_hint() -> bool:
-	if hints() <= 0:
-		return false
-	data["hints"] = hints() - 1
-	changed.emit(&"hints")
-	save()
-	return true
-
-
 # --- уровни ------------------------------------------------------------------
 
 func best_stars(id: String) -> int:
@@ -230,7 +186,7 @@ func current_level_id() -> String:
 ## first_clear: уровень раньше не был пройден (и пропущен тоже).
 func record_result(id: String, stars: int, skipped := false) -> Dictionary:
 	var levels: Dictionary = data["levels"]
-	var e: Dictionary = levels.get(id, {"stars": 0, "cleared": false, "skipped": false, "relic": false})
+	var e: Dictionary = levels.get(id, {"stars": 0, "cleared": false, "skipped": false})
 	var first_clear := not bool(e.get("cleared", false))
 	var old := int(e.get("stars", 0))
 	var new_stars := 0
@@ -259,19 +215,6 @@ func stars_total() -> int:
 	return n
 
 
-func stars_wallet() -> int:
-	return stars_total() - int(data["stars_spent"])
-
-
-func spend_stars(n: int) -> bool:
-	if n < 0 or stars_wallet() < n:
-		return false
-	data["stars_spent"] = int(data["stars_spent"]) + n
-	changed.emit(&"stars")
-	save()
-	return true
-
-
 func fails(id: String) -> int:
 	return int(data["fails"].get(id, 0))
 
@@ -290,22 +233,6 @@ func reset_fails(id: String) -> void:
 	save()
 
 
-func has_relic(level_id: String) -> bool:
-	return bool(_level(level_id).get("relic", false))
-
-
-func add_relic(level_id: String) -> void:
-	if has_relic(level_id):
-		return
-	var levels: Dictionary = data["levels"]
-	var e: Dictionary = levels.get(level_id, {"stars": 0, "cleared": false, "skipped": false, "relic": false})
-	e["relic"] = true
-	levels[level_id] = e
-	changed.emit(&"levels")
-	changed.emit(&"grimoire")
-	save()
-
-
 # --- коллекции ---------------------------------------------------------------
 
 func owns(item_id: String) -> bool:
@@ -318,43 +245,6 @@ func grant(item_id: String) -> void:
 	data["owned"].append(item_id)
 	changed.emit(&"owned")
 	save()
-
-
-## slot: &"outfit" | &"familiar"; "" — ничего не надето.
-func equipped(slot: StringName) -> String:
-	return str(data["equipped"].get(String(slot), ""))
-
-
-func equip(slot: StringName, item_id: String) -> void:
-	data["equipped"][String(slot)] = item_id
-	changed.emit(&"equipped")
-	save()
-
-
-func lab_restored(obj_id: String) -> bool:
-	return data["lab"].has(obj_id)
-
-
-func mark_restored(obj_id: String) -> void:
-	if lab_restored(obj_id):
-		return
-	data["lab"].append(obj_id)
-	changed.emit(&"lab")
-	save()
-
-
-func grimoire_has(page_id: String) -> bool:
-	return data["grimoire"].has(page_id)
-
-
-## true, если страница новая.
-func grimoire_add(page_id: String) -> bool:
-	if grimoire_has(page_id):
-		return false
-	data["grimoire"].append(page_id)
-	changed.emit(&"grimoire")
-	save()
-	return true
 
 
 # --- настройки, флаги, статистика ----------------------------------------------
@@ -383,12 +273,7 @@ func set_flag(key: String, v := true) -> void:
 	save()
 
 
-## Местная дата "YYYY-MM-DD".
-func today() -> String:
-	return fake_today if fake_today != "" else Time.get_date_string_from_system(false)
-
-
-## Локальные счётчики (без сети): path вида "levels.f1_05.plays".
+## Локальные счётчики (без сети): path вида "levels.home_01.plays".
 func stat_inc(path: String, n := 1) -> void:
 	var node: Dictionary = data["stats"]
 	var parts := path.split(".", false)
@@ -484,23 +369,6 @@ func _retry_later() -> void:
 	set_process(true)
 
 
-## Однократный перенос звёзд из старого user://progress.cfg (версия 0.1).
-func _migrate_v1() -> Dictionary:
-	var cfg := ConfigFile.new()
-	if cfg.load(OLD_SAVE) != OK:
-		return {}
-	var d := defaults()
-	var best: Variant = cfg.get_value("progress", "best_stars", {})
-	if best is Dictionary:
-		for i in best:
-			var idx := int(i)
-			var stars := clampi(int(best[i]), 0, 3)
-			if idx >= 0 and idx < OLD_LEVELS.size() and stars > 0:
-				d["levels"][OLD_LEVELS[idx]] = {"stars": stars, "cleared": true, "skipped": false, "relic": false}
-	d["flags"]["migrated_v1"] = true
-	return d
-
-
 ## Приводит прочитанный JSON к save v2: числа из JSON приходят float,
 ## значения не того типа (null, строка вместо числа) и недостающие поля берутся
 ## по умолчанию, лишние поля сохраняются. Никогда не падает на чужих данных.
@@ -509,7 +377,7 @@ func _sanitize(src: Dictionary) -> Dictionary:
 	for key in src:
 		if not d.has(key):
 			d[key] = src[key]
-	for key in ["coins", "hints", "stars_spent", "streak", "chest"]:
+	for key in ["coins"]:
 		d[key] = maxi(0, _int(src.get(key), d[key]))
 	d["v"] = VERSION
 	var levels: Dictionary = {}
@@ -520,7 +388,7 @@ func _sanitize(src: Dictionary) -> Dictionary:
 			if e is Dictionary:
 				levels[str(id)] = {"stars": clampi(_int(e.get("stars"), 0), 0, 3),
 						"cleared": _bool(e.get("cleared"), false),
-						"skipped": _bool(e.get("skipped"), false), "relic": _bool(e.get("relic"), false)}
+						"skipped": _bool(e.get("skipped"), false)}
 	d["levels"] = levels
 	var fails_d: Dictionary = {}
 	var src_fails: Variant = src.get("fails")
@@ -530,7 +398,7 @@ func _sanitize(src: Dictionary) -> Dictionary:
 			if n > 0:
 				fails_d[str(id)] = n
 	d["fails"] = fails_d
-	for key in ["owned", "lab", "grimoire"]:
+	for key in ["owned"]:
 		var arr: Variant = src.get(key)
 		if arr is Array:
 			var clean: Array = []
@@ -538,7 +406,7 @@ func _sanitize(src: Dictionary) -> Dictionary:
 				if x is String and not clean.has(x):
 					clean.append(x)
 			d[key] = clean
-	for key in ["equipped", "daily", "settings"]:
+	for key in ["settings"]:
 		var sub: Variant = src.get(key)
 		if sub is Dictionary:
 			var dst: Dictionary = d[key]
@@ -546,7 +414,6 @@ func _sanitize(src: Dictionary) -> Dictionary:
 				dst[str(k)] = _like(dst.get(str(k)), sub[k])
 	if not ["auto", "ru", "en"].has(d["settings"]["lang"]):
 		d["settings"]["lang"] = "auto"
-	d["last_open"] = _str(src.get("last_open"), "")
 	var flags: Dictionary = {}
 	var src_flags: Variant = src.get("flags")
 	if src_flags is Dictionary:
