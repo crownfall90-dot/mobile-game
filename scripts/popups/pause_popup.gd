@@ -1,8 +1,15 @@
 extends UiPopup
 
 
-func open(_args: Dictionary) -> void:
+func open(args: Dictionary) -> void:
 	set_title("Небольшая пауза")
+	# за что звёзды и сколько монет даст уровень
+	for key in ["stars", "reward"]:
+		if str(args.get(key, "")) != "":
+			var l := UiKit.body(str(args[key]), 24, UiKit.GOLD if key == "stars" else UiKit.TEXT)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			l.custom_minimum_size.x = 500
+			content.add_child(l)
 	get_tree().paused = true
 	closed.connect(func(_v: Variant) -> void: get_tree().paused = false)
 	for entry in [["Продолжить","resume"],["Начать заново","restart"],["Настройки","settings"],["Вернуться домой","home"]]:

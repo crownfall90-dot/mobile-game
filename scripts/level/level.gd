@@ -288,6 +288,7 @@ func build(level_data: Dictionary) -> void:
 	if data.has("sew"):
 		sew_game = SEW.new()
 		sew_game.setup(data["sew"])
+		sew_game.knot_limit += _brave()
 		sew_game.stitched.connect(func(n: int) -> void:
 			_acted = true
 			pieces = n
@@ -332,6 +333,7 @@ func build(level_data: Dictionary) -> void:
 	if data.has("plunger"):
 		plunger_game = PLUNGER.new()
 		plunger_game.setup(data["plunger"])
+		plunger_game.splash_limit += _brave()
 		plunger_game.pumped.connect(func(ok: bool) -> void:
 			_acted = true
 			Sfx.play(&"grate_hit" if ok else &"fizz")
@@ -465,7 +467,8 @@ func build(level_data: Dictionary) -> void:
 		var rail: Array = data["leak"].get("rail", [170, 550])
 		_bucket_rail = Vector2(float(rail[0]), float(rail[1]))
 		_bucket_to = hero.position.x
-		leak.miss_limit = int(_hazard_limits.get("leak", 3))
+		_hazard_limits["leak"] = int(_hazard_limits.get("leak", 3)) + _brave()
+		leak.miss_limit = int(_hazard_limits["leak"])
 	fluid.setup(self, DESIGN_SIZE, fluid_count)
 	gold_changed.emit.call_deferred(pieces, pieces_needed, pieces_total)
 
@@ -834,6 +837,32 @@ func _on_dish_enemy(enemy: Node) -> void:
 
 
 ## Звёзды: у ловкостных механик — по ошибкам, у остальных — по собранному.
+## Правило звёзд этого уровня словами (пауза и итог).
+func star_rule() -> String:
+	var errs := ""
+	if leak:
+		errs = "промахов"
+	elif plunger_game:
+		errs = "выплесков"
+	elif sew_game:
+		errs = "узелков"
+	if errs != "":
+		return "★★★ — без %s, ★★ — одна ошибка, ★ — больше" % errs
+	if mirror_game:
+		return "★★★ — за %d поворотов или меньше, ★★ — на один больше, ★ — больше" % mirror_game.par
+	if dish_game:
+		return "★★★ — вся посуда на полках"
+	if _three_needed > pieces_needed:
+		return "★ — собрать %d из %d, ★★ — %d, ★★★ — %d" % [pieces_needed, pieces_total, _two_needed, _three_needed]
+	return "★★★ — выполнить цель"
+
+
+## Мишка из магазина: с ним Вите не страшно — в уровнях с ошибками одна прощается (звёзды — как
+## прежде, по числу ошибок). В проверках уровней профиль чистый, пороги не меняются.
+func _brave() -> int:
+	return 1 if Profile.owns("vita_teddy") else 0
+
+
 func _timed_stars() -> int:
 	if leak:
 		return 3 - mini(leak.misses, 2)

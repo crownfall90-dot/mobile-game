@@ -138,10 +138,11 @@ func target_rect(id: String) -> Rect2:
 func _process(delta: float) -> void:
 	_t += delta
 	_update_wear(delta)
-	# холодно и страшно: раз в ~5 с семья дрожит почти секунду, чем запущеннее — тем сильнее
+	# холодно и страшно: раз в ~5 с семья дрожит почти секунду, чем запущеннее — тем сильнее;
+	# в тёплых нарядах из магазина («Семейное обновление») не мёрзнут
 	_shiver = 0.0
 	var ph := fmod(_t + 1.3, 5.0)
-	if _wear > 0.25 and ph < 0.9:
+	if _wear > 0.25 and ph < 0.9 and not Profile.owns("vita_clothes"):
 		_shiver = sin(_t * 58.0) * 2.4 * _wear * sin(PI * ph / 0.9)
 	if _family.visible:
 		_family.position.x = _family_x + _shiver
