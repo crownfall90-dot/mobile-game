@@ -3,7 +3,8 @@ extends Control
 ## семьи и Хмури, окно диалога с именем говорящего, текст печатается по буквам. Тап — допечатать
 ## строку или дальше; выбор ответа — кнопками; карточки письма и фото — поверх сцены.
 ## Сценарий: data/novel.json {"names": {...}, "scenes": {id: [шаг, ...]}}. Шаги:
-##   {"bg": "<id локации>" | "night" | "story:<имя>", "tint": "dim"|"night"|"warm", "rain": bool}
+##   {"bg": "<id локации>" | "night" | "story:<имя>", "tint": "dim"|"night"|"warm", "rain": bool,
+##    "state": "broken"|"fixed"}   (state — комната как в тот момент, для повтора из альбома)
 ##   (не локация — картинка art/act1/story/<имя>.png; ночь без картинки рисует код)
 ##   {"show": ["family", "gloom"]}                 кто на сцене
 ##   {"say": "mother"|"daughter"|"gloom", "text": "…", "mood": "sad|calm|surprised|smile|happy"}
@@ -21,6 +22,7 @@ signal _advance
 signal _chosen(i: int)
 
 const GLOOM := preload("res://scripts/art/gloom.gd")
+const PHOTO := preload("res://scripts/ui/photo_card.gd")
 const DATA := "res://data/novel.json"
 const ART := "res://art/act1/"
 const CPS := 40.0                 # букв в секунду
@@ -381,6 +383,13 @@ func _make_bg(st: Dictionary) -> void:
 		var v := LocationView.new()
 		v.show_targets = false
 		v.setup(l, Vector2(720, 1560))
+		# повтор из альбома: пролог — квартира сломана, сценка конца — починена, как тогда
+		var state := str(st.get("state", ""))
+		for t: Dictionary in l.get("targets", []):
+			if state == "broken":
+				v.hold_broken(str(t["id"]))
+			elif state == "fixed":
+				v._done[str(t["id"])] = true
 		_bg_node = v
 	elif ResourceLoader.exists(story):
 		var s := Sprite2D.new()
@@ -523,16 +532,9 @@ func _show_card(st: Dictionary) -> void:
 	_hide_card()
 	var kind := str(st["cg"])
 	if kind == "photo":
-		var p := PhotoCard.new()
+		var p: Control = PHOTO.new()
 		p.size = Vector2(540, 420)
-		var locs := Home.locations()
-		for i in 4:
-			p.pieces.append(i < locs.size() and Profile.flag("photo." + str(locs[i]["id"])))
-		p.fresh = int(st.get("piece", 0)) - 1
-		if p.fresh >= 0 and p.fresh < 4:
-			p.pieces[p.fresh] = true
-		var full := ART + "story/photo_full.png"
-		p.tex = load(full) if ResourceLoader.exists(full) else null
+		p.call(&"collect", int(st.get("piece", 0)) - 1)
 		_card = p
 		Sfx.play(&"restore")
 	else:
@@ -599,77 +601,6 @@ func _letter(text: String) -> Control:
 	card.add_child(l)
 	card.rotation = -0.03
 	return card
-
-
-## Старая фотография прабабушки из четырёх кусочков; недостающие — пустые места с «?».
-## Картинка художника photo_full.png режется на четверти; пока её нет — рисует код.
-class PhotoCard extends Control:
-	var pieces: Array[bool] = []
-	var fresh := -1               # только что найденный кусочек: проявляется
-	var tex: Texture2D
-	var _t := 0.0
-
-	func _process(delta: float) -> void:
-		_t += delta
-		queue_redraw()
-
-	func _draw() -> void:
-		var frame := Rect2(Vector2.ZERO, size)
-		draw_rect(Rect2(frame.position + Vector2(6, 10), frame.size), Color(0, 0, 0, 0.3))
-		draw_rect(frame, Color("fbf6ea"))
-		var inner := frame.grow(-22)
-		if tex:
-			draw_texture_rect(tex, inner, false)
-		else:
-			_placeholder(inner)
-		for i in 4:
-			var q := _quarter(inner, i)
-			var a := 0.0 if pieces[i] else 1.0
-			if i == fresh:
-				a = clampf(1.0 - _t / 0.9, 0.0, 1.0)
-			if a > 0.0:
-				draw_rect(q, Color(0.86, 0.8, 0.7, a))
-				draw_rect(q.grow(-8), Color(0.55, 0.45, 0.35, 0.5 * a), false, 3.0)
-				draw_string(ThemeDB.fallback_font, q.get_center() + Vector2(-12, 16), "?",
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Color(0.55, 0.45, 0.35, 0.8 * a))
-		# рваные швы между кусочками
-		var seam := Color(1, 1, 1, 0.55)
-		draw_line(Vector2(inner.get_center().x, inner.position.y), Vector2(inner.get_center().x, inner.end.y), seam, 2.0)
-		draw_line(Vector2(inner.position.x, inner.get_center().y), Vector2(inner.end.x, inner.get_center().y), seam, 2.0)
-		if fresh >= 0 and _t < 1.4:
-			var q := _quarter(inner, fresh)
-			draw_rect(q.grow(4.0 + 8.0 * _t), Color(1.0, 0.9, 0.55, 1.0 - _t / 1.4), false, 5.0)
-
-	func _quarter(inner: Rect2, i: int) -> Rect2:
-		var half := inner.size * 0.5
-		return Rect2(inner.position + Vector2(float(i % 2), floorf(i * 0.5)) * half, half)
-
-	## Сепия: окно, кресло, бабушка Вера с маленькой девочкой на коленях, лампа.
-	func _placeholder(r: Rect2) -> void:
-		var o := r.position
-		var s := r.size / Vector2(500, 380)
-		var p := func(x: float, y: float) -> Vector2: return o + Vector2(x, y) * s
-		draw_rect(r, Color("c9ae86"))
-		draw_rect(Rect2(p.call(40, 40), Vector2(130, 170) * s), Color("e6d6b4"))
-		draw_rect(Rect2(p.call(40, 40), Vector2(130, 170) * s), Color("8a6a48"), false, 4.0)
-		draw_line(p.call(105, 40), p.call(105, 210), Color("8a6a48"), 3.0)
-		draw_rect(Rect2(p.call(0, 300), Vector2(500, 80) * s), Color("a88762"))
-		# кресло
-		draw_rect(Rect2(p.call(200, 150), Vector2(190, 170) * s), Color("7d5a3c"))
-		draw_rect(Rect2(p.call(185, 230), Vector2(40, 110) * s), Color("6b4a30"))
-		draw_rect(Rect2(p.call(365, 230), Vector2(40, 110) * s), Color("6b4a30"))
-		# бабушка
-		draw_circle(p.call(295, 125), 34.0 * s.x, Color("e8cfae"))
-		draw_circle(p.call(295, 100), 30.0 * s.x, Color("d9d4cc"))
-		draw_rect(Rect2(p.call(250, 158), Vector2(90, 140) * s), Color("5e4a5a"))
-		# девочка на коленях
-		draw_circle(p.call(270, 205), 20.0 * s.x, Color("f0d8b8"))
-		draw_circle(p.call(262, 192), 20.0 * s.x, Color("6b4a2e"))
-		draw_rect(Rect2(p.call(250, 222), Vector2(46, 56) * s), Color("8fa3b8"))
-		# лампа
-		draw_line(p.call(450, 150), p.call(450, 300), Color("6b4a30"), 5.0)
-		draw_colored_polygon(PackedVector2Array([p.call(420, 150), p.call(480, 150), p.call(465, 110),
-			p.call(435, 110)]), Color("efe0bc"))
 
 
 ## Ночная улица под дождём: старый дом, одно окно светится. Пока нет картинки story/*.png.

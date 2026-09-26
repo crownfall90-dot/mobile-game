@@ -4,6 +4,28 @@
   "daughter": "Вита",
   "gloom": "Хмурь"
  },
+ "album": [
+  [
+   "prologue",
+   "Пролог: новый дом"
+  ],
+  [
+   "room_done",
+   "Первая ночь"
+  ],
+  [
+   "kitchen_done",
+   "Первый ужин"
+  ],
+  [
+   "bath_done",
+   "Тёплая вода"
+  ],
+  [
+   "living_done",
+   "Вечер вместе"
+  ]
+ ],
  "scenes": {
   "prologue": [
    {
@@ -47,7 +69,8 @@
    },
    {
     "bg": "room",
-    "tint": "dim"
+    "tint": "dim",
+    "state": "broken"
    },
    {
     "text": "В квартире холодно и сыро. Обои отклеились, окно треснуло, по полу дует."
@@ -114,7 +137,8 @@
   "room_done": [
    {
     "bg": "room",
-    "tint": "warm"
+    "tint": "warm",
+    "state": "fixed"
    },
    {
     "show": [
@@ -168,7 +192,8 @@
   "kitchen_done": [
    {
     "bg": "kitchen",
-    "tint": "warm"
+    "tint": "warm",
+    "state": "fixed"
    },
    {
     "show": [
@@ -239,7 +264,8 @@
   "bath_done": [
    {
     "bg": "bath",
-    "tint": "warm"
+    "tint": "warm",
+    "state": "fixed"
    },
    {
     "show": [
@@ -288,7 +314,8 @@
   "living_done": [
    {
     "bg": "living",
-    "tint": "warm"
+    "tint": "warm",
+    "state": "fixed"
    },
    {
     "show": [
@@ -342,7 +369,8 @@
   "act1_end": [
    {
     "bg": "living",
-    "tint": "warm"
+    "tint": "warm",
+    "state": "fixed"
    },
    {
     "show": [
