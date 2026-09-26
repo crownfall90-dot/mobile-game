@@ -14,7 +14,9 @@
   G1  tools/lint_levels.py без ошибок
   G2  решение выигрывает: интервал 1.5 с при jitter 0, 1, 2; 0.8 с при 0; settle при 0.
       «Живые» уровни (verify.live: вода уже бежит, игрок действует по ходу потока) вместо
-      0.8 с и settle проверяются темпом человека: 1.3 с и 1.7 с при jitter 0
+      0.8 с и settle проверяются темпом человека: 1.3 с и 1.7 с при jitter 0.
+      «Лови капли» (есть leak): ход — сценарий по времени из scripts, темп человека,
+      при jitter каждое событие сдвигается на ±0,06 с; G5 и G6 не нужны
   G3  при 1.5 с и jitter 0: 3 звезды и ингредиент, если он есть
   G4  каждый порядок из fails проигрывает при jitter 0 и 1; у 2+ засовов fails не пуст
   G5  3+ засова: все засовы в одном кадре не выигрывают (jitter 0 и 1)
@@ -95,6 +97,8 @@ class Level:
         self.pins = [str(p["id"]) for p in _items(data, "pins") if isinstance(p, dict) and "id" in p]
         strokes = data.get("strokes", {}) if data else {}
         self.pins += [str(k) for k in strokes] if isinstance(strokes, dict) else []
+        scripts = data.get("scripts", {}) if data else {}
+        self.pins += [str(k) for k in scripts] if isinstance(scripts, dict) else []
         self.pins += [str(p["id"]) for p in _items(data, "pipes") if isinstance(p, dict) and "id" in p]
         # «Поверни»: ходы — повороты по и против часовой, повторяются; ищем все последовательности
         self.rotate = isinstance(data, dict) and isinstance(data.get("rotate"), dict)
@@ -109,9 +113,11 @@ class Level:
         self.daily = not (isinstance(v, dict) and v.get("daily") is False)
         self.cap = lint.cap_for(data, self.info) if data else lint.DEFAULT_CAP
         v = data.get("verify") if isinstance(data, dict) and isinstance(data.get("verify"), dict) else {}
-        self.live = bool(v.get("live", False))
+        # «лови капли»: ход — сценарий по времени; темп — человеческий, порядок и «всё сразу» не нужны
+        self.timed = isinstance(data, dict) and isinstance(data.get("leak"), dict)
+        self.live = bool(v.get("live", False)) or self.timed
         # рисование (замазка): ходы — линии, а не порядок; G5 и G6 не имеют смысла
-        self.draw = bool(v.get("draw", False))
+        self.draw = bool(v.get("draw", False)) or self.timed
         self.specs = {}          # key -> spec
         self.results = {}        # key -> исход
         self.meta = {}           # ключ кэша
@@ -358,8 +364,9 @@ def judge(lv, quick):
             g[k] = ("-", ["skipped (--quick)"])
         return
     if lv.draw:
-        g["G5"] = ("-", ["n/a (drawing level: moves are lines, not orders)"])
-        g["G6"] = ("-", ["n/a (drawing level)"])
+        kind = "timed level: a move is a script" if lv.timed else "drawing level: moves are lines, not orders"
+        g["G5"] = ("-", [f"n/a ({kind})"])
+        g["G6"] = ("-", ["n/a (timed level)" if lv.timed else "n/a (drawing level)"])
         lv.win_share = 0.0
         lv.solid = [sol] if won(lv.res(spec(sol, NORMAL, 0))) and won(lv.res(spec(sol, NORMAL, 1))) else []
         g["G7"] = ("-", ["n/a"])

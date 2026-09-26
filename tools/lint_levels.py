@@ -46,7 +46,8 @@ WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
             "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate", "putty",
-            "solution", "fails", "verify"}
+            "leak", "scripts", "solution", "fails", "verify"}
+LEAK_EVENTS = ("move", "press", "up", "scare")
 
 
 # --- каталог ------------------------------------------------------------------
@@ -386,8 +387,42 @@ def _lint(d, path, index, rep):
         else:
             _unknown(src, {"pos", "kind", "count", "rate", "delay", "x1"}, "source", rep)
     for i, hz in enumerate(_list(d, "hazards", rep)):
-        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire"):
-            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill or wire")
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire", "leak"):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill, wire or leak")
+    # «лови капли»: труба с дырами и мышь; ходы — сценарии по времени в "scripts"
+    leak = d.get("leak")
+    if leak is not None:
+        if not isinstance(leak, dict) or not isinstance(leak.get("holes"), list) or not leak["holes"]:
+            rep.err("leak needs holes [{id, x, every, open}]")
+        else:
+            _unknown(leak, {"pipe_y", "pipe_top", "hold", "holes", "mouse", "rail", "drops", "auto"}, "leak", rep)
+            for i, h in enumerate(leak["holes"]):
+                if not isinstance(h, dict) or not isinstance(h.get("id"), str) or not is_num(h.get("x")):
+                    rep.err(f"leak.holes[{i}]: needs id and x")
+                    continue
+                _unknown(h, {"id", "x", "every", "open", "grow"}, f"leak.holes[{i}]", rep)
+            m = leak.get("mouse")
+            if m is not None and not isinstance(m, dict):
+                rep.err("leak.mouse must be an object")
+            elif m is not None:
+                _unknown(m, {"speed", "gnaw", "rest", "back", "scares", "from"}, "leak.mouse", rep)
+        if "receiver" not in d:
+            rep.err("leak needs a receiver (the bucket)")
+    scripts = d.get("scripts", {})
+    if not isinstance(scripts, dict):
+        rep.err("scripts must be an object {name: [[t, action, arg], ...]}")
+        scripts = {}
+    if scripts and "leak" not in d:
+        rep.err("scripts need leak")
+    for name, evs in scripts.items():
+        if name in pin_ids:
+            rep.err(f"scripts: id '{name}' is already used")
+        pin_ids.append(name)
+        if not isinstance(evs, list) or not all(isinstance(e, list) and len(e) >= 2 and is_num(e[0])
+                                                and e[1] in LEAK_EVENTS for e in evs):
+            rep.err(f"scripts.{name}: events must be [t, move|press|up|scare, arg]")
+        elif any(evs[i][0] > evs[i + 1][0] for i in range(len(evs) - 1)):
+            rep.err(f"scripts.{name}: event times must not go back")
     for key in ("dirt", "holes"):
         for i, sh in enumerate(d.get(key, [])):
             if not isinstance(sh, dict) or not (is_rect(sh.get("rect")) or "poly" in sh or "circle" in sh):
@@ -491,7 +526,7 @@ def _lint(d, path, index, rep):
         sol = None
     else:
         _lint_order(sol, "solution", pin_ids, rep)
-        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d and "putty" not in d:
+        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d and "putty" not in d and "leak" not in d:
             rep.warn("solution does not pull every pin once, so it is not one of the searched orders")
     fails = d.get("fails", [])
     if not isinstance(fails, list) or not all(isinstance(o, list) and o and all(isinstance(x, str) for x in o)

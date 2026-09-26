@@ -34,6 +34,7 @@ const INTERVAL := 1.5
 const SETTLE_MIN := 0.6
 const SETTLE_MAX := 4.0
 const TIME_JITTER := 0.15
+const LEAK_JITTER := 0.06       # «лови капли»: сдвиг каждого события сценария при --jitter, с
 const AFTER_LAST := 20.0        # сколько игровых секунд ждать итога после последнего засова
 const WALL_LIMIT_MS := 100000   # предел по часам для прогона уровня (вдобавок к кадрам)
 const DIG_SPEED := 900.0         # скорость пальца в мазках "strokes", px/с
@@ -161,7 +162,8 @@ func _play(order: PackedStringArray) -> void:
 	var settle := str(_flags.get("interval", "")) == "settle"
 	var interval := float(_flags.get("interval", INTERVAL)) if not settle else INTERVAL
 	# предел: все паузы с запасом плюс время на развязку
-	_deadline = _secs(START_DELAY * 2.0 + order.size() * (SETTLE_MAX if settle else interval * 1.2) + AFTER_LAST)
+	_deadline = _secs(START_DELAY * 2.0 + order.size() * (SETTLE_MAX if settle else interval * 1.2) + AFTER_LAST
+		+ _scripts_time(order))
 	if settle:
 		await _settle()
 	else:
@@ -182,6 +184,10 @@ func _play(order: PackedStringArray) -> void:
 
 ## Ход сценария: засов по id или мазок пальцем из "strokes" уровня.
 func _act(id: String) -> void:
+	var scripts: Dictionary = _level.data.get("scripts", {})
+	if _level.leak != null and scripts.has(id):
+		await _leak_script(scripts[id])
+		return
 	var strokes: Dictionary = _level.data.get("strokes", {})
 	if _level.pin_by_id(id) == null and strokes.has(id) and _level.putty != null:
 		print("putty ", id)
@@ -199,6 +205,42 @@ func _act(id: String) -> void:
 
 
 ## Ведёт палец по ломаной со скоростью DIG_SPEED px/с, копая по пути.
+## «Лови капли»: сценарий по времени от первого события —
+## [t, "move", x] ведро, [t, "press", id] палец на дыру, [t, "up"] убрать палец, [t, "scare"] мышь.
+## При --jitter каждое событие сдвигается на ±LEAK_JITTER (рука человека не точна).
+func _leak_script(events: Array) -> void:
+	print("leak script ", events.size(), " events")
+	var t0 := _ticks
+	for ev in events:
+		var at := float(ev[0])
+		if int(_flags.get("jitter", 0)) != 0 and at > 0.0:
+			at = maxf(0.0, at + _rng.randf_range(-LEAK_JITTER, LEAK_JITTER))
+		while _ticks < t0 + _secs(at) and not _done:
+			await get_tree().physics_frame
+		if _done:
+			return
+		match str(ev[1]):
+			"move":
+				_level.leak_move(float(ev[2]))
+			"press":
+				_level.leak_press(str(ev[2]))
+			"up":
+				_level.leak_release()
+			"scare":
+				_level.leak_scare()
+
+
+## Сколько секунд займут сценарии «лови капли» в этом порядке ходов (для предела времени).
+func _scripts_time(order: PackedStringArray) -> float:
+	var total := 0.0
+	var scripts: Dictionary = _level.data.get("scripts", {}) if _level else {}
+	for id in order:
+		var events: Array = scripts.get(id, [])
+		if not events.is_empty():
+			total += float(events[events.size() - 1][0])
+	return total
+
+
 func _stroke(points: Array) -> void:
 	print("dig ", points.size(), " pts")
 	var prev := Vector2(points[0][0], points[0][1])
