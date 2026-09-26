@@ -34,6 +34,7 @@ var loc: Dictionary = {}
 var size := Vector2(720, 1560)
 var show_targets := true          # мягкая пульсация вокруг несделанных целей
 
+var _edge_colors := PackedColorArray()
 var _bg: Texture2D
 var _tex := {}                    # "<id>_broken" / "<id>_fixed" -> Texture2D или null
 var _done := {}                   # id -> true
@@ -68,6 +69,11 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 	_font = ThemeDB.fallback_font
 	_bg = _load("background")
 	if _bg:
+		var sample := _bg.get_image()
+		if sample.is_compressed():
+			sample.decompress()
+		sample.resize(1, 2, Image.INTERPOLATE_LANCZOS)
+		_edge_colors = PackedColorArray([sample.get_pixel(0, 0), sample.get_pixel(0, 1)])
 		_setup_wear()
 	for t in loc.get("targets", []):
 		_tex[t["id"] + "_broken"] = _load(t["id"] + "_broken")
@@ -209,7 +215,7 @@ func _update_wear(delta: float) -> void:
 func _draw() -> void:
 	_canvas = self
 	if _bg:
-		_extend(_bg)
+		_extend()
 	else:
 		_placeholder_bg()
 	for t in _layers():
@@ -433,27 +439,18 @@ func _layer(tex: Texture2D, r: Rect2, id: String, fixed: bool, mod: Color, shift
 		r.size.x - 16, 20, 2, Color(0.15, 0.1, 0.1, mod.a))
 
 
-## За краями сцены (широкий или очень высокий экран) — крайние ряды фона, чуть темнее,
-## и мягкая тень у края: без пустых полос и без растяжения самой сцены.
-func _extend(tex: Texture2D) -> void:
-	var ts := tex.get_size()
-	var pad := EXTEND_PAD
-	# края того же оттенка, что и изношенный фон
+## За краями сцены — спокойные цвета фона без растянутых линий пола и обоев.
+func _extend() -> void:
 	var dim := Color(0.82, 0.8, 0.84).lerp(Color(0.6, 0.55, 0.5), clampf(_wear, 0.0, 1.0) * 0.7)
-	draw_texture_rect_region(tex, Rect2(-pad, 0, pad, size.y), Rect2(0, 0, 2, ts.y), dim)
-	draw_texture_rect_region(tex, Rect2(size.x, 0, pad, size.y), Rect2(ts.x - 2, 0, 2, ts.y), dim)
-	draw_texture_rect_region(tex, Rect2(0, -pad, size.x, pad), Rect2(0, 0, ts.x, 2), dim)
-	draw_texture_rect_region(tex, Rect2(0, size.y, size.x, pad), Rect2(0, ts.y - 2, ts.x, 2), dim)
-	for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
-		var dst := Rect2(Vector2(-pad if corner.x == 0.0 else size.x, -pad if corner.y == 0.0 else size.y), Vector2(pad, pad))
-		draw_texture_rect_region(tex, dst, Rect2((ts - Vector2(2, 2)) * corner, Vector2(2, 2)), dim)
-	for i in 6:
-		var w := 6.0 * (i + 1)
-		var c := Color(0, 0, 0, 0.05)
-		draw_rect(Rect2(-w, 0, w, size.y), c)
-		draw_rect(Rect2(size.x, 0, w, size.y), c)
-		draw_rect(Rect2(0, -w, size.x, w), c)
-		draw_rect(Rect2(0, size.y, size.x, w), c)
+	var top := _edge_colors[0] * dim
+	var bottom := _edge_colors[1] * dim
+	var pad := EXTEND_PAD
+	for x in [-pad, size.x]:
+		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + pad, 0),
+			Vector2(x + pad, size.y), Vector2(x, size.y)]),
+			PackedColorArray([top, top, bottom, bottom]))
+	draw_rect(Rect2(-pad, -pad, size.x + pad * 2, pad), top)
+	draw_rect(Rect2(-pad, size.y, size.x + pad * 2, pad), bottom)
 
 
 ## Рисует картинку в прямоугольник без растяжения по одной оси: вписывает и центрирует.

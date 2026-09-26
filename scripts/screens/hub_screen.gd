@@ -1,7 +1,7 @@
 extends Control
 ## Главный экран первого акта: открытая локация целиком на экране телефона.
-## Сцена 720×1560 масштабируется равномерно (cover) — без растяжения по одной оси; лишнее по краям
-## обрезается, поэтому всё нажимаемое стоит в safe-области act1.json. Нажатие на сломанную вещь
+## Сцена 720×1560 масштабируется равномерно; safe-область act1.json вписывается между
+## верхними кнопками и нижними переходами. Нажатие на сломанную вещь
 ## открывает её головоломку. После последнего ремонта локации — радостная сцена и новая локация.
 
 const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не зависит от кэша class_name
@@ -405,17 +405,18 @@ func _layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	var scene := _scene_size()
-	# cover: заполняем экран целиком одним масштабом, излишек поровну обрезаем. Но safe-область
-	# со всеми целями видна всегда: на планшете, раскладушке или 21:9 масштаб меньше cover,
-	# а за краем сцены тянется продолжение фона (LocationView рисует его сам).
+	# Сначала оставляем место кнопкам: иначе потолочные цели попадают под них на 16:9.
 	var safe := _safe_rect()
-	_k = minf(maxf(view.x / scene.x, view.y / scene.y), minf(view.x / safe.size.x, view.y / safe.size.y))
-	_offset = (view - scene * _k) * 0.5
+	var top := _safe_top(view)
+	var ui_k := minf(view.x / 720.0, view.y / 1280.0)
+	var available := Rect2(0, top + 112 * ui_k, view.x,
+		view.y - top - _safe_bottom(view) - 204 * ui_k)
+	_k = minf(maxf(view.x / scene.x, view.y / scene.y),
+		minf(available.size.x / safe.size.x, available.size.y / safe.size.y))
+	_offset = available.get_center() - safe.get_center() * _k
 	_view.get_parent().position = _offset
 	_view.get_parent().scale = Vector2(_k, _k)
-	var top := _safe_top(view)
 	# кнопки и надписи — по меньшей стороне, чтобы на широком экране не раздувались
-	var ui_k := minf(view.x / 720.0, view.y / 1280.0)
 	_title.position = Vector2(18 * ui_k, top + 8 * ui_k)
 	_title.scale = Vector2(ui_k, ui_k)
 	_settings.scale = Vector2(ui_k, ui_k)

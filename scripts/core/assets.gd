@@ -57,6 +57,12 @@ func _process(_delta: float) -> void:
 			_keep(path, ResourceLoader.load_threaded_get(path))
 	while _active.size() < MAX_ACTIVE and not _queue.is_empty():
 		var next: String = _queue.pop_front()
+		# Godot 4.5.1 выдавал RID-ошибки при параллельной загрузке текстур в headless.
+		# В проверках грузим по ресурсу за кадр в основном потоке.
+		if DisplayServer.get_name() == "headless":
+			_keep(next, load(next))
+			_done += 1
+			break
 		if ResourceLoader.load_threaded_request(next) == OK:
 			_active.append(next)
 		else:
