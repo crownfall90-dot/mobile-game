@@ -442,7 +442,7 @@ def _lint(d, path, index, rep):
             rep.err("mirrors needs source [c, r, dir], lamp [c, r] and items [{id, c, r, kind}]")
         else:
             _unknown(mir, {"origin", "cell", "cols", "rows", "source", "lamp", "items", "moth", "taps", "par", "scare",
-                           "look"}, "mirrors", rep)
+                           "look", "blocker", "screen"}, "mirrors", rep)
             if mir["source"][2] not in ("up", "down", "left", "right"):
                 rep.err("mirrors.source direction must be up, down, left or right")
             for i, it in enumerate(mir["items"]):

@@ -5,7 +5,9 @@ extends Node2D
 ## через `scare` секунд улетит. Батарейки хватает на `taps` поворотов: кончилась, а лампа не горит,
 ## — фонарик гаснет (проигрыш). Звёзды: поворотов не больше `par` — три.
 ## Уровень: "mirrors": {origin: [x, y], cell, cols, rows, source: [c, r, dir], lamp: [c, r],
-## items: [{id, c, r, kind: "/" | "\\" | "wall", fixed}], moth: [c, r], taps, par, scare, look}.
+## items: [{id, c, r, kind: "/" | "\\" | "wall", fixed}], moth: [c, r], taps, par, scare, look,
+## blocker: "moth" | "spider" (кто сидит на зеркальце), screen: [x, y, w, h] — у «сигнала» экран
+## телевизора на картинке загорается, когда сигнал дошёл}.
 
 signal turned(id: String)
 signal locked_tap(id: String)
@@ -14,7 +16,7 @@ signal battery_out
 signal moth_left(pos: Vector2)
 
 const DIRS := {"right": Vector2i(1, 0), "left": Vector2i(-1, 0), "up": Vector2i(0, -1), "down": Vector2i(0, 1)}
-const MOTH_TEX := "res://art/act1/enemies/moth.png"
+const BLOCKER_TEX := "res://art/act1/enemies/%s.png"
 const FRAME := Color("8d969b")
 const GLASS := Color("dff3ff")
 const WALL := Color("7a6a5c")
@@ -33,6 +35,7 @@ var taps_used := 0
 var par := 3
 var scare_time := 0.6
 var look := "light"
+var screen := Rect2()
 var beam := PackedVector2Array()
 var is_lit := false
 var out := false
@@ -63,8 +66,12 @@ func setup(cfg: Dictionary) -> void:
 	par = int(cfg.get("par", 3))
 	scare_time = float(cfg.get("scare", 0.6))
 	look = str(cfg.get("look", "light"))
-	if ResourceLoader.exists(MOTH_TEX):
-		_moth_tex = load(MOTH_TEX)
+	if cfg.has("screen"):
+		var sr: Array = cfg["screen"]
+		screen = Rect2(sr[0], sr[1], sr[2], sr[3])
+	var tex_path := BLOCKER_TEX % str(cfg.get("blocker", "moth"))
+	if ResourceLoader.exists(tex_path):
+		_moth_tex = load(tex_path)
 	_trace()
 
 
@@ -221,7 +228,22 @@ func _draw() -> void:
 	var lp := center(lamp)
 	if is_lit:
 		draw_circle(lp, cell * 0.62 + 4.0 * sin(_t * 5.0), Color(glow, 0.25))
-	if look == "current":
+	if screen.size != Vector2.ZERO:
+		# экран телевизора: сигнал дошёл — показывает мультик с солнышком
+		if is_lit:
+			draw_rect(screen, Color(0.75, 0.95, 1.0, 0.55))
+			for k in 6:
+				var y := screen.position.y + fmod(_t * 40.0 + k * screen.size.y / 6.0, screen.size.y)
+				draw_line(Vector2(screen.position.x, y), Vector2(screen.end.x, y), Color(1, 1, 1, 0.25), 2.0)
+			var sun := screen.get_center() + Vector2(0, -6)
+			draw_circle(sun, screen.size.y * 0.22, Color("ffd24a"))
+			for k in 8:
+				var a := _t * 1.5 + k * TAU / 8.0
+				draw_line(sun + Vector2(cos(a), sin(a)) * screen.size.y * 0.28,
+					sun + Vector2(cos(a), sin(a)) * screen.size.y * 0.38, Color("ffd24a"), 4.0)
+		else:
+			draw_rect(screen, Color(1, 1, 1, 0.08 + 0.06 * sin(_t * 12.0)))
+	elif look == "current":
 		if is_lit:
 			draw_circle(lp + Vector2(0, -cell * 0.2), cell * 0.34, Color("fff6c9"))
 		else:
