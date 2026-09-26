@@ -330,7 +330,8 @@ func build(level_data: Dictionary) -> void:
 		plunger_game.splash_limit += _brave()
 		plunger_game.pumped.connect(func(ok: bool) -> void:
 			_acted = true
-			Sfx.play(&"grate_hit" if ok else &"fizz")
+			if not ok:
+				Sfx.play(&"fizz")   # удачный качок звучит через switched («чпок»)
 			if ok:
 				_shake = 3.0
 				switched.emit("pump"))
@@ -781,7 +782,7 @@ func _catch_drop(item: Item) -> void:
 	_remove(item)
 	hero.bounce()
 	_since_collect = 0.0
-	Sfx.play(&"coin", 5.0, -4.0)
+	Sfx.play(&"drip")
 
 
 ## Победа в «лови капли» — только когда мышь ушла, дыры заклеены и в воздухе нет капель.
