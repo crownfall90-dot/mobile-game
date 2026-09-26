@@ -1,7 +1,8 @@
 class_name Receiver
 extends Hero
 ## Приёмник головоломки «внутри вещи» вместо семьи: слив раковины, ведро, ящик для деталей,
-## конфорка, дыра в полу. Уровень задаёт его в "receiver": {rect, look, kind, bad, mode}.
+## конфорка, дыра в полу; "art" — приёмник уже нарисован на фоне головоломки.
+## Уровень задаёт его в "receiver": {rect, look, kind, bad, mode}.
 ## Стенки приёмника — обычные стены уровня; здесь только вид и реакции:
 ## bounce — принял порцию, celebrate — починено, oops — испорчено (дым, трещина).
 
@@ -97,9 +98,13 @@ func _paint(ci: CanvasItem) -> void:
 			# дыра в полу: неровный тёмный край; камни, упавшие сюда, её заделывают
 			ci.draw_rect(r, Color(0.12, 0.08, 0.05, 0.35))
 			ci.draw_line(r.position, Vector2(r.end.x, r.position.y), Color("7a5236"), 5.0)
+		"art":
+			pass    # приёмник нарисован на картинке художника (art/act1/levels/<тема>.png)
 		_:
 			ci.draw_rect(r, Color(1, 1, 1, 0.15), false, 3.0)
-	if _glow > 0.0 and look != "burner":
+	if _glow > 0.0 and look == "art":
+		ci.draw_arc(r.get_center(), minf(w, h) * 0.5 + 4.0, 0.0, TAU, 32, Color(1, 1, 0.8, 0.5 * _glow), 5.0, true)
+	elif _glow > 0.0 and look != "burner":
 		ci.draw_rect(r.grow(4), Color(1, 1, 0.8, 0.35 * _glow), false, 4.0)
 
 

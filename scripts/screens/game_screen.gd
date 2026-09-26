@@ -190,7 +190,9 @@ func _on_won(stars: int) -> void:
 	level_finished.emit(res)
 	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
 	if _data.has("receiver"):
-		win_text = "Починено!\nВернёмся домой и посмотрим."
+		var thing := str(Home.task_for_level(level_id).get("name", "")).to_lower()
+		win_text = ("Ремонт: %s — готово!\nВернёмся домой и посмотрим." % thing) if thing != "" \
+			else "Вернёмся домой и посмотрим."
 		_hud.show_place("Починено!")
 	elif _data.get("family", false):
 		win_text = "Мама и дочка спасены!\nВернёмся домой и увидим результат."
@@ -244,7 +246,8 @@ func _item_lose_text(res: Dictionary) -> String:
 func _show_result_later(won: bool, stars: int, text: String) -> void:
 	_result_tween = create_tween()
 	_result_tween.tween_interval(RESULT_DELAY)
-	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text))
+	var title := "Починено!" if won and _data.has("receiver") else ""
+	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title))
 
 
 func _go_next() -> void:
@@ -324,8 +327,20 @@ func _layout() -> void:
 	if win.y > 0:
 		_hud.set_safe_top(maxf(0.0, safe.position.y) * vs.y / win.y)
 	if _data.has("tower"):
-		var top_y: float = _data["tower"]["rect"][1]
-		_hud.place_hint((top_y - _camera.position.y) * s + vs.y * 0.5)
+		_hud.place_hint((_content_top() - _camera.position.y) * s + vs.y * 0.5)
+
+
+## Верх того, что есть на поле (стенки, засовы, жидкости), в координатах уровня.
+func _content_top() -> float:
+	var top := INF
+	for w: Dictionary in _data.get("walls", []):
+		for p: Array in w.get("poly", []):
+			top = minf(top, float(p[1]))
+	for pin: Dictionary in _data.get("pins", []):
+		top = minf(top, float(pin["from"][1]) - 14.0)
+	for f: Dictionary in _data.get("fills", []):
+		top = minf(top, float(f["rect"][1]))
+	return top if top < INF else float(_data["tower"]["rect"][1])
 
 
 func _hint() -> void:

@@ -128,9 +128,9 @@ func hide_hint() -> void:
 	_hint_tween.tween_callback(_hint.hide)
 
 
-func show_result(won: bool, stars: int, text: String) -> void:
+func show_result(won: bool, stars: int, text: String, title := "") -> void:
 	_won = won
-	_res_title.text = Loc.t("level.won") if won else Loc.t("level.lost")
+	_res_title.text = title if title != "" else (Loc.t("level.won") if won else Loc.t("level.lost"))
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
 	_res_button.text = "Хорошо" if won else Loc.t("common.retry")
