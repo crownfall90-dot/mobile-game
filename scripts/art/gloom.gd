@@ -97,9 +97,11 @@ func _draw() -> void:
 			var y := c.y + s * 0.2 + ph * s * 0.7
 			draw_line(Vector2(x, y), Vector2(x - 2.0, y + 9.0), Color(0.65, 0.72, 0.85, (1.0 - ph) * 0.7 * a), 2.0)
 	if _tex:
+		# облачко художника почти во всю ширину PNG, а кодовое шире s: ×1.2 — тот же размер на глаз
 		var ts := _tex.get_size()
-		var h := s * ts.y / ts.x
-		draw_texture_rect(_tex, Rect2(c - Vector2(s, h) * 0.5, Vector2(s, h)), false, Color(1, 1, 1, a))
+		var tw := s * 1.2
+		var h := tw * ts.y / ts.x
+		draw_texture_rect(_tex, Rect2(c - Vector2(tw, h) * 0.5, Vector2(tw, h)), false, Color(1, 1, 1, a))
 		return
 	var body := WHITE if friendly else GREY.lerp(GREY_DARK, _shown * 0.5)
 	var shade := Color(0.78, 0.83, 0.9) if friendly else GREY_DARK

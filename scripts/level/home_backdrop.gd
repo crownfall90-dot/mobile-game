@@ -18,6 +18,7 @@ const PALETTES := {
 }
 
 ## Поле головоломки на картинке художника 1440×3120 (docs/ART_BRIEF.md, «Фоны головоломок»).
+const EDGE_SPOTS := 12     # на сколько мягких пятен делится цвет края картинки
 const PIC_FIELD := Rect2(260, 400, 920, 2020)
 const FULL_PAD := Vector2(700, 900)   # на сколько комната выходит за поле 720×1280
 const FLOOR := Color("c79a6e")
@@ -29,6 +30,7 @@ var fixed := 0.0          # 0 — вещь сломана (трещины, гр�
 var item_mode := false
 var _t := 0.0
 var _pic: Texture2D
+var _edges := {}          # сторона -> усреднённые цвета края картинки (подложка за её краем)
 
 
 ## Головоломка решена: поломка исчезает на глазах, вещь блестит.
@@ -200,7 +202,7 @@ func _box(rect: Rect2, c: Color, w: float) -> void:
 
 ## Картинка художника 1440×3120 (2x): рисуется в натуральную величину сцены (×0.5), её поле
 ## PIC_FIELD ложится центром на поле головоломки. За краями картинки (сдвинутое поле, очень высокие
-## или широкие экраны) — её зеркальное продолжение с тенью, без пустых полос и увеличения.
+## или широкие экраны) — спокойная подложка цветов её края с тенью, без полос и копий предмета.
 func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> void:
 	draw_rect(full, Color(str(sk.get("outer", "e6dfce"))))
 	# ширина картинки = 720 px сцены при любом её размере в пикселях
@@ -208,53 +210,42 @@ func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> voi
 	var field_c := PIC_FIELD.get_center() * (sz.x / 1440.0)
 	var d := Rect2(r.get_center() - field_c, sz)
 	draw_texture_rect(pic, d, false)
-	# поле уровня сдвинуто или экран длиннее картинки: пустые края — приглушённое зеркальное
-	# продолжение картинки (растянутая полоска края давала вертикальные полосы)
+	# поле уровня сдвинуто или экран длиннее картинки: пустые края — спокойная подложка цветов края
+	# (растянутая полоска края давала полосы, зеркало — копию предмета)
 	if d.position.y > full.position.y:
-		_mirror_edge(pic, d, Vector2.UP, d.position.y - full.position.y)
+		_calm_edge(pic, d, Vector2.UP, d.position.y - full.position.y)
 	if d.end.y < full.end.y:
-		_mirror_edge(pic, d, Vector2.DOWN, full.end.y - d.end.y)
+		_calm_edge(pic, d, Vector2.DOWN, full.end.y - d.end.y)
 	if d.position.x > full.position.x:
-		_mirror_edge(pic, d, Vector2.LEFT, d.position.x - full.position.x)
+		_calm_edge(pic, d, Vector2.LEFT, d.position.x - full.position.x)
 	if d.end.x < full.end.x:
-		_mirror_edge(pic, d, Vector2.RIGHT, full.end.x - d.end.x)
+		_calm_edge(pic, d, Vector2.RIGHT, full.end.x - d.end.x)
 	if fixed > 0.0:
 		_repair_sparkles(r)
 
 
-## Полоса шириной gap за краем картинки d (сторона side) — приглушённое отражение края картинки,
-## к внешней стороне темнеет. Отражаем масштабом -1: отрицательный прямоугольник Godot рисует со сдвигом.
-func _mirror_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
-	var ts := pic.get_size()
+## Полоса шириной gap за краем картинки d (сторона side) — спокойная подложка: цвета края картинки,
+## усреднённые в несколько мягких пятен (без деталей предмета и без полос), к краю экрана темнее.
+func _calm_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
 	var vertical := side.y != 0.0
-	gap = minf(gap, d.size.y if vertical else d.size.x)
-	var k := ts.x / d.size.x
-	var src: Rect2
-	var dst: Rect2
-	var edge: float
-	if vertical:
-		edge = d.position.y if side.y < 0.0 else d.end.y
-		src = Rect2(0, 0, ts.x, gap * k) if side.y < 0.0 else Rect2(0, ts.y - gap * k, ts.x, gap * k)
-		dst = Rect2(d.position.x, 0.0 if side.y < 0.0 else -gap, d.size.x, gap)
-		draw_set_transform(Vector2(0, edge), 0.0, Vector2(1, -1))
-	else:
+	var edge := d.position.y if side.y < 0.0 else d.end.y
+	if not vertical:
 		edge = d.position.x if side.x < 0.0 else d.end.x
-		src = Rect2(0, 0, gap * k, ts.y) if side.x < 0.0 else Rect2(ts.x - gap * k, 0, gap * k, ts.y)
-		dst = Rect2(0.0 if side.x < 0.0 else -gap, d.position.y, gap, d.size.y)
-		draw_set_transform(Vector2(edge, 0), 0.0, Vector2(-1, 1))
-	draw_texture_rect_region(pic, dst, src)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# тень: отражение приглушено (не читается как второй предмет), к краю экрана — темнее
-	var clear := Color(0.07, 0.05, 0.04, 0.5)
-	var dark := Color(0.07, 0.05, 0.04, 0.88)
-	var a: Vector2
-	var b: Vector2
-	var far := edge + (gap * (side.y if vertical else side.x))
-	# у шва — мягкая тень на картинку и светлая кромка: край читается как полка, а не обрыв
+	var far := edge + gap * (side.y if vertical else side.x)
+	var strip := _edge_strip(pic, side)
+	var band := Rect2(d.position.x, minf(edge, far), d.size.x, gap) if vertical \
+		else Rect2(minf(edge, far), d.position.y, gap, d.size.y)
+	if strip:
+		draw_texture_rect(strip, band, false)
+	# к краю экрана темнее; у шва — мягкая тень на картинку и светлая кромка (край — полка, не обрыв)
+	var clear := Color(0.07, 0.05, 0.04, 0.12)
+	var dark := Color(0.07, 0.05, 0.04, 0.6)
 	var none := Color(clear, 0.0)
-	var soft := Color(clear, 0.35)
+	var soft := Color(clear, 0.3)
 	var inner := edge - 26.0 * (side.y if vertical else side.x)
 	var rim := Color(1, 0.94, 0.8, 0.22)
+	var a: Vector2
+	var b: Vector2
 	if vertical:
 		a = Vector2(d.position.x, edge)
 		b = Vector2(d.end.x, far)
@@ -271,6 +262,41 @@ func _mirror_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
 		draw_polygon(PackedVector2Array([a, Vector2(inner, a.y), Vector2(inner, b.y), Vector2(a.x, b.y)]),
 			PackedColorArray([soft, none, none, soft]))
 		draw_line(a, Vector2(a.x, b.y), rim, 3.0)
+
+
+## Цвета края картинки со стороны side, усреднённые в EDGE_SPOTS пятен (текстура 12×1 или 1×12,
+## линейный фильтр растягивает её плавно). Считается один раз на сторону.
+func _edge_strip(pic: Texture2D, side: Vector2) -> Texture2D:
+	var key := str(side)
+	if _edges.has(key):
+		return _edges[key]
+	var img := pic.get_image()
+	var tex: Texture2D = null
+	if img:
+		if img.is_compressed():
+			img.decompress()
+		var w := img.get_width()
+		var h := img.get_height()
+		var vertical := side.y != 0.0
+		var depth := 12                                  # сколько рядов у края усредняем
+		var out := Image.create(EDGE_SPOTS if vertical else 1, 1 if vertical else EDGE_SPOTS, false, Image.FORMAT_RGBA8)
+		for i in EDGE_SPOTS:
+			var sum := Color(0, 0, 0, 0)
+			var n := 0
+			var from := int(float(i) / EDGE_SPOTS * (w if vertical else h))
+			var to := int(float(i + 1) / EDGE_SPOTS * (w if vertical else h))
+			for u in range(from, to, 3):
+				for v in depth:
+					var x := u if vertical else (v if side.x < 0.0 else w - 1 - v)
+					var y := (v if side.y < 0.0 else h - 1 - v) if vertical else u
+					sum += img.get_pixel(x, y)
+					n += 1
+			var c := sum / maxf(1.0, n)
+			c.a = 1.0
+			out.set_pixel(i if vertical else 0, 0 if vertical else i, c)
+		tex = ImageTexture.create_from_image(out)
+	_edges[key] = tex
+	return tex
 
 
 ## Комната вокруг вещи-головоломки: стена с узором и пол ниже поля; мягкое затемнение по краям,
