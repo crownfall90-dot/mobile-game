@@ -333,8 +333,8 @@ func _end_typing() -> void:
 
 
 func _process(delta: float) -> void:
-	if _cold:
-		# дрожь приступами: холодно и страшно
+	if _cold and not Profile.owns("vita_clothes"):
+		# дрожь приступами: холодно и страшно (в тёплых нарядах — нет)
 		var ph := fmod(Time.get_ticks_msec() * 0.001, 4.0)
 		_family.position.x = _family_x + (sin(Time.get_ticks_msec() * 0.058) * 2.6 * sin(PI * ph / 0.9) if ph < 0.9 else 0.0)
 	if _typing:

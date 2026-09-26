@@ -168,7 +168,10 @@ func on_app_pause() -> void:
 
 func _open_pause(restart_fallback: bool) -> void:
 	var router := get_node_or_null(^"/root/Router")
-	_pause = router.call(&"popup", &"pause", {"level_id": level_id}) if router else null
+	var info := {"level_id": level_id, "stars": level.star_rule() if level else ""}
+	if not Home.task_for_level(level_id).is_empty():
+		info["reward"] = Economy.reward_rule(level_id)
+	_pause = router.call(&"popup", &"pause", info) if router else null
 	if _pause == null and restart_fallback:
 		restart()
 	elif _pause:
@@ -217,7 +220,7 @@ func _on_won(stars: int) -> void:
 		_hud.show_place("Починено!")
 	elif _data.get("family", false):
 		win_text = "Мама и дочка спасены!\nВернёмся домой и увидим результат."
-	_show_result_later(true, stars, win_text)
+	_show_result_later(true, stars, win_text, Economy.reward_text(res["reward"]) if res.has("reward") else "")
 
 
 func _on_lost(reason: String) -> void:
@@ -304,11 +307,11 @@ func _item_lose_text(res: Dictionary) -> String:
 	return "Попробуй по-другому"
 
 
-func _show_result_later(won: bool, stars: int, text: String) -> void:
+func _show_result_later(won: bool, stars: int, text: String, coins := "") -> void:
 	_result_tween = create_tween()
 	_result_tween.tween_interval(RESULT_DELAY)
 	var title := "Починено!" if won and _data.has("receiver") else ""
-	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title))
+	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title, coins))
 
 
 func _go_next() -> void:

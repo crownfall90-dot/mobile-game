@@ -27,6 +27,7 @@ var _overlay: ColorRect
 var _panel: PanelContainer
 var _res_title: Label
 var _res_sub: Label
+var _res_coins: Label      # «+80 монет» и из чего сложилось
 var _stars: StarRow
 var _res_button: Button
 var _won := false
@@ -183,8 +184,11 @@ func hide_hint() -> void:
 	_hint_tween.tween_callback(_hint.hide)
 
 
-func show_result(won: bool, stars: int, text: String, title := "") -> void:
+## coins — строка награды («+80 монет · первый ремонт 50, звёзды 30»), пусто — не показывать.
+func show_result(won: bool, stars: int, text: String, title := "", coins := "") -> void:
 	_won = won
+	_res_coins.text = coins
+	_res_coins.visible = coins != ""
 	_res_title.text = title if title != "" else (Loc.t("level.won") if won else Loc.t("level.lost"))
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
@@ -319,6 +323,11 @@ func _build_overlay() -> void:
 	_res_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_res_sub.label_settings = _label_settings(28, MUTED, 0)
 	col.add_child(_res_sub)
+	_res_coins = Label.new()
+	_res_coins.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_res_coins.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_res_coins.label_settings = _label_settings(26, Color("ffd66e"), 0)
+	col.add_child(_res_coins)
 
 	_res_button = Button.new()
 	_res_button.custom_minimum_size = Vector2(0, 100)
