@@ -52,7 +52,7 @@ const VULNERABLE := {
 	&"slime": [Substances.Kind.LAVA, Substances.Kind.ACID],
 	&"grime": [Substances.Kind.ACID],
 	&"mold": [Substances.Kind.ACID],
-	&"cockroach": [Substances.Kind.ACID],
+	&"cockroach": [Substances.Kind.ACID, Substances.Kind.LAVA],   # и от огня плиты
 	&"rat": [Substances.Kind.WATER],
 	&"mouse": [Substances.Kind.WATER],
 	&"spider": [Substances.Kind.WATER],
