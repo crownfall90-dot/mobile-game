@@ -75,8 +75,7 @@
        "mother",
        "Сегодня мы выспимся."
       ]
-     ],
-     "flip": true
+     ]
     },
     {
      "id": "room_floor",
@@ -212,7 +211,49 @@
      ]
     ]
    },
-   "title": "Первая ночь"
+   "title": "Первая ночь",
+   "props": [
+    {
+     "img": "room/room_rug",
+     "rect": [
+      24,
+      1173,
+      432,
+      166
+     ],
+     "z": 0
+    },
+    {
+     "img": "room/room_curtains",
+     "rect": [
+      18,
+      128,
+      178,
+      522
+     ],
+     "z": 1
+    },
+    {
+     "img": "room/room_nightstand",
+     "rect": [
+      476,
+      583,
+      95,
+      124
+     ],
+     "z": 0
+    },
+    {
+     "img": "room/room_toybox",
+     "rect": [
+      470,
+      851,
+      111,
+      83
+     ],
+     "z": 1
+    }
+   ]
   },
   {
    "id": "kitchen",
