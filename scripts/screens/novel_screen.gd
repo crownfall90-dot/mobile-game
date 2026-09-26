@@ -596,6 +596,8 @@ func _show_card(st: Dictionary) -> void:
 	_more.visible = true
 	if _auto:
 		return
+	# пока смотрят карточку, пустое окно диалога не занимает экран
+	_box.visible = false
 	_card.scale = Vector2(0.6, 0.6)
 	_card.modulate.a = 0.0
 	var tw := create_tween()
@@ -605,6 +607,7 @@ func _show_card(st: Dictionary) -> void:
 	_ui.add_child(fx)
 	fx.burst(_card.position + _card.size * 0.5, Color("ffe5a3"), 28, 300, 5, 250, 1.0)
 	await _advance
+	_box.visible = true
 
 
 func _hide_card() -> void:
