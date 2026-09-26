@@ -146,6 +146,8 @@ func _order() -> PackedStringArray:
 			order.append(pin.id)
 		for id in _level.data.get("strokes", {}):
 			order.append(str(id))
+		for pp in _level.pipes:
+			order.append(str(pp.id))
 	elif _flags.get("autoplay", false):
 		for id in _level.data.get("solution", []):
 			order.append(str(id))
@@ -183,6 +185,9 @@ func _act(id: String) -> void:
 	var strokes: Dictionary = _level.data.get("strokes", {})
 	if _level.pin_by_id(id) == null and strokes.has(id):
 		await _stroke(strokes[id])
+	elif _level.pipe_by_id(id) != null:
+		print("flip ", id)
+		_level.flip_pipe(id)
 	else:
 		_pull(id)
 

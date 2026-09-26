@@ -45,7 +45,7 @@ ENEMY_KINDS = {"slime", "magma", "grime", "mold", "cockroach", "rat", "mouse", "
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
-            "dirt", "holes", "strokes", "exit", "receiver",
+            "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards",
             "solution", "fails", "verify"}
 
 
@@ -361,6 +361,26 @@ def _lint(d, path, index, rep):
         pin_ids.append(name)
     if strokes and "dirt" not in d:
         rep.err("strokes need dirt to dig")
+    # «живые трубы»: колено поворачивается тапом — тоже ход
+    for i, pp in enumerate(_list(d, "pipes", rep)):
+        where = f"pipes[{i}]"
+        if not isinstance(pp, dict) or not isinstance(pp.get("id"), str) or not is_point(pp.get("pos")):
+            rep.err(f"{where}: needs id and pos [x, y]")
+            continue
+        _unknown(pp, {"id", "pos", "right", "size"}, where, rep)
+        if pp["id"] in pin_ids:
+            rep.err(f"{where}: id '{pp['id']}' is already used")
+        pin_ids.append(pp["id"])
+    src = d.get("source")
+    if src is not None:
+        if not isinstance(src, dict) or not is_point(src.get("pos")) or not one_of(src.get("kind", "water"), FLUIDS) \
+                or not isinstance(src.get("count"), int) or src["count"] < 1:
+            rep.err("source needs pos [x, y], a fluid kind and count >= 1")
+        else:
+            _unknown(src, {"pos", "kind", "count", "rate", "delay"}, "source", rep)
+    for i, hz in enumerate(_list(d, "hazards", rep)):
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket",):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket")
     for key in ("dirt", "holes"):
         for i, sh in enumerate(d.get(key, [])):
             if not isinstance(sh, dict) or not (is_rect(sh.get("rect")) or "poly" in sh or "circle" in sh):
@@ -485,7 +505,7 @@ def _lint(d, path, index, rep):
     if not isinstance(v, dict):
         rep.err("verify must be an object")
         v = {}
-    _unknown(v, {"max_win_share", "daily"}, "verify", rep)
+    _unknown(v, {"max_win_share", "daily", "live"}, "verify", rep)
     share = v.get("max_win_share")
     if share is not None:
         if not is_num(share) or not 0 < share <= 1:
