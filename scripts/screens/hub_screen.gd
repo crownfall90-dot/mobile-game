@@ -6,6 +6,7 @@ extends Control
 
 const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не зависит от кэша class_name
 const GLOOM := preload("res://scripts/art/gloom.gd")
+const SIGN := preload("res://scripts/ui/sign_board.gd")
 const ALBUM := preload("res://scripts/popups/album_popup.gd")
 const IDLE_AFTER := 6.0      # столько секунд без нажатий — и Вита подсказывает, куда нажать
 const IDLE_AGAIN := 14.0     # следующая подсказка — через столько
@@ -15,7 +16,7 @@ var _view: LocationView
 var _k := 1.0
 var _offset := Vector2.ZERO
 var _ui: Control
-var _title: Label
+var _title: Control           # табличка с названием главы
 var _settings: Button
 var _shop: Button
 var _album: Button
@@ -66,6 +67,9 @@ func open(args: Dictionary) -> void:
 		Assets.want(Assets.location_paths(str(locs[i + 1]["id"])))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	# новая глава: табличка опускается сверху
+	if args.get("unlocked", false) or not Profile.flag("seen." + _loc_id):
+		_title.call(&"show_in")
 	if _repair != "":
 		_play_repair.call_deferred()
 	elif str(args.get("bought", "")) != "":
@@ -80,9 +84,9 @@ func _build_ui() -> void:
 	_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_ui)
 	# Сверху только название локации слева и две кнопки справа.
-	_title = UiKit.label(str(Home.location(_loc_id).get("name", "Vita")), 40, Color("fff0ce"))
-	_title.add_theme_constant_override("outline_size", 10)
-	_title.add_theme_color_override("font_outline_color", Color(0.1, 0.07, 0.05, 0.75))
+	# вместо «Маленькая комната» — табличка с названием главы по сюжету
+	_title = SIGN.new()
+	_title.call(&"setup", _loc_title(_loc_id), "глава %d" % (_loc_index() + 1))
 	_ui.add_child(_title)
 	_settings = UiKit.icon_button(&"gear", "", &"glass")
 	_settings.tooltip_text = "Настройки"
@@ -113,9 +117,9 @@ func _build_ui() -> void:
 	var locs := Home.locations()
 	var i := _loc_index()
 	if i > 0:
-		_prev = _nav_button("‹ " + str(locs[i - 1]["name"]), str(locs[i - 1]["id"]))
+		_prev = _nav_button("‹ " + _loc_title(str(locs[i - 1]["id"])), str(locs[i - 1]["id"]))
 	if i + 1 < Home.unlocked_count():
-		_next = _nav_button(str(locs[i + 1]["name"]) + " ›", str(locs[i + 1]["id"]))
+		_next = _nav_button(_loc_title(str(locs[i + 1]["id"])) + " ›", str(locs[i + 1]["id"]))
 	# Первая подсказка: что делать, пока ничего не починено.
 	if Home.completed() == 0:
 		_tip = UiKit.label("Нажми на сломанную вещь, чтобы её починить", 26, Color("fff0ce"))
@@ -298,6 +302,12 @@ func _gloom_share(holding: String) -> float:
 	return float(left) / targets.size()
 
 
+## Название главы локации для таблички и кнопок перехода (нет — название комнаты).
+func _loc_title(loc_id: String) -> String:
+	var loc := Home.location(loc_id)
+	return str(loc.get("title", loc.get("name", "Vita")))
+
+
 ## Акт пройден и финальная сценка показана: Хмурь — белое облачко-друг.
 func _act_over() -> bool:
 	return Home.completed() >= Home.total() and Profile.flag("seen.novel.act1_end")
@@ -381,7 +391,7 @@ func _layout() -> void:
 	var top := _safe_top(view)
 	# кнопки и надписи — по меньшей стороне, чтобы на широком экране не раздувались
 	var ui_k := minf(view.x / 720.0, view.y / 1280.0)
-	_title.position = Vector2(22 * ui_k, top + 14 * ui_k)
+	_title.position = Vector2(18 * ui_k, top + 8 * ui_k)
 	_title.scale = Vector2(ui_k, ui_k)
 	_settings.scale = Vector2(ui_k, ui_k)
 	_shop.scale = Vector2(ui_k, ui_k)
