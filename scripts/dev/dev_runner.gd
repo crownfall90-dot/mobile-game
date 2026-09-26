@@ -71,6 +71,16 @@ func run(flags: Dictionary) -> void:
 		Home.migrate()
 		for i in mini(int(flags["home-stage"]), Home.total()):
 			Profile.set_flag("home." + Home.tasks()[i]["id"])
+		# как в игре: пролог просмотрен; у готовой локации — кусочек фото и её сценка, после
+		# всего акта — финальная сценка (Хмурь на хабе — облачко-друг)
+		Profile.set_flag("seen.prologue")
+		Profile.set_flag("seen.novel.prologue")
+		for loc: Dictionary in Home.locations():
+			if Home.location_done(str(loc["id"])):
+				Profile.set_flag("photo." + str(loc["id"]))
+				Profile.set_flag("seen.novel.%s_done" % loc["id"])
+		if Home.completed() >= Home.total():
+			Profile.set_flag("seen.novel.act1_end")
 	if flags.has("home-items"):
 		for id in str(flags["home-items"]).split(",", false):
 			Profile.grant(id)
