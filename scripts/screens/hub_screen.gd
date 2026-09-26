@@ -67,6 +67,8 @@ func open(args: Dictionary) -> void:
 		Assets.want(Assets.location_paths(str(locs[i + 1]["id"])))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	# фон места: дождь с ветром, пока окно разбито; сквозняк в запущенной комнате
+	Sfx.ambience(_view.ambience())
 	# новая глава: табличка опускается сверху
 	if args.get("unlocked", false) or not Profile.flag("seen." + _loc_id):
 		_title.call(&"show_in")
@@ -176,6 +178,7 @@ func _play_repair() -> void:
 	Sfx.haptic(40)
 	await _view.repair_finished
 	_gloom.set_amount(_gloom_share(""))
+	Sfx.ambience(_view.ambience())
 	# радость: подпрыгнули, искры над головами, «Ура!» и реплика про починенную вещь
 	_view.cheer()
 	Sfx.play(&"win")

@@ -48,6 +48,8 @@ var _wear := -1.0                # текущий общий износ; -1 — 
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
 var _teddy: Texture2D
+var _shiver := 0.0               # сдвиг семьи, когда ей холодно (дрожь приступами)
+var _family_x := 0.0
 var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
 var _hop := {}                   # img отдельного слоя -> подскок (радость), px
 
@@ -136,6 +138,13 @@ func target_rect(id: String) -> Rect2:
 func _process(delta: float) -> void:
 	_t += delta
 	_update_wear(delta)
+	# холодно и страшно: раз в ~5 с семья дрожит почти секунду, чем запущеннее — тем сильнее
+	_shiver = 0.0
+	var ph := fmod(_t + 1.3, 5.0)
+	if _wear > 0.25 and ph < 0.9:
+		_shiver = sin(_t * 58.0) * 2.4 * _wear * sin(PI * ph / 0.9)
+	if _family.visible:
+		_family.position.x = _family_x + _shiver
 	queue_redraw()
 	_front.queue_redraw()
 
@@ -206,16 +215,51 @@ func _draw() -> void:
 	for t: Dictionary in loc.get("targets", []):
 		if not _done.get(t["id"], false):
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)), true)
-	# купленный декор: свой PNG в локации или общий рисунок магазина
+	_draw_dust()
+	# купленный декор: свой PNG в локации или общий рисунок магазина; растение чуть покачивается
 	for d: Dictionary in loc.get("decor", []):
 		if Profile.owns(d["id"]):
 			var v: Array = d["rect"]
 			var r := Rect2(v[0], v[1], v[2], v[3])
+			var sway := sin(_t * 1.1 + r.position.x * 0.01) * 0.035 if str(d["id"]) == "vita_plant" else 0.0
+			var foot := Vector2(r.get_center().x, r.end.y)
+			r.position -= foot
 			var tex: Texture2D = _tex.get("decor_" + str(d["id"]))
 			if tex:
+				draw_set_transform(foot, sway, Vector2.ONE)
 				_fit(tex, r)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			else:
-				HomeArt.draw_decor(self, d["id"], r)
+				HomeArt.draw_decor(self, d["id"], r, Transform2D(sway, foot))
+
+
+## Пылинки в воздухе, пока комната запущена: медленно плывут и поблёскивают.
+func _draw_dust() -> void:
+	if _wear < 0.2:
+		return
+	for i in 16:
+		var sx := fmod(i * 97.3 + _t * (6.0 + i % 5), size.x)
+		var sy := 250.0 + fmod(i * 173.7, 900.0) + sin(_t * 0.6 + i) * 25.0
+		var a := (0.12 + 0.12 * sin(_t * 1.7 + i * 2.1)) * _wear
+		draw_circle(Vector2(sx, sy), 2.0 + (i % 3), Color(1.0, 0.96, 0.85, a))
+
+
+## Искорка-звёздочка у починенной вещи: k 0..1 — вспыхнула и погасла.
+func _sparkle(at: Vector2, k: float) -> void:
+	var a := sin(k * PI)
+	var s := 10.0 * a
+	var c := Color(1.0, 0.97, 0.8, 0.9 * a)
+	_canvas.draw_line(at - Vector2(s, 0), at + Vector2(s, 0), c, 2.5)
+	_canvas.draw_line(at - Vector2(0, s * 1.4), at + Vector2(0, s * 1.4), c, 2.5)
+	_canvas.draw_circle(at, 2.5 * a, c)
+
+
+## Какой фон звучит здесь: пока окно разбито (дождь) — "storm", в запущенной комнате — "wind".
+func ambience() -> StringName:
+	for t: Dictionary in loc.get("targets", []):
+		if not _done.get(t["id"], false) and "rain" in t.get("fx", []):
+			return &"storm"
+	return &"wind" if _wear >= 0.4 else &""
 
 
 ## Передний план поверх семьи: предметы z ≥ 2, эффекты причин и подсветка целей.
@@ -293,6 +337,8 @@ func _draw_layer(t: Dictionary) -> void:
 	var tex: Texture2D = _tex.get("prop_" + str(t["img"]))
 	var r := _rect(t)
 	r.position.y -= float(_hop.get(str(t["img"]), 0.0))
+	if str(t["img"]).begins_with("family/"):
+		r.position.x += _shiver
 	if tex:
 		_fit(tex, r)
 	else:
@@ -327,11 +373,17 @@ func _draw_target_at(t: Dictionary, r: Rect2) -> void:
 			var pop := 1.0 + 0.08 * sin(show * PI)
 			_layer(fixed, Rect2(r.get_center() - r.size * pop * 0.5, r.size * pop), id, true, Color(1, 1, 1, show), Vector2.ZERO)
 		return
+	# у каждой вещи своя фаза, чтобы не дёргались хором
+	var ph := fmod(_t + float(hash(id) % 997) * 0.013, 4.5)
 	if done:
 		if fixed or not overlay:
 			_layer(fixed, r, id, true, Color.WHITE, Vector2.ZERO)
+			if ph < 0.6:
+				_sparkle(r.position + r.size * Vector2(0.3 + 0.4 * fmod(float(hash(id) % 7) * 0.37, 1.0), 0.3), ph / 0.6)
 	else:
-		_layer(broken, r, id, false, Color.WHITE, Vector2.ZERO)
+		# сломанное вздрагивает раз в несколько секунд
+		var twitch := sin(_t * 70.0) * 1.8 if ph < 0.35 else 0.0
+		_layer(broken, r, id, false, Color.WHITE, Vector2(twitch, 0))
 
 
 func _layer(tex: Texture2D, r: Rect2, id: String, fixed: bool, mod: Color, shift: Vector2) -> void:
@@ -467,6 +519,7 @@ func _update_family() -> void:
 	_family.scale = Vector2(k, k)
 	var feet: Array = fam.get("pos", [360, 1300])
 	_family.position = Vector2(feet[0] - tex.get_width() * k * 0.5, feet[1] - h)
+	_family_x = _family.position.x
 
 
 ## Трещины вокруг дыр: 5 ломаных от центра каждого места, по перспективе пола сплюснуты.

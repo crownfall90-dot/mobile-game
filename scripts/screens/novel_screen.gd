@@ -52,6 +52,8 @@ var _h := 1280.0                  # высота экрана в единица�
 var _bg_holder: Node2D
 var _bg_node: Node2D
 var _bg_key := ""
+var _cold := false
+var _family_x := 0.0
 var _shade: ColorRect
 var _rain: Node2D
 var _ui: Control
@@ -196,6 +198,7 @@ func _layout() -> void:
 		var k := fh / tex.get_height()
 		_family.scale = Vector2(k, k)
 		_family.position = Vector2(w * 0.36 - tex.get_width() * k * 0.5, _box.position.y + 90 - fh)
+		_family_x = _family.position.x
 		var teddy := _family.get_node_or_null(^"Teddy") as Sprite2D
 		if teddy:
 			# в пикселях картинки пары: доли LocationView.TEDDY_ON_PAIR
@@ -330,6 +333,10 @@ func _end_typing() -> void:
 
 
 func _process(delta: float) -> void:
+	if _cold:
+		# дрожь приступами: холодно и страшно
+		var ph := fmod(Time.get_ticks_msec() * 0.001, 4.0)
+		_family.position.x = _family_x + (sin(Time.get_ticks_msec() * 0.058) * 2.6 * sin(PI * ph / 0.9) if ph < 0.9 else 0.0)
 	if _typing:
 		_shown += delta * CPS
 		_text.visible_characters = int(_shown)
@@ -431,6 +438,9 @@ func _make_bg(st: Dictionary) -> void:
 	_bg_holder.add_child(_bg_node)
 	_shade.color = TINTS.get(str(st.get("tint", "")), TINTS[""])
 	_rain.visible = bool(st.get("rain", false))
+	# ночь под дождём и тёмная сырая комната: слышен дождь с ветром или сквозняк, семья дрожит
+	_cold = _rain.visible or str(st.get("tint", "")) in ["dim", "night"]
+	Sfx.ambience(&"storm" if _rain.visible else (&"wind" if _cold else &""))
 	_fit_bg()
 
 

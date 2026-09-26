@@ -80,6 +80,7 @@ func _ready() -> void:
 
 
 func open(args: Dictionary) -> void:
+	Sfx.ambience(&"")   # в головоломке фон места не звучит
 	level_id = str(args.get("id", ""))
 	var m: Variant = args.get("mods", {})
 	mods = m if m is Dictionary else {}
