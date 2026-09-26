@@ -299,9 +299,13 @@ func _draw_fx(t: Dictionary, k: float) -> void:
 					_canvas.draw_line(c + Vector2(-70, 22), c + Vector2(0, 22), Color(1, 1, 1, 0.5 * k * (1.0 - ph)), 4.0)
 			"drip", "ceiling_drip":
 				var from := Vector2(r.get_center().x, r.position.y + (r.size.y if fx == "ceiling_drip" else r.size.y * 0.35))
+				# капля падает до своей лужи, если она задана, иначе на 380 px
+				var fall := 380.0
+				if t.has("puddle_at"):
+					fall = maxf(60.0, float(t["puddle_at"][1]) - from.y)
 				for i in 2:
 					var ph := fmod(_t * 0.9 + i * 0.5, 1.0)
-					_canvas.draw_circle(from + Vector2(0, ph * 380.0), 7.0, Color(0.55, 0.78, 1.0, 0.85 * k))
+					_canvas.draw_circle(from + Vector2(0, ph * fall), 7.0, Color(0.55, 0.78, 1.0, 0.85 * k))
 			"puddle":
 				var at: Array = t.get("puddle_at", [r.get_center().x, r.end.y + 20.0])
 				var below := Vector2(at[0], at[1])
