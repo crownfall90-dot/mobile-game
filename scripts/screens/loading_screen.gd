@@ -70,7 +70,11 @@ func _process(delta: float) -> void:
 	if ready_audio and _elapsed >= MIN_WAIT:
 		_done = true
 		_bar.size.x = 500
-		Router.go(&"hub")
+		# первый запуск: пролог-новелла, потом главный экран
+		if Profile.flag("seen.prologue"):
+			Router.go(&"hub")
+		else:
+			Router.go(&"novel", {"scene": "prologue"})
 
 
 func _layout() -> void:

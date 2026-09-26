@@ -54,7 +54,7 @@ func open(args: Dictionary) -> void:
 	var g: Dictionary = Home.location(_loc_id).get("gloom", {})
 	var gp: Array = g.get("pos", [600, 320])
 	_gloom = GLOOM.new()
-	_gloom.setup(Vector2(gp[0], gp[1]), _gloom_share(_repair), Home.completed() >= Home.total())
+	_gloom.setup(Vector2(gp[0], gp[1]), _gloom_share(_repair), _act_over())
 	holder.add_child(_gloom)
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
@@ -162,8 +162,7 @@ func _play_repair() -> void:
 	await _say_lines(Home.task(_repair).get("cheer", []))
 	_busy = false
 	if Home.location_done(_loc_id):
-		_busy = true
-		await _say_lines(Home.location(_loc_id).get("lines", {}).get("done", []))
+		# итог локации рассказывает сценка-новелла (data/novel.json, <локация>_done)
 		_celebrate()
 
 
@@ -193,14 +192,15 @@ func _celebrate() -> void:
 			fx.burst(Vector2(size.x * (0.2 + 0.2 * i), size.y * 0.3), Color("ffe5a3"), 30, 320, 6, 400, 1.2))
 		tw.tween_interval(0.35)
 	Sfx.play(&"win")
-	await get_tree().create_timer(3.2).timeout
+	await get_tree().create_timer(2.4).timeout
+	# сценка-новелла локации: находится кусочек фото прабабушки; потом — следующая локация
+	# (после последней — финал акта внутри сценки и снова гостиная)
+	Profile.set_flag("photo." + _loc_id)
 	var locs := Home.locations()
 	var i := _loc_index()
-	if i + 1 < locs.size():
-		Router.go(&"hub", {"location": str(locs[i + 1]["id"]), "unlocked": true})
-	else:
-		_busy = false
-		shade.queue_free()
+	var next_loc := str(locs[i + 1]["id"]) if i + 1 < locs.size() else _loc_id
+	Router.go(&"novel", {"scene": _loc_id + "_done",
+		"next": {"screen": "hub", "args": {"location": next_loc, "unlocked": i + 1 < locs.size()}}})
 
 
 ## Только что купленная вещь: вспышка и короткая реплика.
@@ -278,13 +278,18 @@ func _gloom_share(holding: String) -> float:
 	return float(left) / targets.size()
 
 
+## Акт пройден и финальная сценка показана: Хмурь — белое облачко-друг.
+func _act_over() -> bool:
+	return Home.completed() >= Home.total() and Profile.flag("seen.novel.act1_end")
+
+
 ## Нажали на Хмурь: она вздыхает, семья отвечает; после акта — облачко-друг.
 func _gloom_talk() -> void:
 	if _talking:
 		return
 	_gloom.talk()
 	Sfx.play(&"ui_tap")
-	var lines: Array = Home.data().get("gloom_friend", []) if Home.completed() >= Home.total() \
+	var lines: Array = Home.data().get("gloom_friend", []) if _act_over() \
 		else Home.location(_loc_id).get("gloom", {}).get("lines", [])
 	await _say_lines(lines)
 
