@@ -223,21 +223,33 @@ static func lose_key(res: Dictionary) -> String:
 
 
 ## Почему не вышло починить вещь: что испортило приёмник или чего не хватило.
+## Нарушитель в тексте поражения: [кто, что сделал с %s-местом].
+const ENEMY_TEXT := {
+	"slime": ["Слизень", "забил %s"], "grime": ["Засор", "ушёл в %s и всё забил"],
+	"mold": ["Плесень", "проросла в %s"], "cockroach": ["Таракан", "залез в %s"],
+	"rat": ["Крыса", "пролезла в %s"], "mouse": ["Мышь", "пролезла в %s"],
+	"spider": ["Паук", "затянул %s паутиной"], "moth": ["Моль", "залетела в %s"],
+}
+
+
 func _item_lose_text(res: Dictionary) -> String:
 	var recv: Dictionary = _data.get("receiver", {})
-	var where: String = {"drain": "трубу", "bucket": "ведро", "toolbox": "ящик", "burner": "конфорку", "hole": "пол"}.get(str(recv.get("look", "")), "вещь")
+	var where: String = str(recv.get("where", {"drain": "трубу", "bucket": "ведро", "toolbox": "ящик",
+		"burner": "конфорку", "hole": "пол", "sewer": "трубу"}.get(str(recv.get("look", "")), "вещь")))
+	var enemies: Array = _data.get("enemies", [])
+	var who: Array = ENEMY_TEXT.get(str(enemies[0].get("kind", "slime")) if not enemies.is_empty() else "slime", ENEMY_TEXT["slime"])
 	match str(res.get("reason", "")):
 		"lava":
-			return "Лава прожгла %s" % where
+			return "Огонь прожёг %s" % where
 		"acid":
-			return "Кислота разъела %s" % where
+			return "Средство разъело %s" % where
 		"water":
 			return "Вода залила %s" % where
 		"enemy":
-			return "Слизень забил %s" % where
+			return "%s %s" % [who[0], who[1] % where]
 		"stuck":
 			if int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
-				return "Слизень ещё мешает"
+				return "%s ещё мешает" % who[0]
 			return {"water": "Воды не хватило", "stone": "Дыру не заделали", "lava": "Огонь не дошёл",
 				"gold": "Не хватило деталей"}.get(str(recv.get("kind", "gold")), "Не получилось")
 	return "Попробуй по-другому"
