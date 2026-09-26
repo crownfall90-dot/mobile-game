@@ -379,7 +379,7 @@ def _lint(d, path, index, rep):
         if not isinstance(rot, dict):
             rep.err("rotate must be an object {time}")
         else:
-            _unknown(rot, {"time"}, "rotate", rep)
+            _unknown(rot, {"time", "step", "max"}, "rotate", rep)
             pin_ids += ["cw", "ccw"]
     src = d.get("source")
     if src is not None:

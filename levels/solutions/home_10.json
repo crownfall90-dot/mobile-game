@@ -1,7 +1,3 @@
 [
-  ["acid", "lava", "water", "drain"],
-  ["water", "lava", "acid", "drain"],
-  ["acid", "water", "lava", "drain"],
-  ["lava", "water", "acid", "drain"],
-  ["lava", "acid", "water", "drain"]
+  ["cw", "ccw", "ccw", "cw"]
 ]

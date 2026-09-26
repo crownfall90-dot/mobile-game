@@ -448,6 +448,11 @@ func can_rotate() -> bool:
 
 ## «Поверни»: вещь поворачивается на 90° по часовой (dir = 1) или против (dir = -1). Гравитация
 ## поворачивается в обратную сторону, а камера — вместе с вещью: всё падает к низу экрана.
+## "rotate": {step} — угол шага в градусах (наклон ванны — 25°), {max} — сколько шагов в каждую
+## сторону можно наклонить (0 — без предела); упёрлись в предел — ход не засчитывается.
+var _rot_steps := 0
+
+
 func rotate_world(dir: int) -> bool:
 	if _rot.is_empty() or finished:
 		return false
@@ -455,8 +460,12 @@ func rotate_world(dir: int) -> bool:
 		# нажали, пока вещь ещё поворачивается: повернём следующей, ничего не теряется
 		_rot_queue.append(dir)
 		return true
+	var limit := int(_rot.get("max", 0))
+	if limit > 0 and absi(_rot_steps + dir) > limit:
+		return false
+	_rot_steps += dir
 	_rot_busy = true
-	_angle_to += dir * PI * 0.5
+	_angle_to += dir * deg_to_rad(float(_rot.get("step", 90.0)))
 	var id := "cw" if dir > 0 else "ccw"
 	_pulled.append(id)
 	_acted = true
