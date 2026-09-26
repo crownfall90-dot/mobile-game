@@ -219,15 +219,23 @@ func build(level_data: Dictionary) -> void:
 	if recv.get("look", "") == "art":
 		# нарисованный слив: невидимое дно под приёмником, чтобы после исхода ничего
 		# не проваливалось сквозь картинку
+		# (дыру заделывают — mode fill: ещё и стенки по бокам, получается чашка)
 		var rr := _rect(recv["rect"])
+		var fill := str(recv.get("mode", "collect")) == "fill"
 		var floor_body := StaticBody2D.new()
-		floor_body.collision_layer = Substances.LAYER_WORLD
-		var seg := CollisionShape2D.new()
-		var shape := RectangleShape2D.new()
-		shape.size = Vector2(rr.size.x + 40.0, 16.0)
-		seg.shape = shape
-		seg.position = Vector2(rr.get_center().x, rr.end.y + 8.0)
-		floor_body.add_child(seg)
+		# у дыры дно — щели: вода уходит, камни остаются
+		floor_body.collision_layer = Substances.LAYER_SIEVE if fill else Substances.LAYER_WORLD
+		var parts: Array[Rect2] = [Rect2(rr.position.x - 20.0, rr.end.y, rr.size.x + 40.0, 28.0)]
+		if fill:
+			parts.append(Rect2(rr.position.x - 16.0, rr.position.y, 16.0, rr.size.y + 28.0))
+			parts.append(Rect2(rr.end.x, rr.position.y, 16.0, rr.size.y + 28.0))
+		for part in parts:
+			var seg := CollisionShape2D.new()
+			var shape := RectangleShape2D.new()
+			shape.size = part.size
+			seg.shape = shape
+			seg.position = part.get_center()
+			floor_body.add_child(seg)
 		add_child(floor_body)
 
 	if data.has("dirt"):
@@ -710,7 +718,8 @@ func _on_zone_hit(body: Node) -> void:
 	if finished:
 		return
 	if body is Enemy:
-		if body.alive:
+		# в «дыре» (mode fill) нарушитель и так сидит внутри: проигрыш — если его замуровали (стоп)
+		if body.alive and not _fill_mode:
 			_lose("enemy")
 		return
 	if not (body is Item) or not _alive(body):
@@ -898,6 +907,12 @@ func _count_fill() -> void:
 			hero.bounce()
 		pieces = n
 		gold_changed.emit(pieces, pieces_needed, pieces_total)
+	# дыру заделали, а нарушитель остался внутри — замуровали: он прогрызёт всё снова
+	if pieces >= pieces_needed:
+		for e in enemies:
+			if e.alive and zr.grow(60.0).has_point(e.position):
+				_lose("walled")
+				return
 
 
 func _family_safe() -> bool:
@@ -1062,7 +1077,7 @@ func _on_hazard(body: Node, kind: String) -> void:
 	for art in _hazard_arts:
 		if art.rect.grow(20).has_point(item.position):
 			art.spark()
-			if kind == "socket":
+			if kind == "socket" or kind == "wire":
 				fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
 	if _hazard_count[kind] > int(_hazard_limits.get(kind, 0)):
 		_lose(kind)
@@ -1083,6 +1098,9 @@ class HazardArt extends Node2D:
 			queue_redraw()
 
 	func _draw() -> void:
+		if kind == "wire":
+			_draw_wire()
+			return
 		if kind != "socket":
 			# подоконник и пол нарисованы на фоне: только тревожная вспышка при каждой капле
 			if _flash > 0.0:
@@ -1104,9 +1122,36 @@ class HazardArt extends Node2D:
 		draw_colored_polygon(PackedVector2Array([z + Vector2(-4, -14), z + Vector2(6, -14), z + Vector2(0, -2),
 			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
 		if _flash > 0.0:
-			for i in 8:
-				var a := i * TAU / 8.0
-				draw_line(c, c + Vector2(cos(a), sin(a)) * (30.0 + 40.0 * _flash), Color(1.0, 0.9, 0.3, _flash), 4.0)
+			_draw_sparks(c)
+
+	## Проводка под полом: кабель через весь участок и распаечная коробка с молнией.
+	func _draw_wire() -> void:
+		var c := rect.get_center()
+		var pts := PackedVector2Array()
+		for i in 13:
+			var t := i / 12.0
+			pts.append(Vector2(lerpf(rect.position.x, rect.end.x, t), c.y + sin(t * TAU * 1.5) * rect.size.y * 0.18))
+		draw_polyline(pts, Color("2b2522"), 12.0, true)
+		draw_polyline(pts, Color("c0392b"), 7.0, true)
+		var r := Rect2(c - Vector2(30, 24), Vector2(60, 48))
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("9aa3a8")
+		box.border_color = Color("4d5559")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(8)
+		draw_style_box(box, r)
+		for p in [r.position + Vector2(9, 9), r.end - Vector2(9, 9)]:
+			draw_circle(p, 3.5, Color("4d5559"))
+		var z := c
+		draw_colored_polygon(PackedVector2Array([z + Vector2(-4, -14), z + Vector2(6, -14), z + Vector2(0, -2),
+			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
+		if _flash > 0.0:
+			_draw_sparks(c)
+
+	func _draw_sparks(c: Vector2) -> void:
+		for i in 8:
+			var a := i * TAU / 8.0
+			draw_line(c, c + Vector2(cos(a), sin(a)) * (30.0 + 40.0 * _flash), Color(1.0, 0.9, 0.3, _flash), 4.0)
 
 
 # --- служебное --------------------------------------------------------------

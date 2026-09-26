@@ -386,8 +386,8 @@ def _lint(d, path, index, rep):
         else:
             _unknown(src, {"pos", "kind", "count", "rate", "delay", "x1"}, "source", rep)
     for i, hz in enumerate(_list(d, "hazards", rep)):
-        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill"):
-            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket or sill")
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire"):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill or wire")
     for key in ("dirt", "holes"):
         for i, sh in enumerate(d.get(key, [])):
             if not isinstance(sh, dict) or not (is_rect(sh.get("rect")) or "poly" in sh or "circle" in sh):
