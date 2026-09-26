@@ -4,27 +4,9 @@ extends Control
 ## обрезается, поэтому всё нажимаемое стоит в safe-области act1.json. Нажатие на сломанную вещь
 ## открывает её головоломку. После последнего ремонта локации — радостная сцена и новая локация.
 
-const REPAIR_LINES := {
-	"room_window": "Дочка: «Больше не дует!»",
-	"room_bed": "Мама: «Сегодня мы выспимся.»",
-	"room_floor": "Дочка: «Теперь можно бегать!»",
-	"room_wall": "Мама: «Как светло стало!»",
-	"kitchen_sink": "Мама: «Ни капли мимо!»",
-	"kitchen_stove": "Дочка: «Мама, сваришь кашу?»",
-	"kitchen_fridge": "Мама: «Теперь продукты не испортятся.»",
-	"kitchen_cabinets": "Дочка: «Всё на своих местах!»",
-	"kitchen_ceiling": "Мама: «Больше не капает.»",
-	"bath_tub": "Дочка: «Можно купаться с пеной!»",
-	"bath_toilet": "Мама: «Вот и здесь стало удобно.»",
-	"bath_sink": "Дочка: «Кран больше не плачет!»",
-	"bath_tiles": "Мама: «Чисто и красиво.»",
-	"bath_light": "Дочка: «Светло-светло!»",
-	"living_sofa": "Дочка: «Почитаем сказку вместе?»",
-	"living_tv": "Дочка: «Мультики снова работают!»",
-	"living_lamp": "Мама: «Тёплый вечерний свет.»",
-	"living_wall": "Дочка: «Как красиво вокруг!»",
-	"living_floor": "Мама: «Наш дом наконец-то уютный.»",
-}
+const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не зависит от кэша class_name
+const IDLE_AFTER := 6.0      # столько секунд без нажатий — и Вита подсказывает, куда нажать
+const IDLE_AGAIN := 14.0     # следующая подсказка — через столько
 
 var _loc_id := ""
 var _view: LocationView
@@ -40,6 +22,10 @@ var _tip: Label
 var _repair := ""
 var _busy := false
 var _time := 0.0
+var _idle := 0.0
+var _talking := false
+var _hand: TextureRect
+var _bubbles := {}           # кто говорит -> SpeechBubble
 
 
 func open(args: Dictionary) -> void:
@@ -69,8 +55,8 @@ func open(args: Dictionary) -> void:
 		_play_repair.call_deferred()
 	elif str(args.get("bought", "")) != "":
 		_show_bought(str(args["bought"]))
-	elif args.get("unlocked", false):
-		Router.toast("Новая локация: " + str(Home.location(_loc_id).get("name", "")))
+	else:
+		_greet.call_deferred(args.get("unlocked", false))
 
 
 func _build_ui() -> void:
@@ -124,6 +110,12 @@ func _nav_button(text: String, loc_id: String) -> Button:
 	return b
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventMouseButton:
+		_idle = 0.0
+		_hide_hand()
+
+
 func _gui_input(event: InputEvent) -> void:
 	if _busy or not (event is InputEventScreenTouch and event.pressed):
 		return
@@ -147,10 +139,18 @@ func _play_repair() -> void:
 	Sfx.play(&"restore")
 	Sfx.haptic(40)
 	await _view.repair_finished
-	Router.toast(REPAIR_LINES.get(_repair, "Дома стало немного уютнее"))
+	# радость: подпрыгнули, искры над головами, «Ура!» и реплика про починенную вещь
+	_view.cheer()
+	Sfx.play(&"win")
+	var fx := Fx.new()
+	add_child(fx)
+	for who in ["daughter", "mother"]:
+		fx.burst(_to_screen(_view.speaker_point(who)), Color("ffe5a3"), 16, 260, 5, 300, 0.9)
+	await _say_lines(Home.task(_repair).get("cheer", []))
 	_busy = false
 	if Home.location_done(_loc_id):
-		await get_tree().create_timer(1.2).timeout
+		_busy = true
+		await _say_lines(Home.location(_loc_id).get("lines", {}).get("done", []))
 		_celebrate()
 
 
@@ -211,6 +211,95 @@ func _process(delta: float) -> void:
 	_time += delta
 	if _tip:
 		_tip.modulate.a = 0.75 + 0.25 * sin(_time * 3.0)
+	if _busy or _talking or Router.is_busy():
+		_idle = 0.0
+		return
+	_idle += delta
+	if _idle >= IDLE_AFTER:
+		_idle = IDLE_AFTER - IDLE_AGAIN
+		_idle_hint()
+
+
+# --- реплики семьи -------------------------------------------------------------------
+
+func _to_screen(p: Vector2) -> Vector2:
+	return _offset + p * _k
+
+
+## Реплика в облачке над головой: mother или daughter. Прежнее облачко того же героя уходит.
+func _say(who: String, line: String, hold := 2.2) -> Node2D:
+	if _bubbles.has(who) and is_instance_valid(_bubbles[who]):
+		# прежнее облачко этого героя уходит; кто его ждал — не зависнет
+		_bubbles[who].emit_signal(&"finished")
+		_bubbles[who].queue_free()
+	var b: Node2D = BUBBLE.new()
+	add_child(b)
+	b.position = _to_screen(_view.speaker_point(who))
+	var ui_k := minf(size.x / 720.0, size.y / 1280.0)
+	b.call(&"show_line", line, hold, Vector2(16.0, size.x - 16.0), ui_k)
+	_bubbles[who] = b
+	return b
+
+
+## Диалог по очереди: [[кто, текст], ...]; время на строку — по длине.
+func _say_lines(lines: Array) -> void:
+	_talking = true
+	for l: Array in lines:
+		var hold := clampf(0.9 + str(l[1]).length() * 0.045, 1.4, 3.2)
+		var b := _say(str(l[0]), str(l[1]), hold)
+		await Signal(b, &"finished")
+	_talking = false
+
+
+## Вход в локацию: при первом визите — короткий диалог по сюжету.
+func _greet(unlocked: bool) -> void:
+	var flag := "seen." + _loc_id
+	if Profile.flag(flag) and not unlocked:
+		return
+	Profile.set_flag(flag)
+	await get_tree().create_timer(0.6).timeout
+	await _say_lines(Home.location(_loc_id).get("lines", {}).get("enter", []))
+
+
+## Долго не нажимают: пальчик стучит по следующей сломанной вещи, Вита или мама подсказывает.
+func _idle_hint() -> void:
+	var target := {}
+	for t: Dictionary in Home.location(_loc_id).get("targets", []):
+		if not Home.is_done(t["id"]) and Game.has_level(str(t["level"])):
+			target = t
+			break
+	if target.is_empty():
+		return
+	var lines: Array = Home.location(_loc_id).get("lines", {}).get("idle", [])
+	if not lines.is_empty():
+		var l: Array = lines[randi() % lines.size()]
+		_say(str(l[0]), str(l[1]), 2.4)
+	_show_hand(_to_screen(_view.target_rect(target["id"]).get_center()))
+
+
+func _show_hand(at: Vector2) -> void:
+	_hide_hand()
+	_hand = TextureRect.new()
+	_hand.texture = Icons.tex(&"hand", 112)
+	_hand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hand.size = Vector2(112, 112)
+	_hand.pivot_offset = Vector2(20, 10)
+	_hand.position = at + Vector2(-8, 6)
+	add_child(_hand)
+	var tw := _hand.create_tween().set_loops(4)
+	tw.tween_property(_hand, "scale", Vector2(0.85, 0.85), 0.18)
+	tw.tween_property(_hand, "scale", Vector2.ONE, 0.22)
+	tw.tween_interval(0.3)
+	var gone := _hand.create_tween()
+	gone.tween_interval(2.9)
+	gone.tween_property(_hand, "modulate:a", 0.0, 0.3)
+	gone.tween_callback(_hide_hand)
+
+
+func _hide_hand() -> void:
+	if _hand and is_instance_valid(_hand):
+		_hand.queue_free()
+	_hand = null
 
 
 func _layout() -> void:

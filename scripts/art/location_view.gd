@@ -43,6 +43,7 @@ var _bg_sprite: Sprite2D         # фон под износом (шейдер we
 var _wear := -1.0                # текущий общий износ; -1 — ещё не выставлен
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
+var _hop := {}                   # img отдельного слоя -> подскок (радость), px
 
 
 class Front extends Node2D:
@@ -259,10 +260,12 @@ func _draw_layer(t: Dictionary) -> void:
 		_draw_target(t)
 		return
 	var tex: Texture2D = _tex.get("prop_" + str(t["img"]))
+	var r := _rect(t)
+	r.position.y -= float(_hop.get(str(t["img"]), 0.0))
 	if tex:
-		_fit(tex, _rect(t))
+		_fit(tex, r)
 	else:
-		_canvas.draw_rect(_rect(t), Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
+		_canvas.draw_rect(r, Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
 
 
 func _draw_target(t: Dictionary) -> void:
@@ -452,6 +455,48 @@ func _draw_cracks(t: Dictionary, k: float) -> void:
 	for line: PackedVector2Array in _cracks[id]:
 		_canvas.draw_polyline(line, Color(0.24, 0.14, 0.08, 0.9 * k), 4.0, true)
 		_canvas.draw_polyline(line, Color(0.95, 0.75, 0.5, 0.35 * k), 1.5, true)
+
+
+## Точка над головой говорящего (mother / daughter) в поле сцены — для облачка реплики.
+## Отдельные слои сценки (props: family/mother_*, family/daughter_*) или общая пара family_mood*.
+func speaker_point(who: String) -> Vector2:
+	for pr: Dictionary in loc.get("props", []):
+		var img := str(pr["img"])
+		if img.begins_with("family/" + who):
+			var tex: Texture2D = _tex.get("prop_" + img)
+			var d := _fit_rect(tex, _rect(pr)) if tex else _rect(pr)
+			return Vector2(d.get_center().x, d.position.y + d.size.y * 0.03)
+	if _family.visible and _family.texture:
+		var sz := _family.texture.get_size() * _family.scale
+		# на картинке пары мама слева (голова ~38 % ширины), дочка справа ниже (~72 %, ~40 % высоты)
+		var at := Vector2(0.38, 0.07) if who == "mother" else Vector2(0.72, 0.40)
+		return _family.position + sz * at
+	return Vector2(size.x * 0.5, size.y * 0.5)
+
+
+## Радость: подпрыгнуть (вся пара или отдельные мама и дочка), дважды.
+func cheer() -> void:
+	var tw := create_tween()
+	if _family.visible:
+		var base := _family.position
+		for i in 2:
+			tw.tween_property(_family, "position:y", base.y - 34.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_property(_family, "position:y", base.y, 0.2).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		return
+	for pr: Dictionary in loc.get("props", []):
+		var img := str(pr["img"])
+		if img.begins_with("family/"):
+			var h := 40.0 if img.contains("daughter") else 22.0
+			var hop := create_tween()
+			for i in 2:
+				hop.tween_method(func(v: float) -> void: _hop[img] = v, 0.0, h, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+				hop.tween_method(func(v: float) -> void: _hop[img] = v, h, 0.0, 0.2).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+
+
+func _fit_rect(tex: Texture2D, r: Rect2) -> Rect2:
+	var ts := tex.get_size()
+	var k := minf(r.size.x / ts.x, r.size.y / ts.y)
+	return Rect2(r.position + (r.size - ts * k) * 0.5, ts * k)
 
 
 func _target(id: String) -> Dictionary:
