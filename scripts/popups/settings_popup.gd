@@ -33,4 +33,5 @@ func _confirm_reset() -> void:
 			if yes == true:
 				Profile.reset_progress()
 				Profile.flush()
-				Router.go(&"hub"))
+				# история заново: загрузка, пролог-новелла, первая комната
+				Router.go(&"loading"))
