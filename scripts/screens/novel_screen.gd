@@ -220,6 +220,20 @@ func _play() -> void:
 	_finish()
 
 
+func _chain(id: String, acc: Array) -> Array:
+	if id in acc:
+		return acc
+	acc.append(id)
+	var walk := func(steps: Array, self_ref: Callable) -> void:
+		for st: Dictionary in steps:
+			if st.has("scene"):
+				_chain(str(st["scene"]), acc)
+			for c: Dictionary in st.get("choice", []):
+				self_ref.call(c.get("then", []), self_ref)
+	walk.call(_steps(id), walk)
+	return acc
+
+
 func _steps(id: String) -> Array:
 	var s: Variant = _data.get("scenes", {}).get(id, [])
 	return s if s is Array else []
@@ -340,7 +354,9 @@ func _finish() -> void:
 	if _finished:
 		return
 	_finished = true
-	Profile.set_flag("seen.novel." + _scene_id)
+	# просмотрена (или пропущена) сцена и все, что идут в ней продолжением: living_done → act1_end
+	for id in _chain(_scene_id, []):
+		Profile.set_flag("seen.novel." + id)
 	if _scene_id == "prologue":
 		Profile.set_flag("seen.prologue")
 	Profile.flush()

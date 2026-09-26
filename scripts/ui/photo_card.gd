@@ -1,6 +1,7 @@
 extends Control
 ## Старая фотография прабабушки из четырёх кусочков; недостающие — пустые места с «?».
-## Кусочек i найден, если стоит флаг профиля photo.<id i-й локации> (ставит хаб в конце локации).
+## Кусочек i находится в конце i-й локации: он есть, если локация починена целиком (так и у тех,
+## кто прошёл локации до появления фото).
 ## Картинка художника art/act1/story/photo_full.png режется на четверти; пока её нет — рисует код.
 ## Используют новелла (кусочек проявляется) и альбом.
 
@@ -17,7 +18,7 @@ func collect(fresh_index := -1) -> void:
 	pieces.clear()
 	var locs := Home.locations()
 	for i in 4:
-		pieces.append(i < locs.size() and Profile.flag("photo." + str(locs[i]["id"])))
+		pieces.append(i < locs.size() and Home.location_done(str(locs[i]["id"])))
 	fresh = fresh_index
 	if fresh >= 0 and fresh < 4:
 		pieces[fresh] = true
