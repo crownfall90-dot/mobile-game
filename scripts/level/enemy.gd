@@ -84,8 +84,13 @@ func _draw() -> void:
 	if kind == &"spider":
 		_web(a)
 	if _tex:
-		var s := RADIUS * 2.6
-		draw_texture_rect(_tex, Rect2(-s * 0.5, -s * 0.5, s, s), false, Color(1, 1, 1, a))
+		# картинка крупнее тела, низом стоит на полу; художник рисует лицом влево — к цели справа отражаем
+		var s := RADIUS * 3.4
+		var face := -1.0 if target.x > position.x else 1.0
+		var r := Rect2(-s * 0.5, RADIUS - s, s, s)
+		if face < 0.0:
+			r = Rect2(s * 0.5, RADIUS - s, -s, s)
+		draw_texture_rect(_tex, r, false, Color(1, 1, 1, a))
 		return
 	match kind:
 		&"rat", &"mouse":
