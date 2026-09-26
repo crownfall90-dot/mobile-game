@@ -24,6 +24,7 @@ const POPUPS := {
 	&"chest": "res://scripts/popups/chest_popup.gd",
 	&"settings": "res://scripts/popups/settings_popup.gd",
 	&"album": "res://scripts/popups/album_popup.gd",
+	&"howto": "res://scripts/popups/howto_popup.gd",
 	&"confirm": "res://scripts/popups/confirm_popup.gd",
 	&"intro_card": "res://scripts/popups/intro_card.gd",
 	&"story_card": "res://scripts/popups/story_card.gd",
