@@ -119,6 +119,7 @@ func restart() -> void:
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
+	_hud.set_goal_kind(str(_data.get("receiver", {}).get("kind", "gold")))
 	if _attempt <= 1:
 		_hud.show_place(LevelSkin.place(str(_data.get("theme", ""))))
 	_world.modulate.a = 0.0
@@ -186,7 +187,13 @@ func _on_won(stars: int) -> void:
 		_repair = Home.finish(level_id, true)
 	Sfx.play(&"win")
 	level_finished.emit(res)
-	_show_result_later(true, stars, "Мама и дочка спасены!\nВернёмся домой и увидим результат." if _data.get("family", false) else Loc.t("level.gold", [res["pieces"], res["pieces_total"]]))
+	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
+	if _data.has("receiver"):
+		win_text = "Починено!\nВернёмся домой и посмотрим."
+		_hud.show_place("Починено!")
+	elif _data.get("family", false):
+		win_text = "Мама и дочка спасены!\nВернёмся домой и увидим результат."
+	_show_result_later(true, stars, win_text)
 
 
 func _on_lost(reason: String) -> void:
@@ -200,7 +207,7 @@ func _on_lost(reason: String) -> void:
 		Profile.add_fail(level_id)
 		Economy.level_lost(level_id, reason)
 	level_finished.emit(res)
-	_show_result_later(false, 0, Loc.t(lose_key(res)))
+	_show_result_later(false, 0, _item_lose_text(res) if _data.has("receiver") else Loc.t(lose_key(res)))
 
 
 ## Ключ строки причины поражения по result(). «Застряли» при собранном золоте значит,
@@ -210,6 +217,27 @@ static func lose_key(res: Dictionary) -> String:
 	if reason == "stuck" and int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
 		return "lose.enemy_alive"
 	return "lose." + reason if LOSE_REASONS.has(reason) else "lose.other"
+
+
+## Почему не вышло починить вещь: что испортило приёмник или чего не хватило.
+func _item_lose_text(res: Dictionary) -> String:
+	var recv: Dictionary = _data.get("receiver", {})
+	var where: String = {"drain": "трубу", "bucket": "ведро", "toolbox": "ящик", "burner": "конфорку", "hole": "пол"}.get(str(recv.get("look", "")), "вещь")
+	match str(res.get("reason", "")):
+		"lava":
+			return "Лава прожгла %s" % where
+		"acid":
+			return "Кислота разъела %s" % where
+		"water":
+			return "Вода залила %s" % where
+		"enemy":
+			return "Слизень забил %s" % where
+		"stuck":
+			if int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
+				return "Слизень ещё мешает"
+			return {"water": "Воды не хватило", "stone": "Дыру не заделали", "lava": "Огонь не дошёл",
+				"gold": "Не хватило деталей"}.get(str(recv.get("kind", "gold")), "Не получилось")
+	return "Попробуй по-другому"
 
 
 func _show_result_later(won: bool, stars: int, text: String) -> void:

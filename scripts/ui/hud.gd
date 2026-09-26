@@ -26,6 +26,7 @@ var _stars: StarRow
 var _res_button: Button
 var _won := false
 var _res_home: Button
+var _goal_icon: Control
 
 
 func _ready() -> void:
@@ -81,6 +82,13 @@ func set_level(title: String, hint: String) -> void:
 		_hint_tween.tween_property(_hint, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
 		_hint_tween.tween_property(_hint, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 	_overlay.visible = false
+
+
+## Что считает счётчик: монеты, воду, камни или огонь (приёмник уровня внутри вещи).
+func set_goal_kind(kind: String) -> void:
+	if _goal_icon:
+		_goal_icon.set(&"kind", kind)
+		_goal_icon.queue_redraw()
 
 
 func set_gold(collected: int, needed: int, total: int) -> void:
@@ -172,7 +180,8 @@ func _build_top_bar() -> void:
 	row.add_theme_constant_override("separation", 10)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	pill.add_child(row)
-	row.add_child(CoinIcon.new())
+	_goal_icon = CoinIcon.new()
+	row.add_child(_goal_icon)
 	_gold = Label.new()
 	_gold.label_settings = _label_settings(30, Color.WHITE, 0)
 	_gold.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -319,12 +328,25 @@ class IconButton extends Button:
 
 ## Иконка монеты для счётчика золота.
 class CoinIcon extends Control:
+	var kind := "gold"   # что считаем: gold, water, stone, lava
+
 	func _init() -> void:
 		custom_minimum_size = Vector2(40, 40)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
 		var c := size * 0.5
+		match kind:
+			"water", "lava":
+				var col := Color("3a8dff") if kind == "water" else Color("ff6a1f")
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -17), c + Vector2(11, 2), c + Vector2(-11, 2)]), col)
+				draw_circle(c + Vector2(0, 5), 11.0, col, true, -1.0, true)
+				draw_circle(c + Vector2(-4, 3), 3.0, Color(1, 1, 1, 0.7), true, -1.0, true)
+				return
+			"stone":
+				draw_circle(c, 16.0, Color("6d6560"), true, -1.0, true)
+				draw_circle(c + Vector2(-5, -5), 5.0, Color("9a918a"), true, -1.0, true)
+				return
 		draw_circle(c, 18.0, Color("b8741a"), true, -1.0, true)
 		draw_circle(c + Vector2(0, -1.5), 15.0, Color("ffc933"), true, -1.0, true)
 		draw_circle(c + Vector2(0, -1.5), 10.0, Color("ffdf6b"), false, 2.0, true)

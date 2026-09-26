@@ -268,8 +268,8 @@ func _update_family() -> void:
 	else:
 		# та же пара во всех сценах: если нужного настроения ещё нет, берём ближайшее из новых
 		# картинок семьи; старую картинку — только если новых нет совсем
-		for d in [0, -1, 1, -2, 2, -3, 3]:
-			var m := mood + d
+		for d: int in [0, -1, 1, -2, 2, -3, 3]:
+			var m: int = mood + d
 			var path := "%sfamily/family_mood%d.png" % [ART, m]
 			if m >= 0 and m <= 3 and ResourceLoader.exists(path):
 				tex = load(path)
