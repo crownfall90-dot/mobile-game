@@ -46,8 +46,9 @@ WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
             "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate", "putty",
-            "leak", "scripts", "solution", "fails", "verify"}
-LEAK_EVENTS = ("move", "press", "up", "scare")
+            "leak", "dishes", "scripts", "solution", "fails", "verify"}
+LEAK_EVENTS = ("move", "press", "up", "scare", "drop")
+DISH_KINDS = {"plate", "cup", "bowl", "pot"}
 
 
 # --- каталог ------------------------------------------------------------------
@@ -408,19 +409,34 @@ def _lint(d, path, index, rep):
                 _unknown(m, {"speed", "gnaw", "rest", "back", "scares", "from"}, "leak.mouse", rep)
         if "receiver" not in d:
             rep.err("leak needs a receiver (the bucket)")
+    # «стопка посуды»: полки на одной опоре, посуда по одной
+    dishes = d.get("dishes")
+    if dishes is not None:
+        if not isinstance(dishes, dict) or not isinstance(dishes.get("queue"), list) or not dishes["queue"] \
+                or not all(k in DISH_KINDS for k in dishes["queue"]):
+            rep.err(f"dishes needs queue [{'|'.join(sorted(DISH_KINDS))}, ...]")
+        elif not isinstance(dishes.get("shelves"), list) or not dishes["shelves"]:
+            rep.err("dishes needs shelves [{id, rect, pivot, stiff}]")
+        else:
+            _unknown(dishes, {"queue", "shelves", "spawn", "floor_y", "sides"}, "dishes", rep)
+            for i, sh in enumerate(dishes["shelves"]):
+                if not isinstance(sh, dict) or not is_rect(sh.get("rect")):
+                    rep.err(f"dishes.shelves[{i}]: needs rect [x, y, w, h]")
+                    continue
+                _unknown(sh, {"id", "rect", "pivot", "stiff", "damp"}, f"dishes.shelves[{i}]", rep)
     scripts = d.get("scripts", {})
     if not isinstance(scripts, dict):
         rep.err("scripts must be an object {name: [[t, action, arg], ...]}")
         scripts = {}
-    if scripts and "leak" not in d:
-        rep.err("scripts need leak")
+    if scripts and "leak" not in d and "dishes" not in d:
+        rep.err("scripts need leak or dishes")
     for name, evs in scripts.items():
         if name in pin_ids:
             rep.err(f"scripts: id '{name}' is already used")
         pin_ids.append(name)
         if not isinstance(evs, list) or not all(isinstance(e, list) and len(e) >= 2 and is_num(e[0])
                                                 and e[1] in LEAK_EVENTS for e in evs):
-            rep.err(f"scripts.{name}: events must be [t, move|press|up|scare, arg]")
+            rep.err(f"scripts.{name}: events must be [t, move|press|up|scare|drop, arg...]")
         elif any(evs[i][0] > evs[i + 1][0] for i in range(len(evs) - 1)):
             rep.err(f"scripts.{name}: event times must not go back")
     for key in ("dirt", "holes"):
@@ -526,7 +542,7 @@ def _lint(d, path, index, rep):
         sol = None
     else:
         _lint_order(sol, "solution", pin_ids, rep)
-        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d and "putty" not in d and "leak" not in d:
+        if pin_ids and sorted(sol) != sorted(pin_ids) and not any(k in d for k in ("rotate", "putty", "leak", "dishes")):
             rep.warn("solution does not pull every pin once, so it is not one of the searched orders")
     fails = d.get("fails", [])
     if not isinstance(fails, list) or not all(isinstance(o, list) and o and all(isinstance(x, str) for x in o)

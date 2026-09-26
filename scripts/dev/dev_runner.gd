@@ -185,7 +185,7 @@ func _play(order: PackedStringArray) -> void:
 ## Ход сценария: засов по id или мазок пальцем из "strokes" уровня.
 func _act(id: String) -> void:
 	var scripts: Dictionary = _level.data.get("scripts", {})
-	if _level.leak != null and scripts.has(id):
+	if (_level.leak != null or _level.dish_game != null) and scripts.has(id):
 		await _leak_script(scripts[id])
 		return
 	var strokes: Dictionary = _level.data.get("strokes", {})
@@ -205,8 +205,9 @@ func _act(id: String) -> void:
 
 
 ## Ведёт палец по ломаной со скоростью DIG_SPEED px/с, копая по пути.
-## «Лови капли»: сценарий по времени от первого события —
-## [t, "move", x] ведро, [t, "press", id] палец на дыру, [t, "up"] убрать палец, [t, "scare"] мышь.
+## Сценарий по времени от первого события. «Лови капли»: [t, "move", x] ведро,
+## [t, "press", id] палец на дыру, [t, "up"] убрать палец, [t, "scare"] мышь.
+## «Стопка посуды»: [t, "drop", x, y] — отпустить посуду в точке (ждёт, пока она появится).
 ## При --jitter каждое событие сдвигается на ±LEAK_JITTER (рука человека не точна).
 func _leak_script(events: Array) -> void:
 	print("leak script ", events.size(), " events")
@@ -228,6 +229,10 @@ func _leak_script(events: Array) -> void:
 				_level.leak_release()
 			"scare":
 				_level.leak_scare()
+			"drop":
+				var p := Vector2(float(ev[2]), float(ev[3]))
+				while not _level.dish_drop_at(p) and not _done:
+					await get_tree().physics_frame
 
 
 ## Сколько секунд займут сценарии «лови капли» в этом порядке ходов (для предела времени).

@@ -457,7 +457,7 @@ class IconButton extends Button:
 
 ## Иконка монеты для счётчика золота.
 class CoinIcon extends Control:
-	var kind := "gold"   # что считаем: gold, water, stone, lava, tape (заклеенные дыры)
+	var kind := "gold"   # что считаем: gold, water, stone, lava, tape (заклеенные дыры), plate (посуда)
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(40, 40)
@@ -475,6 +475,13 @@ class CoinIcon extends Control:
 			"stone":
 				draw_circle(c, 16.0, Color("6d6560"), true, -1.0, true)
 				draw_circle(c + Vector2(-5, -5), 5.0, Color("9a918a"), true, -1.0, true)
+				return
+			"plate":
+				# тарелка сбоку: «сколько посуды на полках»
+				draw_rect(Rect2(c + Vector2(-18, 2), Vector2(36, 8)), Color("5a6b8c"))
+				draw_rect(Rect2(c + Vector2(-17, 1), Vector2(34, 6)), Color("f4f4f0"))
+				draw_rect(Rect2(c + Vector2(-10, -14), Vector2(20, 16)), Color("f4f4f0"))
+				draw_rect(Rect2(c + Vector2(-10, -8), Vector2(20, 4)), Color("d95a5a"))
 				return
 			"tape":
 				# рулон ленты: «сколько дыр заклеено»
