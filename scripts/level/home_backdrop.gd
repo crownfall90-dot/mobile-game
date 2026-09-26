@@ -22,6 +22,22 @@ const FLOOR := Color("c79a6e")
 
 var bounds := Rect2()
 var theme := ""
+var fixed := 0.0          # 0 — вещь сломана (трещины, грязь, капель), 1 — починена (блеск)
+## Головоломка-предмет: форма поля — это сами стенки-корпус вещи, фон — просто комната вокруг.
+var item_mode := false
+var _t := 0.0
+
+
+## Головоломка решена: поломка исчезает на глазах, вещь блестит.
+func repair() -> void:
+	create_tween().tween_property(self, "fixed", 1.0, 1.2).set_trans(Tween.TRANS_SINE)
+
+
+func _process(delta: float) -> void:
+	if LevelSkin.get_skin(theme).is_empty():
+		return
+	_t += delta
+	queue_redraw()
 
 
 func setup(rect: Rect2) -> void:
@@ -46,6 +62,9 @@ func _draw() -> void:
 		draw_texture_rect(pic, Rect2(r.get_center() - sz * 0.5, sz), false)
 		return
 	var sk := LevelSkin.get_skin(theme)
+	if not sk.is_empty() and item_mode:
+		_draw_room(r, full, sk)
+		return
 	if not sk.is_empty():
 		_draw_inside(r, full, sk)
 		return
@@ -177,6 +196,27 @@ func _box(rect: Rect2, c: Color, w: float) -> void:
 
 # --- интерьеры вещей ------------------------------------------------------------
 
+## Комната вокруг вещи-головоломки: стена с узором и пол ниже поля; мягкое затемнение по краям,
+## чтобы корпус вещи читался. Блеск при починке — на стенках (Walls.repair).
+func _draw_room(r: Rect2, full: Rect2, sk: Dictionary) -> void:
+	var outer := Color(str(sk["outer"]))
+	draw_rect(full, outer)
+	if theme in ["sink", "stove", "fridge", "cabinet", "ceiling", "tub", "toilet"]:
+		_tiles(full, outer.darkened(0.06), 34.0 if theme in ["tub", "toilet"] else 46.0)
+	else:
+		_stripes(full, outer.darkened(0.05))
+	var floor_top := r.end.y + 44.0
+	draw_rect(Rect2(full.position.x, floor_top, full.size.x, full.end.y - floor_top), FLOOR)
+	for y in range(int(floor_top) + 34, int(full.end.y), 34):
+		draw_line(Vector2(full.position.x, y), Vector2(full.end.x, y), FLOOR.darkened(0.12), 2)
+	draw_circle(r.get_center(), r.size.y * 0.62, Color(1, 1, 1, 0.08))
+	if fixed > 0.0:
+		for i in 10:
+			var a := float(i) / 10.0 * TAU + _t * 0.4
+			var p := r.get_center() + Vector2(cos(a) * r.size.x * 0.5, sin(a) * r.size.y * 0.45)
+			var pulse := 0.5 + 0.5 * sin(_t * 4.0 + i)
+			draw_circle(p, 3.0 + 4.0 * pulse, Color(1.0, 0.95, 0.7, 0.8 * fixed * pulse))
+
 ## Комната вокруг, корпус вещи вокруг поля и то, что внутри вещи. Всё приглушённое:
 ## на первом плане физика, фон только подсказывает, где мы.
 func _draw_inside(r: Rect2, full: Rect2, sk: Dictionary) -> void:
@@ -192,6 +232,11 @@ func _draw_inside(r: Rect2, full: Rect2, sk: Dictionary) -> void:
 	for y in range(int(floor_top) + 34, int(full.end.y), 34):
 		draw_line(Vector2(full.position.x, y), Vector2(full.end.x, y), FLOOR.darkened(0.12), 2)
 	var body := r.grow(34.0)
+	_draw_item(r, body)
+	_draw_damage(r, body)
+
+
+func _draw_item(r: Rect2, body: Rect2) -> void:
 	match theme:
 		"window":
 			_body(body, Color("b88352"))
@@ -315,3 +360,41 @@ func _faucet(top: Vector2) -> void:
 	draw_rect(Rect2(top.x - 50, top.y - 40, 100, 26), Color("c9d3da"))
 	draw_rect(Rect2(top.x - 12, top.y - 20, 24, 44), Color("aeb9c1"))
 	draw_circle(top + Vector2(0, 40), 7.0, Color(0.6, 0.8, 1.0, 0.8))
+
+
+## Поломка на корпусе вещи гаснет при починке, после неё — блеск. Капель из крана или
+## потолка прекращается. Всё по seed темы: один и тот же вид при каждом запуске.
+func _draw_damage(r: Rect2, body: Rect2) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(theme)
+	var broken := 1.0 - fixed
+	if broken > 0.0:
+		for i in 6:
+			# трещины по краю корпуса
+			var side := i % 4
+			var p := Vector2.ZERO
+			match side:
+				0: p = Vector2(rng.randf_range(body.position.x, body.end.x), body.position.y + 8.0)
+				1: p = Vector2(body.end.x - 8.0, rng.randf_range(body.position.y, body.end.y))
+				2: p = Vector2(rng.randf_range(body.position.x, body.end.x), body.end.y - 8.0)
+				_: p = Vector2(body.position.x + 8.0, rng.randf_range(body.position.y, body.end.y))
+			var pts := PackedVector2Array([p])
+			for k in 4:
+				p += Vector2(rng.randf_range(-14, 14), rng.randf_range(-14, 14))
+				pts.append(p)
+			draw_polyline(pts, Color(0.2, 0.12, 0.08, 0.55 * broken), 3.0, true)
+		for i in 5:
+			var c := r.position + Vector2(rng.randf() * r.size.x, rng.randf() * r.size.y)
+			draw_circle(c, rng.randf_range(18.0, 34.0), Color(0.35, 0.25, 0.15, 0.12 * broken))
+		# капель из крана или сквозь потолок
+		if theme in ["sink", "tub", "ceiling", "toilet", "walls"]:
+			var top := Vector2(r.get_center().x if theme != "tub" else r.end.x - 26.0, r.position.y + 50.0)
+			for k in 2:
+				var ph := fmod(_t * 0.8 + k * 0.5, 1.0)
+				draw_circle(top + Vector2(0, ph * 220.0), 6.0, Color(0.55, 0.78, 1.0, 0.8 * broken * (1.0 - ph * 0.5)))
+	if fixed > 0.0:
+		for i in 8:
+			var a := float(i) / 8.0 * TAU + _t * 0.4
+			var p := r.get_center() + Vector2(cos(a) * r.size.x * 0.55, sin(a) * r.size.y * 0.52)
+			var pulse := 0.5 + 0.5 * sin(_t * 4.0 + i)
+			draw_circle(p, 3.0 + 4.0 * pulse, Color(1.0, 0.95, 0.7, 0.8 * fixed * pulse))

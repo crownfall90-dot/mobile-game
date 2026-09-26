@@ -36,6 +36,13 @@ const WALK_DELAY := 0.8
 const STEP_UP := 34.0
 const STEP_DOWN := 46.0
 const WALK_ZONE := Rect2(-46, -150, 92, 146)   # зона семьи относительно ступней
+# Реплики семьи (облачко над головами): страх, облегчение, радость.
+const LINES_START := ["Мама, мне страшно…", "Держись за меня, солнышко.", "Мы справимся!", "Мама, а мы успеем?"]
+const LINES_DANGER := {
+	"lava": ["Ой, горячо!", "Мама, лава!"], "acid": ["Осторожно, кислота!", "Фу, она шипит!"],
+	"enemy": ["Там слизень!", "Мама, он на нас смотрит!"], "water": ["Вода прибывает!", "Мама, мокро!"],
+}
+const LINES_RELIEF := ["Фух…", "Пронесло!", "Еле-еле!"]
 const THREE_STAR_PERCENT := 95  # 3 звезды за столько % сокровищ (для цели-доли)
 
 ## Кого чем можно убить: вид врага -> вещества.
@@ -94,6 +101,16 @@ var _acted := false          # был ли первый ход: засов ил�
 var _dig_from = null         # Vector2 последней точки пальца, null — палец не копает
 var _walk_time := 0.0
 var _dig_hint: DigHint = null
+var _goal_kind := -1          # приёмник: что в него нужно доставить (-1 — монеты, как раньше)
+var _bad_kinds: Array[int] = []   # приёмник: что его портит
+var _fill_mode := false       # приёмник-«дыра»: считаем, сколько лежит внутри, а не забираем
+var _fill_tick := 0
+var _walls: Walls
+var _danger_kind := ""        # чего семья боится сейчас (для реплик)
+var _danger_time := 0.0
+var _said := {}               # какие реплики уже звучали в этой попытке
+var _say_cooldown := 0.0
+var _dig_fx_at := Vector2(-999, -999)
 var _stuck_timer := -1.0
 var _drown_time := 0.0
 var _shake := 0.0
@@ -116,17 +133,33 @@ func build(level_data: Dictionary) -> void:
 		_jitter = RandomNumberGenerator.new()
 		_jitter.seed = jitter_seed
 
-	var backdrop: Node2D = HOME_BACKDROP.new() if data.get("family", false) else Backdrop.new()
+	var recv: Dictionary = data.get("receiver", {})
+	var homey: bool = data.get("family", false) or not recv.is_empty()
+	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
+		backdrop.item_mode = not recv.is_empty()
 	backdrop.setup(_rect(data["tower"]["rect"]))
 	add_child(backdrop)
 
-	hero = FamilyHero.new() if data.get("family", false) else Hero.new()
-	if hero is FamilyHero:
-		hero.stage = Home.stage()
-	# идущая семья без твёрдого тела: не толкает камни, вода и лава обтекают её зону
-	hero.setup(_vec(data["hero"]["pos"]), not data.has("exit"))
+	if not recv.is_empty():
+		# головоломка внутри вещи: вместо семьи — приёмник (слив, ведро, ящик, конфорка, дыра)
+		var rr := _rect(recv["rect"])
+		var rc := Receiver.new()
+		rc.configure(rr, str(recv.get("look", "drain")))
+		hero = rc
+		hero.setup(Vector2(rr.get_center().x, rr.end.y), false)
+		_goal_kind = Substances.from_name(str(recv.get("kind", "gold")))
+		_fill_mode = str(recv.get("mode", "collect")) == "fill"
+		_bad_kinds.clear()
+		for k in recv.get("bad", ["lava", "acid"]):
+			_bad_kinds.append(Substances.from_name(str(k)))
+	else:
+		hero = FamilyHero.new() if data.get("family", false) else Hero.new()
+		if hero is FamilyHero:
+			hero.stage = Home.stage()
+		# идущая семья без твёрдого тела: не толкает камни, вода и лава обтекают её зону
+		hero.setup(_vec(data["hero"]["pos"]), not data.has("exit"))
 	if not hero_outfit.is_empty() and hero.has_method(&"set_outfit"):
 		hero.call(&"set_outfit", hero_outfit)
 	if familiar_kind != &"" and hero.has_method(&"set_familiar"):
@@ -140,15 +173,18 @@ func build(level_data: Dictionary) -> void:
 	add_child(_bodies)
 
 	var walls := Walls.new()
-	if data.get("family", false):
+	if homey:
 		walls.palette = [Color("9a6b4a"), Color("6e4a33"), Color("d8ac80")]
 		walls.pattern = "wood"
 		var skin := LevelSkin.wall_palette(str(data.get("theme", "")))
 		if not skin.is_empty():
 			walls.palette = [skin[0], skin[1], skin[2]]
 			walls.pattern = skin[3]
+	if not recv.is_empty():
+		walls.wear = 1.0
 	walls.setup(data.get("walls", []))
 	add_child(walls)
+	_walls = walls
 
 	if data.has("dirt"):
 		dirt = Dirt.new()
@@ -178,7 +214,13 @@ func build(level_data: Dictionary) -> void:
 	zone.collision_layer = 0
 	zone.collision_mask = Substances.LAYER_ITEMS | Substances.LAYER_ENEMY
 	zone.monitorable = false
-	var zr := _rect(data["hero"]["zone"]) if not door else Rect2(hero.position + WALK_ZONE.position, WALK_ZONE.size)
+	var zr: Rect2
+	if not recv.is_empty():
+		zr = _rect(recv["rect"])
+	elif door:
+		zr = Rect2(hero.position + WALK_ZONE.position, WALK_ZONE.size)
+	else:
+		zr = _rect(data["hero"]["zone"])
 	var zshape := RectangleShape2D.new()
 	zshape.size = zr.size
 	var zcs := CollisionShape2D.new()
@@ -197,7 +239,7 @@ func build(level_data: Dictionary) -> void:
 		var n := _spawn_fill(kind, _rect(fill["rect"]), int(fill["count"]))
 		if Substances.is_fluid(kind):
 			fluid_count += n
-		if Substances.is_piece(kind):
+		if _is_goal(kind):
 			pieces_total += n
 
 	for e in data.get("enemies", []):
@@ -316,6 +358,11 @@ func dig(a: Vector2, b: Vector2) -> void:
 	if dirt.carve(a, b):
 		if _dig_hint and _dig_hint.visible and not _acted:
 			_dig_hint.set_paths([])
+		# крошки из-под пальца цвета того, что копаем
+		if b.distance_to(_dig_fx_at) > 26.0 and fx:
+			_dig_fx_at = b
+			var cols := LevelSkin.dirt_colors(str(data.get("theme", "")))
+			fx.burst(b, cols[0] if not cols.is_empty() else Color("9e6b45"), 4, 160.0, 3.5, 900.0, 0.45)
 		_acted = true
 		_wake_all()
 		dug.emit(b)
@@ -340,6 +387,7 @@ func _physics_process(delta: float) -> void:
 			_on_zone_hit(b)
 	_process_cooling(delta)
 	_check_drowning(delta)
+	_count_fill()
 	_walk(delta)
 	_cull_fallen()
 	_update_outcome(delta)
@@ -353,9 +401,14 @@ func _process(delta: float) -> void:
 		elif camera.offset != Vector2.ZERO:
 			camera.offset = Vector2.ZERO
 	_scare_timer -= delta
+	_say_cooldown -= delta
+	if _danger_kind != "":
+		_danger_time += delta
 	if _scare_timer <= 0.0 and not finished:
 		_scare_timer = 0.25
-		hero.set_scared(_danger_near())
+		var kind := _danger_kind_near()
+		hero.set_scared(kind != "")
+		_react_to_danger(kind)
 
 
 # --- реакции ---------------------------------------------------------------
@@ -475,6 +528,12 @@ func _on_zone_hit(body: Node) -> void:
 	if not (body is Item) or not _alive(body):
 		return
 	var item: Item = body
+	if _goal_kind >= 0:
+		if item.kind == _goal_kind and not _fill_mode:
+			_collect(item)
+		elif _bad_kinds.has(item.kind):
+			_lose(Substances.name_of(item.kind))
+		return
 	if Substances.is_piece(item.kind):
 		_collect(item)
 	elif Substances.is_deadly(item.kind):
@@ -486,14 +545,16 @@ func _collect(item: Item) -> void:
 	pieces += 1
 	if gem:
 		gems += 1
-	else:
+	elif item.kind == Substances.Kind.GOLD:
 		coins_pieces += 1
 	_since_collect = 0.0
 	var pos := item.position
-	fx.burst(pos, SPARK, 6, 220.0, 3.5, 0.0, 0.45)
+	fx.burst(pos, Color("8ce6ff") if item.kind == Substances.Kind.WATER else SPARK, 6, 220.0, 3.5, 0.0, 0.45)
 	_remove(item)
 	hero.bounce()
-	collected.emit(&"gem" if gem else &"coin", pos)
+	if pieces == 1:
+		say("coins", ["Монетки!", "Ой, денежка!"])
+	collected.emit(&"gem" if gem else (&"coin" if item.kind == Substances.Kind.GOLD else StringName(Substances.name_of(item.kind))), pos)
 	gold_changed.emit(pieces, pieces_needed, pieces_total)
 
 
@@ -521,7 +582,8 @@ func _update_outcome(delta: float) -> void:
 			_win()
 		return
 	if _stuck_timer >= 0.0:
-		_stuck_timer += delta
+		# где копают, вода может долго бежать по ходам: «застряли» — только когда всё успокоилось
+		_stuck_timer = 0.0 if dirt and _anything_moving() else _stuck_timer + delta
 		if _stuck_timer > STUCK_TIMEOUT:
 			_lose("stuck")
 
@@ -538,6 +600,10 @@ func _walk(delta: float) -> void:
 			fam.walking = false
 		door.open()
 		_win()
+		# семья входит в дверной проём и исчезает в свете
+		var tw := create_tween()
+		tw.tween_interval(0.5)
+		tw.tween_property(hero, "modulate:a", 0.0, 0.6)
 		return
 	var moved := false
 	if _walk_time >= WALK_DELAY and not _hazard_ahead(dir):
@@ -618,7 +684,39 @@ func _check_drowning(delta: float) -> void:
 		_lose("water")
 
 
+## Сокровище или цель приёмника: то, что идёт в счёт.
+func _is_goal(kind: int) -> bool:
+	return kind == _goal_kind if _goal_kind >= 0 else Substances.is_piece(kind)
+
+
+## Приёмник-«дыра»: сколько целевых тел лежит внутри прямо сейчас (камни, заделавшие дыру).
+func _count_fill() -> void:
+	if not _fill_mode or finished:
+		return
+	_fill_tick += 1
+	if _fill_tick % 6 != 0:
+		return
+	var zr := _zone_rect
+	var n := 0
+	for item in items:
+		if item.kind == _goal_kind and not item.removed and zr.has_point(item.position):
+			n += 1
+	if n != pieces:
+		if n > pieces:
+			_since_collect = 0.0
+			hero.bounce()
+		pieces = n
+		gold_changed.emit(pieces, pieces_needed, pieces_total)
+
+
 func _family_safe() -> bool:
+	if _goal_kind >= 0:
+		# приёмник: пока к нему летит то, что его испортит, победу не объявляем
+		for item in items:
+			if _alive(item) and _bad_kinds.has(item.kind) and item.linear_velocity.length() > 12.0:
+				_goal_time = -1.0
+				return false
+		return true
 	if not data.get("family", false):
 		return true
 	# Не все засовы обязательны: хватает собранного золота и отсутствия летящей опасности.
@@ -640,6 +738,12 @@ func _family_safe() -> bool:
 func _win() -> void:
 	_finish(true, "")
 	hero.celebrate()
+	if _goal_kind >= 0:
+		_walls.repair()
+		for c in get_children():
+			if c is HomePuzzleBackdrop:
+				c.repair()
+	say("win", ["Ура, выход!", "Мы дома!"] if door else ["Получилось!", "Ура, мама!", "Мы спасены!"], true)
 	var c := hero.position + Vector2(0, -80)
 	for col in [SPARK, Color("39d6ff"), Color("ff4fd8")]:
 		fx.burst(c, col, 14, 520.0, 5.0, 700.0, 1.1)
@@ -753,6 +857,47 @@ func _wake_all() -> void:
 	for e in enemies:
 		if e.alive:
 			e.sleeping = false
+
+
+## Реплика семьи; одна и та же — не чаще раза за попытку, между любыми — пауза.
+func say(key: String, lines: Array, force := false) -> void:
+	if not hero.has_method(&"say") or lines.is_empty():
+		return
+	if not force and (_said.has(key) or _say_cooldown > 0.0):
+		return
+	_said[key] = true
+	_say_cooldown = 2.2
+	hero.call(&"say", str(lines[_rng.randi() % lines.size()]))
+
+
+func _react_to_danger(kind: String) -> void:
+	if kind != "" and _danger_kind == "":
+		say("danger_" + kind, LINES_DANGER.get(kind, []))
+		_danger_time = 0.0
+	elif kind == "" and _danger_kind != "" and _danger_time > 0.6:
+		say("relief", LINES_RELIEF)
+	_danger_kind = kind
+
+
+## Что грозит семье рядом: lava, acid, enemy, water (вода поднялась до пояса) или "".
+func _danger_kind_near() -> String:
+	var head := hero.position + Vector2(0, -60)
+	var d2 := SCARE_DISTANCE * SCARE_DISTANCE
+	for e in enemies:
+		if e.alive and e.position.distance_squared_to(head) < d2:
+			return "enemy"
+	for item in items:
+		if Substances.is_deadly(item.kind) and not item.removed and item.position.distance_squared_to(head) < d2:
+			return Substances.name_of(item.kind)
+	if data.get("family", false) and _zone:
+		var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size)
+		var n := 0
+		for item in items:
+			if item.kind == Substances.Kind.WATER and not item.removed and zr.has_point(item.position):
+				n += 1
+		if n >= zr.get_area() / DROWN_CELL * 0.22:
+			return "water"
+	return ""
 
 
 func _danger_near() -> bool:

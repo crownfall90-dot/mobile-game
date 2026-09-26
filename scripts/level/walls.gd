@@ -16,6 +16,18 @@ const SIEVE_HOLE := Color("56657a")
 var palette := [FILL_TOP, FILL_BOTTOM, EDGE]
 ## Узор материала (LevelSkin): wood — волокна, pipe — блик и кольца стыков, tile/enamel — глянец.
 var pattern := "plain"
+## Износ стенок-корпуса вещи (1 — сломано: трещины, ржавчина; 0 — починено, блестит).
+var wear := 0.0
+var _shine := 0.0
+
+
+## Вещь починена: трещины и грязь гаснут, по корпусу пробегает блеск.
+func repair() -> void:
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void:
+		wear = 1.0 - v
+		_shine = sin(v * PI)
+		queue_redraw(), 0.0, 1.0, 1.2)
 
 var _polys: Array[PackedVector2Array] = []
 var _colors: Array[PackedColorArray] = []
@@ -70,6 +82,7 @@ func _draw() -> void:
 		outline.append(pts[0])
 		draw_polyline(outline, palette[2], 2.0, true)
 		_draw_pattern(pts)
+		_draw_wear(pts, i)
 	for pts in _sieves:
 		_draw_sieve(pts)
 
@@ -137,3 +150,31 @@ func _draw_pattern(pts: PackedVector2Array) -> void:
 				draw_line(m + inward * 1.0, m + inward * (thick - 1.0), Color(dark, 0.45), 5.0, true)
 		"tile", "enamel":
 			draw_line(a + inward * thick * 0.25 + along * 6.0, b + inward * thick * 0.25 - along * 6.0, Color(1, 1, 1, 0.6), 3.0, true)
+
+
+## Трещины и пятна на стенке (по seed номера стенки) и блеск при починке.
+func _draw_wear(pts: PackedVector2Array, index: int) -> void:
+	if wear <= 0.0 and _shine <= 0.0:
+		return
+	var box := Rect2(pts[0], Vector2.ZERO)
+	for p in pts:
+		box = box.expand(p)
+	if box.size.x < 40.0 and box.size.y < 40.0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = index * 7919 + 13
+	var c := Vector2.ZERO
+	for p in pts:
+		c += p
+	c /= pts.size()
+	if wear > 0.0:
+		var start := c + Vector2(rng.randf_range(-0.3, 0.3) * box.size.x, rng.randf_range(-0.3, 0.3) * box.size.y)
+		var crack := PackedVector2Array([start])
+		for k in 4:
+			start += Vector2(rng.randf_range(-9, 9), rng.randf_range(-9, 9))
+			crack.append(start)
+		draw_polyline(crack, Color(0.15, 0.1, 0.08, 0.6 * wear), 2.0, true)
+		draw_circle(c + Vector2(rng.randf_range(-0.35, 0.35) * box.size.x, rng.randf_range(-0.35, 0.35) * box.size.y),
+			minf(10.0, minf(box.size.x, box.size.y) * 0.3), Color(0.45, 0.28, 0.12, 0.3 * wear))
+	if _shine > 0.0:
+		draw_polyline(PackedVector2Array([pts[0], pts[1]]), Color(1, 1, 0.85, 0.8 * _shine), 4.0, true)

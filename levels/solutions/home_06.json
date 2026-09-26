@@ -1,3 +1,6 @@
 [
-  ["gold", "lava", "water"]
+  ["lava", "water", "faucet", "plug"],
+  ["lava", "water", "plug", "faucet"],
+  ["lava", "faucet", "water", "plug"],
+  ["lava", "faucet", "plug", "water"]
 ]

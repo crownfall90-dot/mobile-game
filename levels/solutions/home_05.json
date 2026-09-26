@@ -1,6 +1,3 @@
 [
-  ["lava", "water", "gold", "plug"],
-  ["lava", "water", "plug", "gold"],
-  ["lava", "gold", "water", "plug"],
-  ["gold", "lava", "water", "plug"]
+  ["fire", "coal2"]
 ]

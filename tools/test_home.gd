@@ -32,7 +32,7 @@ static func run() -> void:
 	assert(Home.location_done("room") and Home.unlocked_count() == 2)
 	assert(Home.current_location() == "kitchen")
 	assert(Home.finish("home_10",true) == "")
-	assert(Home.finish("home_05",true) == "kitchen_sink")
+	assert(Home.finish("home_06",true) == "kitchen_sink")
 	assert(Home.completed() == 5)
 	# перенос старого прогресса (10 ремонтов подряд) — один раз, по числу ремонтов
 	profile.reset_progress()

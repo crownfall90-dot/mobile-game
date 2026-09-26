@@ -24,6 +24,50 @@ var walking := false
 var _fall := 0.0
 var _fall_tw: Tween
 var _tex: Texture2D
+var _bubble: Node2D
+
+
+## Облачко над головами: короткая реплика мамы или дочки; следующая заменяет прежнюю.
+class Bubble extends Node2D:
+	var text := ""
+	var font: Font
+
+	func _draw() -> void:
+		var fs := 24
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 36.0
+		var r := Rect2(-w * 0.5, -58.0, w, 50.0)
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("fffaf0")
+		box.border_color = Color("6b4a33")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(22)
+		draw_colored_polygon(PackedVector2Array([Vector2(-12, -10), Vector2(12, -10), Vector2(0, 8)]), Color("6b4a33"))
+		draw_style_box(box, r)
+		draw_colored_polygon(PackedVector2Array([Vector2(-8, -11), Vector2(8, -11), Vector2(0, 3)]), Color("fffaf0"))
+		draw_string(font, Vector2(r.position.x + 18.0, r.position.y + 34.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("4a3226"))
+
+
+func say(line: String, hold := 1.8) -> void:
+	if line == "":
+		return
+	if _bubble:
+		_bubble.queue_free()
+	var b := Bubble.new()
+	b.text = line
+	b.font = ThemeDB.fallback_font
+	b.position = Vector2(0, -HEIGHT - 8.0)
+	b.scale = Vector2(0.6, 0.6)
+	b.modulate.a = 0.0
+	# у краёв поля облачко не должно уходить за экран
+	b.position.x = clampf(b.position.x, 200.0 - position.x, 520.0 - position.x)
+	add_child(b)
+	_bubble = b
+	var tw := b.create_tween()
+	tw.tween_property(b, "modulate:a", 1.0, 0.15)
+	tw.parallel().tween_property(b, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(hold)
+	tw.tween_property(b, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(b.queue_free)
 
 
 ## Картинка семьи грузится один раз и заранее, не во время рисования.

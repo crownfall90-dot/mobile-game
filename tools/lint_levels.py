@@ -45,7 +45,7 @@ ENEMY_KINDS = {"slime", "magma"}
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
-            "dirt", "holes", "strokes", "exit",
+            "dirt", "holes", "strokes", "exit", "receiver",
             "solution", "fails", "verify"}
 
 
@@ -429,7 +429,18 @@ def _lint(d, path, index, rep):
 
     # --- героиня и цель
     hero = d.get("hero")
-    if not isinstance(hero, dict) or not is_point(hero.get("pos")) or not is_rect(hero.get("zone")):
+    recv = d.get("receiver")
+    if recv is not None:
+        # головоломка внутри вещи: вместо героини приёмник {rect, look, kind, bad, mode}
+        if not isinstance(recv, dict) or not is_rect(recv.get("rect")):
+            rep.err("receiver needs rect [x, y, w, h]")
+        elif recv.get("kind", "gold") not in RADIUS:
+            rep.err(f"receiver kind must be one of {', '.join(RADIUS)}")
+        elif recv.get("mode", "collect") not in ("collect", "fill"):
+            rep.err("receiver mode must be collect or fill")
+        if hero is not None:
+            rep.err("a level has either hero or receiver")
+    elif not isinstance(hero, dict) or not is_point(hero.get("pos")) or not is_rect(hero.get("zone")):
         rep.err("hero needs pos [x, y] and zone [x, y, w, h]")
     goal = d.get("goal")
     if not isinstance(goal, dict):
