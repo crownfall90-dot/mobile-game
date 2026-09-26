@@ -116,6 +116,13 @@ func _build_ui() -> void:
 	_family.centered = false
 	_family.modulate.a = 0.0
 	_cast.add_child(_family)
+	# мишка из магазина — у Виты в руке (как на главном экране)
+	if Profile.owns("vita_teddy") and ResourceLoader.exists(LocationView.TEDDY):
+		var teddy := Sprite2D.new()
+		teddy.name = "Teddy"
+		teddy.centered = false
+		teddy.texture = load(LocationView.TEDDY)
+		_family.add_child(teddy)
 	_gloom = GLOOM.new()
 	# в сценке Хмурь всегда серая: белой она становится только шагом {"gloom": {"friendly": true}}
 	_gloom.setup(Vector2(540, 380), _gloom_default(), false)
@@ -189,6 +196,13 @@ func _layout() -> void:
 		var k := fh / tex.get_height()
 		_family.scale = Vector2(k, k)
 		_family.position = Vector2(w * 0.36 - tex.get_width() * k * 0.5, _box.position.y + 90 - fh)
+		var teddy := _family.get_node_or_null(^"Teddy") as Sprite2D
+		if teddy:
+			# в пикселях картинки пары: доли LocationView.TEDDY_ON_PAIR
+			var box := Rect2(LocationView.TEDDY_ON_PAIR.position * tex.get_size(), LocationView.TEDDY_ON_PAIR.size * tex.get_size())
+			var tk := minf(box.size.x / teddy.texture.get_width(), box.size.y / teddy.texture.get_height())
+			teddy.scale = Vector2(tk, tk)
+			teddy.position = box.position + (box.size - teddy.texture.get_size() * tk) * 0.5
 	_gloom.position = Vector2(w * 0.74, _box.position.y - _h * 0.42)
 	if _card:
 		_card.position = Vector2((w - _card.size.x) * 0.5, maxf(top + 110, _box.position.y - 60 - _card.size.y))
