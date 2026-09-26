@@ -119,7 +119,6 @@ func restart() -> void:
 	level.camera = null if _setting(&"low_fx", false) else _camera
 	level.view_camera = _camera
 	level.jitter_seed = _jitter
-	_dress_hero(level)
 	_world.add_child(level)
 	level.build(_data)
 	level.gold_changed.connect(_hud.set_gold)
@@ -384,20 +383,6 @@ func _default_level() -> String:
 			return id
 	var ids := Game.level_ids()
 	return ids[0] if not ids.is_empty() else ""
-
-
-## Наряд и питомец героини из профиля (если Hero это уже умеет).
-func _dress_hero(lv: Level) -> void:
-	var profile := get_node_or_null(^"/root/Profile")
-	var economy := get_node_or_null(^"/root/Economy")
-	if profile == null or not profile.has_method(&"equipped"):
-		return
-	var outfit_id := str(profile.call(&"equipped", &"outfit"))
-	if economy and economy.has_method(&"outfit") and outfit_id != "":
-		var o: Variant = economy.call(&"outfit", outfit_id)
-		if o is Dictionary:
-			lv.hero_outfit = o
-	lv.familiar_kind = StringName(str(profile.call(&"equipped", &"familiar")))
 
 
 func _setting(key: StringName, fallback: Variant) -> Variant:

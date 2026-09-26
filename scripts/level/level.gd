@@ -96,8 +96,6 @@ var view_camera: Camera2D   # камера экрана всегда: «Пове
 
 ## Задать до build(): ±1 px к каждому телу при появлении (0 — выкл.). Только для проверок.
 var jitter_seed := 0
-var hero_outfit: Dictionary = {}
-var familiar_kind: StringName = &""
 
 var pieces_total := 0      # монеты + самоцветы на уровне
 var pieces_needed := 0
@@ -206,10 +204,6 @@ func build(level_data: Dictionary) -> void:
 			hero.stage = Home.stage()
 		# идущая семья без твёрдого тела: не толкает камни, вода и лава обтекают её зону
 		hero.setup(_vec(data["hero"]["pos"]), not data.has("exit"))
-	if not hero_outfit.is_empty() and hero.has_method(&"set_outfit"):
-		hero.call(&"set_outfit", hero_outfit)
-	if familiar_kind != &"" and hero.has_method(&"set_familiar"):
-		hero.call(&"set_familiar", familiar_kind)
 	add_child(hero)
 
 	var fluid := FluidRenderer.new()

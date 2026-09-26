@@ -1,6 +1,8 @@
 class_name Hero
 extends Node2D
-## Мирра, ученица алхимика. Позиция узла = точка между ступнями.
+## Базовый герой уровня: позиция узла = точка между ступнями, тело для физики, настроение
+## (испуг, радость, «ой»). В акте 1 героем служит приёмник вещи (Receiver) или семья
+## (FamilyHero); собственный рисунок этого класса — от прежнего замысла, в игре не показывается.
 ## Рисунок живёт в дочернем узле _rig: дыхание и прыжки меняют только его трансформ,
 ## а перерисовка нужна лишь при смене позы и моргании. Всё, что шевелится само (огонёк,
 ## дым, пузыри, слизь, слёзы, глаза-спиральки), рисует маленький холст _fx поверх тела.
@@ -36,14 +38,12 @@ const ROBE_R: Array[Vector2] = [Vector2(0, -64), Vector2(8, -63.5), Vector2(14, 
 const FRINGE: Array[Vector2] = [Vector2(19.5, -77), Vector2(17.5, -86), Vector2(12, -84.5), Vector2(6.5, -89.5),
 	Vector2(0, -88.5), Vector2(-6.5, -90), Vector2(-12.5, -85), Vector2(-17.5, -87), Vector2(-19.5, -77)]
 const TALL := 12.0          # насколько выше обычного колпак «tall_stars»
-const FAMILIAR_X := 46.0
 
 var mood := Mood.IDLE:
 	set(v):
 		mood = v
 		_refresh()
 var reason := ""   # причина для Mood.OOPS: lava, acid, enemy, stuck
-var outfit_id := "apprentice"
 var hat_style := "pointy"
 var robe := Color("3d7bff")
 var robe_dark := Color("1f3f9e")
@@ -54,7 +54,6 @@ var trim := Color("f5c542")
 var _rig: Pen.Canvas
 var _fx: Pen.Canvas
 var _shadow: Pen.Canvas
-var _familiar: Familiar
 var _t := 0.0
 var _blink := 2.5
 var _closed := false
@@ -102,40 +101,11 @@ func _ready() -> void:
 		set_process(false)
 
 
-## o = наряд из каталога: {id, palette: {robe, robe_dark, hat, hat_dark, trim}, hat}.
-func set_outfit(o: Dictionary) -> void:
-	var p: Dictionary = o.get("palette", {}) if o.get("palette") is Dictionary else {}
-	var d: Dictionary = APPRENTICE["palette"]
-	robe = _color(p.get("robe"), d["robe"])
-	robe_dark = _color(p.get("robe_dark"), d["robe_dark"])
-	hat = _color(p.get("hat"), d["hat"])
-	hat_dark = _color(p.get("hat_dark"), d["hat_dark"])
-	trim = _color(p.get("trim"), d["trim"])
-	hat_style = str(o.get("hat", "pointy"))
-	outfit_id = str(o.get("id", ""))
-	_refresh()
-
-
-## Питомец рядом с Миррой; пустой kind убирает его. Реакции Мирры передаются питомцу.
-func set_familiar(kind: StringName) -> void:
-	if _familiar:
-		_familiar.queue_free()
-		_familiar = null
-	if kind == &"":
-		return
-	_familiar = Familiar.new()
-	# у правой стены уровня питомец садится слева
-	_familiar.position = Vector2(-FAMILIAR_X if position.x > 560.0 else FAMILIAR_X, 0)
-	add_child(_familiar)
-	_familiar.setup(kind)
-
-
 func set_scared(value: bool) -> void:
 	if mood == Mood.IDLE or mood == Mood.SCARED:
 		var m := Mood.SCARED if value else Mood.IDLE
 		if m != mood:
 			mood = m
-			_pet(&"danger" if value else &"idle")
 
 
 ## Маленький подскок, когда в зону падает монета.
@@ -152,7 +122,6 @@ func hop() -> void:
 
 func celebrate() -> void:
 	mood = Mood.HAPPY
-	_pet(&"win")
 	_kill_hop()
 	_hop_tw = create_tween().set_loops(4)
 	_hop_tw.tween_property(self, "_squash", 0.12, 0.07)
@@ -172,16 +141,10 @@ func oops(why: String) -> void:
 	_squash = -0.1
 	_hop_tw = create_tween()
 	_hop_tw.tween_property(self, "_squash", 0.0, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_pet(&"oops")
 
 
 func die() -> void:
 	oops("lava")
-
-
-func _pet(what: StringName) -> void:
-	if _familiar:
-		_familiar.react(what)
 
 
 func _jump(height: float, up: float, down: float, squash: float) -> void:
