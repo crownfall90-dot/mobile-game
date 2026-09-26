@@ -42,6 +42,7 @@ var _front: Node2D
 var _bg_sprite: Sprite2D         # фон под износом (шейдер wear): светлеет с каждым ремонтом
 var _wear := -1.0                # текущий общий износ; -1 — ещё не выставлен
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
+var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
 
 
 class Front extends Node2D:
@@ -111,7 +112,10 @@ func target_at(p: Vector2) -> Dictionary:
 	for t: Dictionary in loc.get("targets", []):
 		if _done.get(t["id"], false) or _anim.has(t["id"]):
 			continue
-		if _rect(t).grow(12).has_point(p) and (best.is_empty() or int(t.get("z", 0)) >= int(best.get("z", 0))):
+		var hit := _rect(t).grow(12).has_point(p)
+		for extra: Array in t.get("more", []):
+			hit = hit or Rect2(extra[0], extra[1], extra[2], extra[3]).grow(12).has_point(p)
+		if hit and (best.is_empty() or int(t.get("z", 0)) >= int(best.get("z", 0))):
 			best = t
 	return best
 
@@ -190,6 +194,9 @@ func _draw() -> void:
 	for t in _layers():
 		if int(t.get("z", 0)) < 2:
 			_draw_layer(t)
+	for t: Dictionary in loc.get("targets", []):
+		if not _done.get(t["id"], false):
+			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)), true)
 	# купленный декор: свой PNG в локации или общий рисунок магазина
 	for d: Dictionary in loc.get("decor", []):
 		if Profile.owns(d["id"]):
@@ -259,8 +266,13 @@ func _draw_layer(t: Dictionary) -> void:
 
 
 func _draw_target(t: Dictionary) -> void:
+	for extra: Array in t.get("more", []):
+		_draw_target_at(t, Rect2(extra[0], extra[1], extra[2], extra[3]))
+	_draw_target_at(t, _rect(t))
+
+
+func _draw_target_at(t: Dictionary, r: Rect2) -> void:
 	var id: String = t["id"]
-	var r := _rect(t)
 	var done: bool = _done.get(id, false)
 	var k: float = _anim.get(id, -1.0)
 	var broken: Texture2D = _tex.get(id + "_broken")
@@ -341,12 +353,20 @@ func _placeholder_bg() -> void:
 
 
 ## Эффекты причины: исчезают вместе с ремонтом (k — сила, 1 → 0 во время анимации).
-func _draw_fx(t: Dictionary, k: float) -> void:
+## Эффекты у пола (лужи, капли, трещины) рисуются позади людей, остальные — поверх.
+const FLOOR_FX := ["puddle", "drip", "ceiling_drip", "cracks"]
+
+
+func _draw_fx(t: Dictionary, k: float, floor_pass := false) -> void:
 	if k <= 0.0:
 		return
 	var r := _rect(t)
 	for fx in t.get("fx", []):
+		if (fx in FLOOR_FX) != floor_pass:
+			continue
 		match fx:
+			"cracks":
+				_draw_cracks(t, k)
 			"rain":
 				for i in 14:
 					var ph := fmod(_t * 1.6 + i * 0.137, 1.0)
@@ -405,6 +425,33 @@ func _update_family() -> void:
 	_family.scale = Vector2(k, k)
 	var feet: Array = fam.get("pos", [360, 1300])
 	_family.position = Vector2(feet[0] - tex.get_width() * k * 0.5, feet[1] - h)
+
+
+## Трещины вокруг дыр: 5 ломаных от центра каждого места, по перспективе пола сплюснуты.
+func _draw_cracks(t: Dictionary, k: float) -> void:
+	var id: String = t["id"]
+	if not _cracks.has(id):
+		var lines: Array = []
+		var rects: Array[Rect2] = [_rect(t)]
+		for extra: Array in t.get("more", []):
+			rects.append(Rect2(extra[0], extra[1], extra[2], extra[3]))
+		for r: Rect2 in rects:
+			var rng := RandomNumberGenerator.new()
+			rng.seed = int(r.position.x * 31.0 + r.position.y)
+			for i in 5:
+				var a := rng.randf_range(0.0, TAU)
+				var p := r.get_center()
+				var line := PackedVector2Array([p])
+				var step := r.size.x * rng.randf_range(0.5, 1.0) / 6.0
+				for j in 6:
+					a += rng.randf_range(-0.6, 0.6)
+					p += Vector2(cos(a), sin(a) * 0.45) * step
+					line.append(p)
+				lines.append(line)
+		_cracks[id] = lines
+	for line: PackedVector2Array in _cracks[id]:
+		_canvas.draw_polyline(line, Color(0.24, 0.14, 0.08, 0.9 * k), 4.0, true)
+		_canvas.draw_polyline(line, Color(0.95, 0.75, 0.5, 0.35 * k), 1.5, true)
 
 
 func _target(id: String) -> Dictionary:

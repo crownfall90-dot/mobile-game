@@ -23,7 +23,7 @@ static func run() -> void:
 		assert(not levels.has(t["level"]))
 		levels[t["level"]] = true
 	# кухня закрыта, пока комната не готова; в комнате — любой порядок
-	assert(Home.finish("home_05",true) == "")
+	assert(Home.finish("home_06",true) == "")
 	assert(Home.finish("home_02",false) == "")
 	assert(Home.finish("home_02",true) == "room_bed")
 	assert(Home.finish("home_02",true) == "")
@@ -34,7 +34,7 @@ static func run() -> void:
 	assert(Home.location_done("room") and Home.unlocked_count() == 2)
 	assert(Home.current_location() == "kitchen")
 	assert(Home.finish("home_10",true) == "")
-	assert(Home.finish("home_06",true) == "kitchen_sink")
+	assert(Home.finish("home_05",true) == "kitchen_sink")
 	assert(Home.completed() == 5)
 	# перенос старого прогресса (10 ремонтов подряд) — один раз, по числу ремонтов
 	profile.reset_progress()

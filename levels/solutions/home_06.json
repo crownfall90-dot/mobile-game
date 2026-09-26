@@ -1,8 +1,3 @@
 [
-  ["cleaner", "water", "faucet", "plug"],
-  ["cleaner", "water", "plug", "faucet"],
-  ["cleaner", "faucet", "water", "plug"],
-  ["cleaner", "faucet", "plug", "water"],
-  ["cleaner", "plug", "water", "faucet"],
-  ["cleaner", "plug", "faucet", "water"]
+  ["fire", "coal2"]
 ]
