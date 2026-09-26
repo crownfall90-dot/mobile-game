@@ -21,6 +21,8 @@ var _gold: Label
 var _hint: Label
 var _rotate_row: HBoxContainer
 var _ink: InkBar
+var _hint_field := -1.0       # последнее место подсказки (place_hint), чтобы переставить её
+var _hint_low := 0.7
 var _rotate_buttons := {}      # dir -> RotateButton
 var _hint_tween: Tween
 var _overlay: ColorRect
@@ -73,8 +75,10 @@ func show_rotate(on: bool) -> void:
 ## «Замазка»: полоска-тюбик под верхней панелью; total <= 0 — спрятать.
 func set_ink(left: float, total: float) -> void:
 	if total <= 0.0:
-		if _ink:
+		if _ink and _ink.visible:
 			_ink.visible = false
+			if _hint_field >= 0.0:
+				place_hint(_hint_field, _hint_low)
 		return
 	if _ink == null:
 		_ink = InkBar.new()
@@ -85,6 +89,8 @@ func set_ink(left: float, total: float) -> void:
 	_ink.size = Vector2(300, 40)
 	_ink.position = Vector2((size.x - 300.0) * 0.5, _bar.offset_bottom + 6.0)
 	_ink.queue_redraw()
+	if _hint_field >= 0.0:
+		place_hint(_hint_field, _hint_low)
 
 
 ## Подсказка: пульсирует кнопка поворота, которую нажать следующей (0 — никакая).
@@ -101,7 +107,10 @@ func set_safe_top(px: float) -> void:
 ## Подсказка — в свободной полосе между верхней панелью и полем головоломки (field_top —
 ## верх поля на экране). Если полоса слишком узкая, остаётся прежнее место в нижней части.
 func place_hint(field_top: float, low := 0.7) -> void:
-	var top := _bar.offset_bottom + 4.0
+	_hint_field = field_top
+	_hint_low = low
+	# полоса замазки — сразу под верхней панелью: подсказка ниже неё, не поверх
+	var top := _bar.offset_bottom + 4.0 + (46.0 if _ink and _ink.visible else 0.0)
 	if field_top - top >= 64.0:
 		_hint.anchor_top = 0.0
 		_hint.anchor_bottom = 0.0

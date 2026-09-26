@@ -163,11 +163,13 @@ func restart() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# подсказка сама — только тем, кто ещё не знает, с чего начать: после первого касания
+	# её не показываем (игрок, может, просто смотрит, как течёт вода)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		_idle = 0.0
+		_idle_hinted = true
 
 
-## Долго ничего не делают — подсказка показывается сама (один раз за попытку).
+## С начала попытки ничего не трогают — подсказка показывается сама (один раз за попытку).
 func _process(delta: float) -> void:
 	if dev or level == null or level.finished or _idle_hinted or is_instance_valid(_pause):
 		return
