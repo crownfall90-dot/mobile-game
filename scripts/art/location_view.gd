@@ -43,6 +43,7 @@ var _bg_sprite: Sprite2D         # фон под износом (шейдер we
 var _wear := -1.0                # текущий общий износ; -1 — ещё не выставлен
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
+var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
 var _hop := {}                   # img отдельного слоя -> подскок (радость), px
 
 
@@ -256,8 +257,10 @@ func _layers() -> Array:
 
 
 func _draw_layer(t: Dictionary) -> void:
+	_flip = bool(t.get("flip", false))
 	if t.has("id"):
 		_draw_target(t)
+		_flip = false
 		return
 	var tex: Texture2D = _tex.get("prop_" + str(t["img"]))
 	var r := _rect(t)
@@ -266,6 +269,7 @@ func _draw_layer(t: Dictionary) -> void:
 		_fit(tex, r)
 	else:
 		_canvas.draw_rect(r, Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
+	_flip = false
 
 
 func _draw_target(t: Dictionary) -> void:
@@ -343,7 +347,14 @@ func _fit(tex: Texture2D, r: Rect2, mod := Color.WHITE) -> void:
 	var ts := tex.get_size()
 	var k := minf(r.size.x / ts.x, r.size.y / ts.y)
 	var s := ts * k
-	_canvas.draw_texture_rect(tex, Rect2(r.position + (r.size - s) * 0.5, s), false, mod)
+	var dst := Rect2(r.position + (r.size - s) * 0.5, s)
+	if _flip:
+		# отражение масштабом вокруг середины (отрицательный прямоугольник Godot рисует со сдвигом)
+		_canvas.draw_set_transform(Vector2(dst.get_center().x * 2.0, 0.0), 0.0, Vector2(-1, 1))
+		_canvas.draw_texture_rect(tex, dst, false, mod)
+		_canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	_canvas.draw_texture_rect(tex, dst, false, mod)
 
 
 func _placeholder_bg() -> void:
