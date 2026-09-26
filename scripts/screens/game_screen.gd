@@ -170,6 +170,10 @@ func _open_pause(restart_fallback: bool) -> void:
 	_pause = router.call(&"popup", &"pause", {"level_id": level_id}) if router else null
 	if _pause == null and restart_fallback:
 		restart()
+	elif _pause:
+		_pause.closed.connect(func(result: Variant) -> void:
+			if result == "restart":
+				restart())
 
 
 func _on_pin_pulled(_pin: Pin) -> void:

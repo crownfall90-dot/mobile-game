@@ -13,12 +13,6 @@ func open(_args: Dictionary) -> void:
 		content.add_child(toggle)
 	var note := UiKit.label("Vita · История одной семьи\nПрогресс сохраняется автоматически",21)
 	content.add_child(note)
-	# если игра вылетела: журнал прошлого запуска копируется, чтобы отправить разработчику
-	var log_button := UiKit.button("Скопировать журнал ошибок", &"secondary")
-	content.add_child(log_button)
-	log_button.pressed.connect(func() -> void:
-		DisplayServer.clipboard_set(_log_tail())
-		Router.toast("Журнал скопирован — отправьте его разработчику"))
 	var reset := UiKit.button("Сбросить весь прогресс",&"danger")
 	content.add_child(reset)
 	reset.pressed.connect(_confirm_reset)
@@ -40,21 +34,3 @@ func _confirm_reset() -> void:
 				Profile.reset_progress()
 				Profile.flush()
 				Router.go(&"hub"))
-
-
-## Последние строки журналов Godot (текущий и прошлые запуски), не больше ~12 КБ.
-static func _log_tail() -> String:
-	var dir := DirAccess.open("user://logs")
-	if dir == null:
-		return "Журнал не найден (user://logs)."
-	var files: Array = []
-	for f in dir.get_files():
-		if f.ends_with(".log"):
-			files.append(f)
-	files.sort()
-	var out := "Vita %s, %s %s\n" % [ProjectSettings.get_setting("application/config/version", "?"),
-		OS.get_model_name(), OS.get_version()]
-	for f in files.slice(maxi(0, files.size() - 2)):
-		var text := FileAccess.get_file_as_string("user://logs/" + f)
-		out += "\n== %s ==\n%s" % [f, text.right(6000)]
-	return out
