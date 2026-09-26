@@ -44,7 +44,7 @@ func set_scared(_value: bool) -> void:
 func _process(delta: float) -> void:
 	super._process(delta)
 	_glow = maxf(0.0, _glow - delta * 2.5)
-	if _glow > 0.0 or (mood == Mood.HAPPY and look == "burner"):
+	if _glow > 0.0 or (mood == Mood.HAPPY and (look == "burner" or look == "radiator")):
 		_rig.queue_redraw()
 
 
@@ -94,6 +94,19 @@ func _paint(ci: CanvasItem) -> void:
 			ci.draw_circle(c, minf(w, h) * 0.4, HOLE)
 			for k in [-0.2, 0.0, 0.2]:
 				ci.draw_line(c + Vector2(k * w, -h * 0.35), c + Vector2(k * w, h * 0.35), METAL, 3.0)
+		"radiator":
+			# батарея отопления: рёбра; наполняется горячей водой — теплеет (оранжевый отсвет)
+			var fins := 6
+			var fw := w / fins
+			var warm := Color(1.0, 0.55, 0.25, 0.35 + 0.35 * _glow) if mood == Mood.HAPPY or _glow > 0.0 else Color(0, 0, 0, 0)
+			for i in fins:
+				var fr := Rect2(-w * 0.5 + i * fw + 3.0, -h, fw - 6.0, h - 10.0)
+				ci.draw_rect(fr, Color("ece6dc"))
+				ci.draw_rect(fr, Color("9aa0a3"), false, 3.0)
+				if warm.a > 0.0:
+					ci.draw_rect(fr.grow(-4.0), warm)
+			ci.draw_rect(Rect2(-w * 0.5, -h * 0.18, w, 10.0), Color("b9b1a4"))
+			ci.draw_rect(Rect2(-w * 0.5 - 6.0, -h + 10.0, 10.0, 12.0), Color("8d969b"))
 		"hole":
 			# дыра в полу: неровный тёмный край; камни, упавшие сюда, её заделывают
 			ci.draw_rect(r, Color(0.12, 0.08, 0.05, 0.35))
