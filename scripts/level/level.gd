@@ -231,9 +231,9 @@ func build(level_data: Dictionary) -> void:
 	walls.setup(data.get("walls", []))
 	add_child(walls)
 	_walls = walls
-	if recv.get("look", "") == "art":
+	if recv.get("look", "") == "art" or str(recv.get("mode", "collect")) == "fill":
 		# нарисованный слив: невидимое дно под приёмником, чтобы после исхода ничего
-		# не проваливалось сквозь картинку
+		# не проваливалось сквозь картинку; у дыры (mode fill) — дно всегда: в ней сидит нарушитель
 		# (дыру заделывают — mode fill: ещё и стенки по бокам, получается чашка)
 		var rr := _rect(recv["rect"])
 		var fill := str(recv.get("mode", "collect")) == "fill"
@@ -425,6 +425,9 @@ func build(level_data: Dictionary) -> void:
 		enemy.set_kind(StringName(str(e.get("kind", "slime"))))
 		if e.get("swell", false):
 			enemy.set_meta(&"swell", true)
+		if data.has("dirt"):
+			# нарушитель в норке внутри земли: рисуем поверх земли, иначе его не видно
+			enemy.z_index = 1
 		if e.get("fixed", false):
 			# прилип к стенке (плесень, паутина): не катается, когда вещь поворачивают
 			enemy.freeze_mode = RigidBody2D.FREEZE_MODE_STATIC

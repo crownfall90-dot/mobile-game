@@ -73,24 +73,23 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var leave: StringName = LEAVE.get(kind, &"dissolve")
 	var a := 1.0 - _death
+	# художник рисует лицом влево — к цели справа отражаем всю отрисовку масштабом -1 по x
+	# (прямоугольник картинки с отрицательной шириной Godot рисует со сдвигом на ширину)
+	var face := -1.0 if _tex and target.x > position.x else 1.0
 	if leave == &"dissolve":
 		var wob := sin(_t * 4.0) * 0.05
 		# нижний край остаётся на месте, "сплющивание" как у желе
 		var sy := 1.0 - wob - _death * 0.85
-		draw_set_transform(Vector2(0, RADIUS * (1.0 - sy)), 0.0, Vector2(1.0 + wob + _death * 0.7, sy))
+		draw_set_transform(Vector2(0, RADIUS * (1.0 - sy)), 0.0, Vector2((1.0 + wob + _death * 0.7) * face, sy))
 	else:
 		a = 1.0 - clampf((_death - 0.6) / 0.4, 0.0, 1.0)
-		draw_set_transform(_leave_offset(leave), _leave_tilt(leave), Vector2.ONE)
+		draw_set_transform(_leave_offset(leave), _leave_tilt(leave), Vector2(face, 1.0))
 	if kind == &"spider":
 		_web(a)
 	if _tex:
-		# картинка крупнее тела, низом стоит на полу; художник рисует лицом влево — к цели справа отражаем
+		# картинка крупнее тела, низом стоит на полу (отражение — в draw_set_transform выше)
 		var s := RADIUS * 3.4
-		var face := -1.0 if target.x > position.x else 1.0
-		var r := Rect2(-s * 0.5, RADIUS - s, s, s)
-		if face < 0.0:
-			r = Rect2(s * 0.5, RADIUS - s, -s, s)
-		draw_texture_rect(_tex, r, false, Color(1, 1, 1, a))
+		draw_texture_rect(_tex, Rect2(-s * 0.5, RADIUS - s, s, s), false, Color(1, 1, 1, a))
 		return
 	match kind:
 		&"rat", &"mouse":
