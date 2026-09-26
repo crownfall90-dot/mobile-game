@@ -453,13 +453,6 @@
    "id": "bath",
    "name": "Санузел",
    "done_text": "В санузле всё работает!\nОткрыта гостиная.",
-   "family": {
-    "pos": [
-     340,
-     1340
-    ],
-    "height": 560
-   },
    "targets": [
     {
      "id": "bath_tub",
@@ -625,7 +618,49 @@
       "Смотри: Хмурь выглянула из трубы и смеётся."
      ]
     ]
-   }
+   },
+   "props": [
+    {
+     "img": "family/mother_bath",
+     "rect": [
+      150,
+      740,
+      390,
+      585
+     ],
+     "z": 3
+    },
+    {
+     "img": "bath/bath_laundry_stool",
+     "rect": [
+      330,
+      1120,
+      190,
+      190
+     ],
+     "z": 3
+    },
+    {
+     "img": "bath/bath_laundry_basin",
+     "rect": [
+      305,
+      1060,
+      240,
+      144
+     ],
+     "z": 4
+    },
+    {
+     "img": "family/daughter_bath",
+     "rect": [
+      455,
+      975,
+      245,
+      368
+     ],
+     "z": 4
+    }
+   ]
   },
   {
    "id": "living",
