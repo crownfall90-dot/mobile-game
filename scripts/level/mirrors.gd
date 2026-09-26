@@ -166,7 +166,7 @@ func _trace() -> void:
 
 
 func _draw() -> void:
-	var glow := Color(1.0, 0.9, 0.4) if look == "light" else Color(0.45, 0.9, 1.0)
+	var glow := Color(0.45, 0.9, 1.0) if look == "signal" else Color(1.0, 0.9, 0.4)
 	# лёгкая сетка: видно клетки
 	for x in cols + 1:
 		draw_line(origin + Vector2(x * cell, 0), origin + Vector2(x * cell, rows * cell), Color(1, 1, 1, 0.06), 2.0)
@@ -196,11 +196,17 @@ func _draw() -> void:
 		draw_line(a, b, FRAME, 16.0)
 		draw_line(a, b, GLASS, 10.0)
 		draw_line(a + (b - a) * 0.15, a + (b - a) * 0.45, Color(1, 1, 1, 0.9), 3.0)
-	# фонарик
+	# фонарик / антенна / конец провода
 	var sp := center(source)
 	var ang := Vector2(source_dir).angle()
 	draw_set_transform(sp, ang, Vector2.ONE)
-	if look == "light":
+	if look == "current":
+		# ток из провода: трещащая искра на конце
+		for k in 5:
+			var a := _t * 9.0 + k * TAU / 5.0
+			draw_line(Vector2.ZERO, Vector2(cos(a), sin(a)) * (10.0 + 6.0 * sin(_t * 23.0 + k)), Color(1, 1, 0.8, 0.9), 2.0)
+		draw_circle(Vector2.ZERO, 7.0, Color(1, 1, 0.85))
+	elif look == "light":
 		draw_rect(Rect2(-34, -14, 44, 28), Color("3b4a6b"))
 		draw_colored_polygon(PackedVector2Array([Vector2(10, -20), Vector2(30, -26), Vector2(30, 26), Vector2(10, 20)]), Color("5a6b8c"))
 		draw_circle(Vector2(30, 0), 12.0, Color(1, 1, 0.8))
@@ -210,13 +216,20 @@ func _draw() -> void:
 		for k in 3:
 			draw_arc(Vector2(22, 0), 10.0 + k * 9.0, -0.8, 0.8, 8, Color(0.45, 0.9, 1.0, 0.8), 3.0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# плафон: лампа загорается, когда в неё попал луч
+	# плафон: лампа загорается, когда в неё попал луч; у «тока» патрон нарисован на картинке —
+	# при попадании в нём загорается лампочка
 	var lp := center(lamp)
 	if is_lit:
 		draw_circle(lp, cell * 0.62 + 4.0 * sin(_t * 5.0), Color(glow, 0.25))
-	draw_circle(lp, cell * 0.36, Color("fff6c9") if is_lit else Color("a9a49a"))
-	draw_arc(lp, cell * 0.36, 0.0, TAU, 32, Color("7c7468"), 4.0, true)
-	draw_rect(Rect2(lp + Vector2(-14, -cell * 0.36 - 16), Vector2(28, 16)), Color("7c7468"))
+	if look == "current":
+		if is_lit:
+			draw_circle(lp + Vector2(0, -cell * 0.2), cell * 0.34, Color("fff6c9"))
+		else:
+			draw_arc(lp, cell * 0.45 + 3.0 * sin(_t * 4.0), 0.0, TAU, 32, Color(1, 1, 1, 0.35), 3.0, true)
+	else:
+		draw_circle(lp, cell * 0.36, Color("fff6c9") if is_lit else Color("a9a49a"))
+		draw_arc(lp, cell * 0.36, 0.0, TAU, 32, Color("7c7468"), 4.0, true)
+		draw_rect(Rect2(lp + Vector2(-14, -cell * 0.36 - 16), Vector2(28, 16)), Color("7c7468"))
 	# моль: сидит на зеркальце (крылышки дрожат) или улетает вверх
 	var mp := Vector2.INF
 	if has_moth():
