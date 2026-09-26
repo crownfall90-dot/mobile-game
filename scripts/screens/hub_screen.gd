@@ -160,6 +160,11 @@ func _gui_input(event: InputEvent) -> void:
 		if _gloom and _gloom.hit(p):
 			accept_event()
 			_gloom_talk()
+			return
+		var done := _view.target_at(p, true)
+		if not done.is_empty():
+			accept_event()
+			_offer_replay(done)
 		return
 	accept_event()
 	if not Game.has_level(str(t["level"])):
@@ -303,6 +308,23 @@ func _gloom_share(holding: String) -> float:
 		if not Home.is_done(t["id"]) or t["id"] == holding:
 			left += 1
 	return float(left) / targets.size()
+
+
+## Починенная вещь: показать звёзды и предложить сыграть ещё раз (новые звёзды — монеты).
+func _offer_replay(t: Dictionary) -> void:
+	if Router.is_busy() or not Game.has_level(str(t["level"])):
+		return
+	Sfx.play(&"ui_tap")
+	var best := Profile.best_stars(str(t["level"]))
+	var stars := "★".repeat(best) + "☆".repeat(3 - best)
+	var text := "Уже на все звёзды — можно сыграть просто так." if best >= 3 \
+		else "Ещё звезда — ещё монеты. Сыграть ещё раз?"
+	var popup := Router.popup(&"confirm", {"title": "%s %s" % [str(t["name"]), stars], "text": text,
+		"ok": "Играть", "cancel": "Позже"})
+	if popup:
+		popup.closed.connect(func(yes: Variant) -> void:
+			if yes == true:
+				Router.go(&"game", {"id": t["level"]}))
 
 
 ## Название главы локации для таблички и кнопок перехода (нет — название комнаты).
