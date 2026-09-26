@@ -476,6 +476,13 @@ class CoinIcon extends Control:
 				draw_circle(c, 16.0, Color("6d6560"), true, -1.0, true)
 				draw_circle(c + Vector2(-5, -5), 5.0, Color("9a918a"), true, -1.0, true)
 				return
+			"clog":
+				# засор: бурый ком с пятнышками плесени
+				draw_circle(c, 15.0, Color("6b5236"), true, -1.0, true)
+				for k in 4:
+					var a := k * TAU / 4.0 + 0.5
+					draw_circle(c + Vector2(cos(a), sin(a)) * 7.0, 3.5, Color("5f8f4e"), true, -1.0, true)
+				return
 			"plate":
 				# тарелка сбоку: «сколько посуды на полках»
 				draw_rect(Rect2(c + Vector2(-18, 2), Vector2(36, 8)), Color("5a6b8c"))

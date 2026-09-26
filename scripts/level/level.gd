@@ -6,6 +6,7 @@ const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
 const PUTTY := preload("res://scripts/level/putty.gd")
 const LEAK := preload("res://scripts/level/leak.gd")
 const DISHES := preload("res://scripts/level/dishes.gd")
+const PLUNGER := preload("res://scripts/level/plunger.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -80,6 +81,7 @@ var pipes: Array = []            # «живые трубы»: PipeSwitch
 var putty: Node2D = null         # «замазка»: игрок рисует стенки пальцем
 var leak: Node2D = null          # «лови капли»: труба течёт, ведро ловит, дыры клеят
 var dish_game: Node2D = null     # «стопка посуды»: качающиеся полки, посуда по одной
+var plunger_game: Node2D = null  # «вантуз»: качать в ритм, засор едет по сифону
 var _bucket_to := 0.0            # куда едет ведро (x)
 var _bucket_rail := Vector2.ZERO # пределы ведра по x
 var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
@@ -173,7 +175,8 @@ func build(level_data: Dictionary) -> void:
 		_jitter.seed = jitter_seed
 
 	var recv: Dictionary = data.get("receiver", {})
-	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes")
+	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes") \
+		or data.has("plunger")
 	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
@@ -278,6 +281,27 @@ func build(level_data: Dictionary) -> void:
 		putty = PUTTY.new()
 		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
 		add_child(putty)
+	if data.has("plunger"):
+		plunger_game = PLUNGER.new()
+		plunger_game.setup(data["plunger"])
+		plunger_game.pumped.connect(func(ok: bool) -> void:
+			_acted = true
+			Sfx.play(&"grate_hit" if ok else &"fizz")
+			if ok:
+				_shake = 3.0
+				switched.emit("pump"))
+		plunger_game.splashed.connect(func(n: int) -> void:
+			fx.burst(plunger_game.sink.get_center(), Color("8ce6ff"), 16, 420.0, 6.0, 900.0, 0.7)
+			if n >= plunger_game.splash_limit:
+				_lose("splash"))
+		plunger_game.cleared.connect(func() -> void:
+			pieces = 1
+			_since_collect = 0.0
+			Sfx.play(&"restore")
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		plunger_game.overflowed.connect(func() -> void:
+			_lose("overflow"))
+		add_child(plunger_game)
 	if data.has("dishes"):
 		dish_game = DISHES.new()
 		dish_game.setup(data["dishes"])
@@ -359,6 +383,11 @@ func build(level_data: Dictionary) -> void:
 		enemies.append(enemy)
 
 	_setup_goal()
+	if plunger_game:
+		# цель — прогнать засор до конца трубы
+		pieces_total = 1
+		pieces_needed = 1
+		_three_needed = 1
 	if dish_game:
 		# цель — вся посуда на полках
 		pieces_total = dish_game.total()
@@ -533,6 +562,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if dish_game:
 		_dish_input(event)
+		return
+	if plunger_game:
+		if event is InputEventScreenTouch and event.pressed:
+			_acted = true
+			plunger_game.pump()
+			get_viewport().set_input_as_handled()
 		return
 	if dirt:
 		if event is InputEventScreenTouch and not event.pressed:
@@ -714,6 +749,12 @@ func _on_dish_enemy(enemy: Node) -> void:
 	Sfx.play(&"slime_pop")
 
 
+## DevRunner: качнуть вантуз.
+func plunger_pump() -> void:
+	_acted = true
+	plunger_game.pump()
+
+
 ## DevRunner: посуду в точку и отпустить.
 func dish_drop_at(p: Vector2) -> bool:
 	if dish_game == null or not dish_game.ready_to_drop():
@@ -766,6 +807,10 @@ func _physics_process(delta: float) -> void:
 	_run_source(delta)
 	if leak:
 		_step_leak(delta)
+	if plunger_game:
+		plunger_game.step(delta)
+		if plunger_game.started:
+			_acted = true
 	if dish_game:
 		# после поражения физика идёт дальше (посуда падает), после победы всё заморожено
 		dish_game.step(delta)
@@ -988,7 +1033,7 @@ func _update_outcome(delta: float) -> void:
 		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if _stuck_timer >= 0.0 and leak == null and dish_game == null:
+	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null:
 		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
 		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
 		_stuck_total += delta
@@ -1191,7 +1236,8 @@ func _finish(win: bool, reason: String) -> void:
 
 func _snapshot(win: bool, reason: String) -> Dictionary:
 	return {
-		"won": win, "stars": (3 - mini(leak.misses, 2) if leak else _stars_for(pieces)) if win else 0,
+		"won": win, "stars": (3 - mini(leak.misses, 2) if leak else (3 - mini(plunger_game.splashes, 2)
+			if plunger_game else _stars_for(pieces))) if win else 0,
 		"pieces": pieces, "pieces_total": pieces_total, "needed": pieces_needed,
 		"coins_pieces": coins_pieces, "gems": gems, "relic": relic, "reason": reason,
 	}
