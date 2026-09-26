@@ -59,6 +59,11 @@ func open(args: Dictionary) -> void:
 	_gloom.setup(Vector2(gp[0], gp[1]), _gloom_share(_repair), _act_over())
 	holder.add_child(_gloom)
 	_build_ui()
+	# заранее и понемногу — картинки следующей локации (переход туда будет без задержки)
+	var locs := Home.locations()
+	var i := _loc_index()
+	if i + 1 < locs.size():
+		Assets.want(Assets.location_paths(str(locs[i + 1]["id"])))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	if _repair != "":

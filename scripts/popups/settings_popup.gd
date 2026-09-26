@@ -11,7 +11,7 @@ func open(_args: Dictionary) -> void:
 		toggle.button_pressed = bool(Profile.setting(entry[0]))
 		toggle.toggled.connect(func(on: bool) -> void: Profile.set_setting(entry[0],on))
 		content.add_child(toggle)
-	var note := UiKit.label("Vita · История одной семьи\nПрогресс сохраняется автоматически",21)
+	var note := UiKit.label("Vita %s · прогресс сохраняется сам" % ProjectSettings.get_setting("application/config/version", ""),21)
 	content.add_child(note)
 	var reset := UiKit.button("Сбросить весь прогресс",&"danger")
 	content.add_child(reset)
