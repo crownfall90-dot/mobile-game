@@ -23,6 +23,8 @@ const PLACE_BROKEN := Color(0.85, 0.35, 0.3)
 const PLACE_FIXED := Color(0.3, 0.7, 0.4)
 const GLOW := Color("ffe7a1")
 const EXTEND_PAD := 1200.0
+const WEAR_SHADER := preload("res://shaders/wear.gdshader")
+const WEAR_SPEED := 0.5           # за сколько секунд комната светлеет после ремонта (~2 с)
 
 var loc: Dictionary = {}
 var size := Vector2(720, 1560)
@@ -37,6 +39,9 @@ var _t := 0.0
 var _font: Font
 var _canvas: CanvasItem = self   # куда рисуют _layer/_fit/_draw_fx: фон или передний план
 var _front: Node2D
+var _bg_sprite: Sprite2D         # фон под износом (шейдер wear): светлеет с каждым ремонтом
+var _wear := -1.0                # текущий общий износ; -1 — ещё не выставлен
+var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 
 
 class Front extends Node2D:
@@ -51,6 +56,8 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 	size = scene_size
 	_font = ThemeDB.fallback_font
 	_bg = _load("background")
+	if _bg:
+		_setup_wear()
 	for t in loc.get("targets", []):
 		_tex[t["id"] + "_broken"] = _load(t["id"] + "_broken")
 		_tex[t["id"] + "_fixed"] = _load(t["id"] + "_fixed")
@@ -115,15 +122,69 @@ func target_rect(id: String) -> Rect2:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_update_wear(delta)
 	queue_redraw()
 	_front.queue_redraw()
+
+
+## Фон — отдельный спрайт позади всего с шейдером износа: выцветший, в пятнах сырости,
+## вокруг каждой сломанной вещи грязнее. Пятна шума — маленькая текстура.
+func _setup_wear() -> void:
+	_bg_sprite = Sprite2D.new()
+	_bg_sprite.centered = false
+	_bg_sprite.texture = _bg
+	var k := minf(size.x / _bg.get_width(), size.y / _bg.get_height())
+	_bg_sprite.scale = Vector2(k, k)
+	_bg_sprite.position = (size - _bg.get_size() * k) * 0.5
+	_bg_sprite.show_behind_parent = true
+	var noise := FastNoiseLite.new()
+	noise.frequency = 0.02
+	noise.fractal_octaves = 3
+	var tex := NoiseTexture2D.new()
+	tex.width = 256
+	tex.height = 256
+	tex.seamless = true
+	tex.noise = noise
+	var mat := ShaderMaterial.new()
+	mat.shader = WEAR_SHADER
+	mat.set_shader_parameter("stains", tex)
+	mat.set_shader_parameter("aspect", Vector2(1.0, size.y / size.x))
+	_bg_sprite.material = mat
+	add_child(_bg_sprite)
+
+
+## Общий износ = доля несделанных целей локации; пятна у целей гаснут после их ремонта.
+func _update_wear(delta: float) -> void:
+	if _bg_sprite == null:
+		return
+	var targets: Array = loc.get("targets", [])
+	if targets.is_empty():
+		return
+	var left := 0
+	for t: Dictionary in targets:
+		if not _done.get(t["id"], false):
+			left += 1
+	var goal := float(left) / targets.size()
+	var first := _wear < 0.0
+	_wear = goal if first else move_toward(_wear, goal, delta * WEAR_SPEED)
+	var spots: Array[Vector4] = []
+	for t: Dictionary in targets.slice(0, 8):
+		var id: String = t["id"]
+		var want := 0.0 if _done.get(id, false) else 1.0
+		_spot[id] = want if first else move_toward(float(_spot.get(id, want)), want, delta * WEAR_SPEED)
+		var r := _rect(t)
+		spots.append(Vector4(r.get_center().x / size.x, r.get_center().y / size.y,
+			maxf(r.size.x, r.size.y) / size.x * 0.9, _spot[id]))
+	var mat := _bg_sprite.material as ShaderMaterial
+	mat.set_shader_parameter("wear", _wear)
+	mat.set_shader_parameter("spots", spots)
+	mat.set_shader_parameter("spot_count", spots.size())
 
 
 func _draw() -> void:
 	_canvas = self
 	if _bg:
 		_extend(_bg)
-		_fit(_bg, Rect2(Vector2.ZERO, size))
 	else:
 		_placeholder_bg()
 	for t in _layers():
@@ -244,7 +305,8 @@ func _layer(tex: Texture2D, r: Rect2, id: String, fixed: bool, mod: Color, shift
 func _extend(tex: Texture2D) -> void:
 	var ts := tex.get_size()
 	var pad := EXTEND_PAD
-	var dim := Color(0.82, 0.8, 0.84)
+	# края того же оттенка, что и изношенный фон
+	var dim := Color(0.82, 0.8, 0.84).lerp(Color(0.6, 0.55, 0.5), clampf(_wear, 0.0, 1.0) * 0.7)
 	draw_texture_rect_region(tex, Rect2(-pad, 0, pad, size.y), Rect2(0, 0, 2, ts.y), dim)
 	draw_texture_rect_region(tex, Rect2(size.x, 0, pad, size.y), Rect2(ts.x - 2, 0, 2, ts.y), dim)
 	draw_texture_rect_region(tex, Rect2(0, -pad, size.x, pad), Rect2(0, 0, ts.x, 2), dim)
