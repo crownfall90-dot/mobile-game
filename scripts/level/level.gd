@@ -46,8 +46,16 @@ const LINES_RELIEF := ["Фух…", "Пронесло!", "Еле-еле!"]
 const THREE_STAR_PERCENT := 95  # 3 звезды за столько % сокровищ (для цели-доли)
 
 ## Кого чем можно убить: вид врага -> вещества.
+## Кто от чего уходит (docs/CAST.md). Кислота в доме — чистящее средство, лава — огонь плиты.
 const VULNERABLE := {
 	&"slime": [Substances.Kind.LAVA, Substances.Kind.ACID],
+	&"grime": [Substances.Kind.ACID],
+	&"mold": [Substances.Kind.ACID],
+	&"cockroach": [Substances.Kind.ACID],
+	&"rat": [Substances.Kind.WATER],
+	&"mouse": [Substances.Kind.WATER],
+	&"spider": [Substances.Kind.WATER],
+	&"moth": [Substances.Kind.WATER],
 }
 
 const STEAM := Color(1, 1, 1, 0.55)
@@ -185,6 +193,19 @@ func build(level_data: Dictionary) -> void:
 	walls.setup(data.get("walls", []))
 	add_child(walls)
 	_walls = walls
+	if recv.get("look", "") == "art":
+		# нарисованный слив: невидимое дно под приёмником, чтобы после исхода ничего
+		# не проваливалось сквозь картинку
+		var rr := _rect(recv["rect"])
+		var floor_body := StaticBody2D.new()
+		floor_body.collision_layer = Substances.LAYER_WORLD
+		var seg := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(rr.size.x + 40.0, 16.0)
+		seg.shape = shape
+		seg.position = Vector2(rr.get_center().x, rr.end.y + 8.0)
+		floor_body.add_child(seg)
+		add_child(floor_body)
 
 	if data.has("dirt"):
 		dirt = Dirt.new()
@@ -246,7 +267,7 @@ func build(level_data: Dictionary) -> void:
 		var enemy := Enemy.new()
 		enemy.setup(_jittered(_vec(e["pos"])), hero.position + Vector2(0, -70), report_contact)
 		enemy.collision_mask |= Substances.LAYER_SIEVE
-		enemy.set_meta(&"kind", StringName(str(e.get("kind", "slime"))))
+		enemy.set_kind(StringName(str(e.get("kind", "slime"))))
 		_bodies.add_child(enemy)
 		enemies.append(enemy)
 
@@ -508,8 +529,10 @@ func _process_cooling(delta: float) -> void:
 
 func _kill_enemy(enemy: Enemy, killer: Item) -> void:
 	enemy.kill()
-	fx.burst(enemy.position, GOO, 22, 420.0, 7.0, 900.0, 0.7)
-	fx.ring(enemy.position, GOO, 70.0, 0.4)
+	# брызги по тому, что его прогнало: вода — голубые капли, средство — зелёная пена
+	var c: Color = GOO if _enemy_kind(enemy) == &"slime" else (Color("8ce6ff") if killer.kind == Substances.Kind.WATER else ACID_FIZZ)
+	fx.burst(enemy.position, c, 22, 420.0, 7.0, 900.0, 0.7)
+	fx.ring(enemy.position, c, 70.0, 0.4)
 	_shake = 7.0
 	reaction.emit(&"slime_pop", enemy.position,
 		{"enemy": _enemy_kind(enemy), "killer": StringName(Substances.name_of(killer.kind))})

@@ -1,6 +1,8 @@
 [
-  ["lava", "water", "faucet", "plug"],
-  ["lava", "water", "plug", "faucet"],
-  ["lava", "faucet", "water", "plug"],
-  ["lava", "faucet", "plug", "water"]
+  ["cleaner", "water", "faucet", "plug"],
+  ["cleaner", "water", "plug", "faucet"],
+  ["cleaner", "faucet", "water", "plug"],
+  ["cleaner", "faucet", "plug", "water"],
+  ["cleaner", "plug", "water", "faucet"],
+  ["cleaner", "plug", "faucet", "water"]
 ]

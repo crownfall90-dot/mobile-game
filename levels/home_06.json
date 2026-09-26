@@ -3,7 +3,7 @@
  "id": "home_06",
  "floor": 1,
  "title": "Раковина: засор",
- "hint": "Лава — засору, вода — лаве, потом пробка",
+ "hint": "Средство — засору, пока его не разбавила вода",
  "tutorial": "",
  "intro": "",
  "hard": false,
@@ -400,7 +400,7 @@
  ],
  "pins": [
   {
-   "id": "lava",
+   "id": "cleaner",
    "from": [
     68,
     562
@@ -446,7 +446,7 @@
  ],
  "fills": [
   {
-   "kind": "lava",
+   "kind": "acid",
    "rect": [
     134,
     467,
@@ -478,7 +478,7 @@
  ],
  "enemies": [
   {
-   "kind": "slime",
+   "kind": "grime",
    "pos": [
     365,
     922
@@ -494,18 +494,16 @@
   ],
   "look": "art",
   "kind": "water",
-  "bad": [
-   "lava",
-   "acid"
-  ],
-  "mode": "collect"
+  "bad": [],
+  "mode": "collect",
+  "where": "слив"
  },
  "goal": {
   "pieces": 25,
   "three_star": 42
  },
  "solution": [
-  "lava",
+  "cleaner",
   "water",
   "faucet",
   "plug"
@@ -513,13 +511,13 @@
  "fails": [
   [
    "water",
-   "lava",
+   "cleaner",
    "faucet",
    "plug"
   ],
   [
-   "lava",
    "plug",
+   "cleaner",
    "water",
    "faucet"
   ]

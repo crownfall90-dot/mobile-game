@@ -41,7 +41,7 @@ TUTORIALS = {"", "hand", "hint"}
 INTROS = {"", "water_lava", "slime", "acid", "grate", "sieve", "circle", "magma"}
 RELICS = {"star_mushroom", "phoenix_feather", "moon_dew", "dragon_scale", "frog_crown",
           "philosophers_pebble"}
-ENEMY_KINDS = {"slime", "magma"}
+ENEMY_KINDS = {"slime", "magma", "grime", "mold", "cockroach", "rat", "mouse", "spider", "moth"}
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
@@ -417,7 +417,7 @@ def _lint(d, path, index, rep):
         _unknown(e, {"kind", "pos"}, where, rep)
         n_enemies += 1
         if not one_of(e.get("kind", "slime"), ENEMY_KINDS):
-            rep.err(f"{where}: kind must be slime or magma")
+            rep.err(f"{where}: kind must be one of {', '.join(sorted(ENEMY_KINDS))}")
         for wname, poly, _t in walls:
             depth = penetration(e["pos"], ENEMY_R, poly)
             if depth > OVERLAP_TOL:
