@@ -29,6 +29,10 @@ var _world: Node2D
 var _camera: Camera2D
 var _hud: Hud
 var _attempt := 0
+var _idle := 0.0              # сколько секунд игрок ничего не делает в этой попытке
+var _idle_hinted := false
+const IDLE_HINT := 10.0       # после стольких секунд бездействия — подсказка сама
+const HOWTO := preload("res://scripts/popups/howto_popup.gd")
 var _result_tween: Tween
 var _pause: Node
 var _repair := ""
@@ -149,7 +153,28 @@ func restart() -> void:
 			level.show_dig_hint(sol)
 		else:
 			level.set_hint_pin(str(sol[0]))
+	_idle = 0.0
+	_idle_hinted = false
+	# первая встреча с механикой: карточка «Как играть» (уровень ждёт на паузе)
+	var kind := HOWTO.kind_of(_data)
+	if not dev and kind != "" and not Profile.flag("tut." + kind):
+		Router.popup(&"howto", {"kind": kind})
 	level_ready.emit(level)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_idle = 0.0
+
+
+## Долго ничего не делают — подсказка показывается сама (один раз за попытку).
+func _process(delta: float) -> void:
+	if dev or level == null or level.finished or _idle_hinted or is_instance_valid(_pause):
+		return
+	_idle += delta
+	if _idle >= IDLE_HINT:
+		_idle_hinted = true
+		_hint()
 
 
 ## Android «назад»: пауза (пока её попапа нет — перезапуск). true — обработано.

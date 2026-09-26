@@ -67,6 +67,10 @@ func run(flags: Dictionary) -> void:
 	var profile := get_node_or_null(^"/root/Profile")
 	if profile:
 		profile.set(&"volatile", true)
+		# проверки играют уровни сами: карточки «Как играть» (они ставят игру на паузу) —
+		# как уже показанные
+		for kind: String in preload("res://scripts/popups/howto_popup.gd").TIPS:
+			profile.call(&"set_flag", "tut." + kind)
 	if flags.has("home-stage"):
 		Home.migrate()
 		for i in mini(int(flags["home-stage"]), Home.total()):
