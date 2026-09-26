@@ -476,6 +476,12 @@ class CoinIcon extends Control:
 				draw_circle(c, 16.0, Color("6d6560"), true, -1.0, true)
 				draw_circle(c + Vector2(-5, -5), 5.0, Color("9a918a"), true, -1.0, true)
 				return
+			"lamp":
+				# лампочка: «зажги свет»
+				draw_circle(c + Vector2(0, -3), 12.0, Color("ffe27a"), true, -1.0, true)
+				draw_rect(Rect2(c + Vector2(-6, 8), Vector2(12, 8)), Color("8d969b"))
+				draw_circle(c + Vector2(-4, -7), 3.0, Color(1, 1, 1, 0.8), true, -1.0, true)
+				return
 			"clog":
 				# засор: бурый ком с пятнышками плесени
 				draw_circle(c, 15.0, Color("6b5236"), true, -1.0, true)
