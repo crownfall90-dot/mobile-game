@@ -20,6 +20,7 @@ var _title: Label
 var _gold: Label
 var _hint: Label
 var _rotate_row: HBoxContainer
+var _ink: InkBar
 var _rotate_buttons := {}      # dir -> RotateButton
 var _hint_tween: Tween
 var _overlay: ColorRect
@@ -66,6 +67,23 @@ func show_rotate(on: bool) -> void:
 				_rotate_row.add_child(spacer)
 	if _rotate_row:
 		_rotate_row.visible = on
+
+
+## «Замазка»: полоска-тюбик под верхней панелью; total <= 0 — спрятать.
+func set_ink(left: float, total: float) -> void:
+	if total <= 0.0:
+		if _ink:
+			_ink.visible = false
+		return
+	if _ink == null:
+		_ink = InkBar.new()
+		_ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_ink)
+	_ink.visible = true
+	_ink.ratio = clampf(left / total, 0.0, 1.0)
+	_ink.size = Vector2(300, 40)
+	_ink.position = Vector2((size.x - 300.0) * 0.5, _bar.offset_bottom + 6.0)
+	_ink.queue_redraw()
 
 
 ## Подсказка: пульсирует кнопка поворота, которую нажать следующей (0 — никакая).
@@ -349,6 +367,25 @@ static func _box(bg: Color, radius: int, border: Color, padding: int, border_w :
 	sb.content_margin_bottom = padding * 0.6
 	sb.anti_aliasing = true
 	return sb
+
+
+## Тюбик замазки: сколько осталось.
+class InkBar extends Control:
+	var ratio := 1.0
+
+	func _draw() -> void:
+		var font := ThemeDB.fallback_font
+		draw_string(font, Vector2(0, 26), "Замазка", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
+		var r := Rect2(104, 10, 190, 20)
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0, 0, 0, 0.35)
+		box.set_corner_radius_all(10)
+		draw_style_box(box, r)
+		if ratio > 0.0:
+			var fill := StyleBoxFlat.new()
+			fill.bg_color = Color("e9e1cf") if ratio > 0.25 else Color("f2a65a")
+			fill.set_corner_radius_all(10)
+			draw_style_box(fill, Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)))
 
 
 ## Большая круглая кнопка поворота: дуга со стрелкой по или против часовой.

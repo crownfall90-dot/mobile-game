@@ -130,6 +130,11 @@ func restart() -> void:
 	_layout()
 	_hud.set_goal_kind(str(_data.get("receiver", {}).get("kind", "gold")))
 	_hud.show_rotate(level.can_rotate())
+	if level.putty:
+		_hud.set_ink(level.putty.ink_left, level.putty.ink)
+		level.putty.ink_changed.connect(_hud.set_ink)
+	else:
+		_hud.set_ink(0.0, 0.0)
 	_hud.hint_rotate(0)
 	if _attempt <= 1:
 		_hud.show_place(LevelSkin.place(str(_data.get("theme", ""))))
@@ -257,6 +262,8 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Вода залила %s" % where
 		"socket":
 			return "Вода попала в розетку — искры!"
+		"sill":
+			return "Дождь залил подоконник"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"stuck":

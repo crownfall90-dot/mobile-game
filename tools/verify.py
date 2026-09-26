@@ -110,6 +110,8 @@ class Level:
         self.cap = lint.cap_for(data, self.info) if data else lint.DEFAULT_CAP
         v = data.get("verify") if isinstance(data, dict) and isinstance(data.get("verify"), dict) else {}
         self.live = bool(v.get("live", False))
+        # рисование (замазка): ходы — линии, а не порядок; G5 и G6 не имеют смысла
+        self.draw = bool(v.get("draw", False))
         self.specs = {}          # key -> spec
         self.results = {}        # key -> исход
         self.meta = {}           # ключ кэша
@@ -159,7 +161,7 @@ def plan(lv, quick):
     for f in lv.fails:
         lv.add(spec(f, NORMAL, 0))
         lv.add(spec(f, NORMAL, 1))
-    if quick:
+    if quick or lv.draw:
         return
     if len(lv.pins) >= 3:
         lv.add(spec(None, NORMAL, 0))
@@ -354,6 +356,13 @@ def judge(lv, quick):
     if quick:
         for k in ("G5", "G6", "G7"):
             g[k] = ("-", ["skipped (--quick)"])
+        return
+    if lv.draw:
+        g["G5"] = ("-", ["n/a (drawing level: moves are lines, not orders)"])
+        g["G6"] = ("-", ["n/a (drawing level)"])
+        lv.win_share = 0.0
+        lv.solid = [sol] if won(lv.res(spec(sol, NORMAL, 0))) and won(lv.res(spec(sol, NORMAL, 1))) else []
+        g["G7"] = ("-", ["n/a"])
         return
     # G5
     if len(lv.pins) >= 3:
