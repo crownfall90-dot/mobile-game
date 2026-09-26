@@ -6,6 +6,8 @@ extends Node
 const Synth := preload("res://scripts/audio/synth.gd")
 const Bank := preload("res://scripts/audio/sfx_bank.gd")
 const Music := preload("res://scripts/audio/music.gd")
+const Ambience := preload("res://scripts/audio/ambience.gd")
+const AMB_DB := {&"storm": -13.0, &"wind": -18.0}   # фон тише звуков и музыки
 
 const POOL := 8
 const PITCH_JITTER := 0.04
@@ -38,6 +40,13 @@ var _music_task := -1
 var _music_pcm := PackedByteArray()
 var _music_tween: Tween
 var _sfx_bus := -1
+var _amb_player: AudioStreamPlayer
+var _amb_kind := &""             # что должно звучать
+var _amb_streams := {}           # kind -> AudioStreamWAV (петля)
+var _amb_task := -1
+var _amb_task_kind := &""
+var _amb_pcm := PackedByteArray()
+var _amb_tween: Tween
 
 
 func _ready() -> void:
@@ -58,6 +67,10 @@ func _ready() -> void:
 		p.bus = &"SFX"
 		add_child(p)
 		_players.append(p)
+	_amb_player = AudioStreamPlayer.new()
+	_amb_player.bus = &"SFX"
+	_amb_player.volume_db = -60.0
+	add_child(_amb_player)
 	_music_player = AudioStreamPlayer.new()
 	_music_player.bus = &"Music"
 	_music_player.volume_db = -60.0
@@ -188,12 +201,60 @@ func _render_music() -> void:
 	_music_pcm = Music.load_or_render()
 
 
+## Фон места: "storm" (дождь с ветром), "wind" (сквозняк) или "" — тишина. Петля считается
+## один раз в фоновом потоке; смена — плавным переходом.
+func ambience(kind: StringName) -> void:
+	if not _enabled:
+		return
+	# при выключенных звуках шина SFX заглушена — фон молчит вместе с ней
+	if kind == _amb_kind:
+		return
+	_amb_kind = kind
+	if _amb_tween:
+		_amb_tween.kill()
+	_amb_tween = create_tween()
+	if _amb_player.playing:
+		_amb_tween.tween_property(_amb_player, "volume_db", -60.0, 0.8)
+		_amb_tween.tween_callback(_amb_player.stop)
+	_amb_tween.tween_callback(_amb_start)
+
+
+func _amb_start() -> void:
+	if _amb_kind == &"" or _suspended:
+		return
+	var st: AudioStreamWAV = _amb_streams.get(_amb_kind)
+	if st == null:
+		if _amb_task == -1:
+			_amb_task_kind = _amb_kind
+			_amb_task = WorkerThreadPool.add_task(func() -> void: _amb_pcm = Ambience.render(_amb_task_kind),
+				false, "ambience")
+			set_process(true)
+		return
+	_amb_player.stream = st
+	_amb_player.volume_db = -60.0
+	_amb_player.play()
+	if _amb_tween:
+		_amb_tween.kill()
+	_amb_tween = create_tween()
+	_amb_tween.tween_property(_amb_player, "volume_db", float(AMB_DB.get(_amb_kind, -18.0)), 1.5)
+
+
 func _process(_delta: float) -> void:
+	if _amb_task != -1 and WorkerThreadPool.is_task_completed(_amb_task):
+		WorkerThreadPool.wait_for_task_completion(_amb_task)
+		_amb_task = -1
+		if not _amb_pcm.is_empty():
+			_amb_streams[_amb_task_kind] = Synth.from_pcm16(_amb_pcm, true)
+		_amb_pcm = PackedByteArray()
+		_amb_start()
 	if _music_task == -1 or not WorkerThreadPool.is_task_completed(_music_task):
+		if _music_task == -1 and _amb_task == -1:
+			set_process(false)
 		return
 	WorkerThreadPool.wait_for_task_completion(_music_task)
 	_music_task = -1
-	set_process(false)
+	if _amb_task == -1:
+		set_process(false)
 	if _music_pcm.is_empty():
 		return
 	_music_player.stream = Synth.from_pcm16(_music_pcm, true)
@@ -263,9 +324,14 @@ func _suspend(v: bool) -> void:
 	AudioServer.set_bus_mute(0, v)
 	if not v and _music_on and _prepared:
 		_start_music()
+	if not v and _amb_kind != &"" and not _amb_player.playing:
+		_amb_start()
 
 
 func _exit_tree() -> void:
+	if _amb_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_amb_task)
+		_amb_task = -1
 	if _music_task != -1:
 		WorkerThreadPool.wait_for_task_completion(_music_task)
 		_music_task = -1

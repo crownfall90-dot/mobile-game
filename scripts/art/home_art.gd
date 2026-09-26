@@ -129,9 +129,12 @@ static func preload_decor(id: String) -> Texture2D:
 
 
 ## Рисует вещь магазина в прямоугольник r: в комнате и на карточке магазина.
-static func draw_decor(ci: CanvasItem, id: String, r: Rect2) -> void:
+## around — сдвиг/поворот всего рисунка (покачивание растения): r задан в его координатах.
+static func draw_decor(ci: CanvasItem, id: String, r: Rect2, around := Transform2D.IDENTITY) -> void:
 	if id == "vita_teddy":
+		ci.draw_set_transform_matrix(around)
 		ci.draw_texture_rect(preload_decor(id), r, false)
+		ci.draw_set_transform_matrix(Transform2D.IDENTITY)
 		return
 	if id == "vita_clothes":
 		var tex: Texture2D = preload_decor(id)
@@ -139,7 +142,7 @@ static func draw_decor(ci: CanvasItem, id: String, r: Rect2) -> void:
 		ci.draw_texture_rect(tex, Rect2(r.get_center().x - w * 0.5, r.position.y, w, r.size.y), false)
 		return
 	# рисунки заданы в квадрате 100×100 и растягиваются в r
-	var xf := Transform2D(0.0, r.size / 100.0, 0.0, r.position)
+	var xf := around * Transform2D(0.0, r.size / 100.0, 0.0, r.position)
 	Pen.begin(ci, xf)
 	match id:
 		"vita_plant":
