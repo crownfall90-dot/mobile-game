@@ -494,8 +494,15 @@ func _set_mood_index(m: int) -> void:
 	_mood = m
 	for d: int in [0, -1, 1, -2, 2, -3, 3]:
 		var path := "%sfamily/family_mood%d.png" % [ART, m + d]
+		var alt := path.trim_suffix(".png") + "_teddy.png"
+		if Profile.owns("vita_teddy") and ResourceLoader.exists(alt):
+			# нарисована дочка с мишкой — мишку поверх прячем
+			path = alt
 		if m + d >= 0 and m + d <= 3 and ResourceLoader.exists(path):
 			_family.texture = load(path)
+			var teddy := _family.get_node_or_null(^"Teddy") as CanvasItem
+			if teddy:
+				teddy.visible = not path.ends_with("_teddy.png")
 			break
 	_layout()
 

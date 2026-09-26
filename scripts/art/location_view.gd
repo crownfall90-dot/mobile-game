@@ -48,6 +48,7 @@ var _wear := -1.0                # текущий общий износ; -1 — 
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
 var _teddy: Texture2D
+var _teddy_in_art := false       # художник нарисовал дочку с мишком — поверх не рисуем
 var _shiver := 0.0               # сдвиг семьи, когда ей холодно (дрожь приступами)
 var _family_x := 0.0
 var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
@@ -73,7 +74,7 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 		_tex[t["id"] + "_fixed"] = _load(t["id"] + "_fixed")
 		_done[t["id"]] = Home.is_done(t["id"])
 	for pr: Dictionary in loc.get("props", []):
-		_tex["prop_" + str(pr["img"])] = _load_path("%s%s.png" % [ART, pr["img"]])
+		_tex["prop_" + str(pr["img"])] = _load_path(_with_teddy("%s%s.png" % [ART, pr["img"]]))
 	# картинки декора — заранее, не во время рисования
 	for d: Dictionary in loc.get("decor", []):
 		_tex["decor_" + str(d["id"])] = _load(str(d["id"]))
@@ -289,9 +290,21 @@ func paint_front(ci: Node2D) -> void:
 	_canvas = self
 
 
+## Картинка дочки с мишкой (<имя>_teddy.png), если мишка куплен и художник её нарисовал —
+## тогда мишку поверх не рисуем.
+func _with_teddy(path: String) -> String:
+	if not path.contains("family/") or not Profile.owns("vita_teddy"):
+		return path
+	var alt := path.trim_suffix(".png") + "_teddy.png"
+	if ResourceLoader.exists(alt):
+		_teddy_in_art = true
+		return alt
+	return path
+
+
 ## Мишка поверх семьи: у пары — в свободной руке дочки, у отдельных поз — по "teddy" локации.
 func _draw_teddy(ci: Node2D) -> void:
-	if _teddy == null or not Profile.owns("vita_teddy"):
+	if _teddy == null or _teddy_in_art or not Profile.owns("vita_teddy"):
 		return
 	var r := Rect2()
 	if _family.visible and _family.texture:
@@ -508,7 +521,7 @@ func _update_family() -> void:
 		# картинок семьи; старую картинку — только если новых нет совсем
 		for d: int in [0, -1, 1, -2, 2, -3, 3]:
 			var m: int = mood + d
-			var path := "%sfamily/family_mood%d.png" % [ART, m]
+			var path := _with_teddy("%sfamily/family_mood%d.png" % [ART, m])
 			if m >= 0 and m <= 3 and ResourceLoader.exists(path):
 				tex = load(path)
 				break
