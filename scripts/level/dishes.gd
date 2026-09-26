@@ -25,6 +25,7 @@ const LIMIT := 0.49           # дальше полка не наклоняет�
 const BREAK_ANGLE := 0.38     # винт не держит, рад (~22°)
 const BREAK_TIME := 0.3
 const FRICTION := 0.35        # посуда съезжает с полки, наклонённой круче ~19°
+const ART := "res://art/act1/levels/dishes/%s.png"   # картинки художника, если есть (2x)
 const WOOD := Color("c8955f")
 const WOOD_DARK := Color("7a5236")
 const WOOD_LIGHT := Color("e2b98a")
@@ -44,9 +45,19 @@ var _over: Array[float] = []
 var _pins: Array[PinJoint2D] = []
 var _mat: PhysicsMaterial
 var _t := 0.0
+var _tex := {}                # kind|"shelf" -> Texture2D
+
+
+static func _art(name: String) -> Texture2D:
+	var path := ART % name
+	return load(path) if ResourceLoader.exists(path) else null
 
 
 func setup(cfg: Dictionary) -> void:
+	for k in KINDS.keys() + ["shelf"]:
+		var t := _art(k)
+		if t:
+			_tex[k] = t
 	_mat = PhysicsMaterial.new()
 	_mat.friction = FRICTION
 	_mat.bounce = 0.05
@@ -160,6 +171,7 @@ func drop() -> void:
 	var d := held
 	held = null
 	d.freeze = false
+	d.in_hand = false
 	d.linear_velocity = Vector2.ZERO
 	d.set_meta(&"dropped", true)
 	dishes.append(d)
@@ -222,6 +234,8 @@ func _spawn_next() -> void:
 	var kind := str(queue.pop_front())
 	var d := Dish.new()
 	d.kind = kind
+	d.tex = _tex.get(kind)
+	d.size = KINDS[kind]["size"]
 	d.set_meta(&"kind", kind)
 	d.collision_layer = Substances.LAYER_ITEMS
 	d.collision_mask = Substances.LAYER_WORLD | Substances.LAYER_ITEMS | Substances.LAYER_ENEMY
@@ -255,9 +269,12 @@ func _draw() -> void:
 	for s in shelves:
 		var r: Rect2 = s.get_meta(&"rect")
 		draw_set_transform(s.position, s.rotation, Vector2.ONE)
-		draw_rect(r.grow(2.0), WOOD_DARK)
-		draw_rect(r, WOOD)
-		draw_line(r.position + Vector2(4, 3), Vector2(r.end.x - 4, r.position.y + 3), WOOD_LIGHT, 2.0)
+		if _tex.has("shelf"):
+			draw_texture_rect(_tex["shelf"], r, false)
+		else:
+			draw_rect(r.grow(2.0), WOOD_DARK)
+			draw_rect(r, WOOD)
+			draw_line(r.position + Vector2(4, 3), Vector2(r.end.x - 4, r.position.y + 3), WOOD_LIGHT, 2.0)
 		# винт опоры — ось качания; краснеет, когда полку перекашивает
 		var strain := clampf(absf(s.rotation) / BREAK_ANGLE, 0.0, 1.0)
 		var screw := Color("8d969b").lerp(Color("e0452b"), strain * strain)
@@ -277,12 +294,18 @@ func _draw() -> void:
 ## Посуда: тарелка, чашка, миска, кастрюля (рисует код; художник может заменить картинками).
 class Dish extends RigidBody2D:
 	var kind := "plate"
+	var tex: Texture2D = null
+	var size := Vector2(112, 14)
+	var in_hand := true
 
 	func _process(_delta: float) -> void:
 		queue_redraw()
 
 	func _draw() -> void:
-		var a := 0.75 if freeze else 1.0
+		var a := 0.75 if in_hand else 1.0
+		if tex:
+			draw_texture_rect(tex, Rect2(-size * 0.5, size), false, Color(1, 1, 1, a))
+			return
 		match kind:
 			"plate":
 				draw_rect(Rect2(-56, -7, 112, 14), Color(0.35, 0.42, 0.55, a))
