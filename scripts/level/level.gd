@@ -5,6 +5,7 @@ const RECEIVER := preload("res://scripts/level/receiver.gd")   # не завис
 const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
 const PUTTY := preload("res://scripts/level/putty.gd")
 const LEAK := preload("res://scripts/level/leak.gd")
+const DISHES := preload("res://scripts/level/dishes.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -78,6 +79,7 @@ var pins: Array[Pin] = []
 var pipes: Array = []            # «живые трубы»: PipeSwitch
 var putty: Node2D = null         # «замазка»: игрок рисует стенки пальцем
 var leak: Node2D = null          # «лови капли»: труба течёт, ведро ловит, дыры клеят
+var dish_game: Node2D = null     # «стопка посуды»: качающиеся полки, посуда по одной
 var _bucket_to := 0.0            # куда едет ведро (x)
 var _bucket_rail := Vector2.ZERO # пределы ведра по x
 var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
@@ -171,7 +173,7 @@ func build(level_data: Dictionary) -> void:
 		_jitter.seed = jitter_seed
 
 	var recv: Dictionary = data.get("receiver", {})
-	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak")
+	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes")
 	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
@@ -276,6 +278,22 @@ func build(level_data: Dictionary) -> void:
 		putty = PUTTY.new()
 		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
 		add_child(putty)
+	if data.has("dishes"):
+		dish_game = DISHES.new()
+		dish_game.setup(data["dishes"])
+		dish_game.broke.connect(_on_dish_broke)
+		dish_game.snapped.connect(func(pos: Vector2) -> void:
+			if finished:
+				return
+			fx.burst(pos, Color("8d969b"), 12, 360.0, 4.0, 900.0, 0.5)
+			_shake = 10.0
+			Sfx.play(&"grate_break")
+			_lose("shelf"))
+		dish_game.dropped.connect(func() -> void:
+			_acted = true
+			switched.emit("dish"))
+		dish_game.touched_enemy.connect(_on_dish_enemy)
+		add_child(dish_game)
 	if data.has("leak"):
 		leak = LEAK.new()
 		leak.setup(data["leak"])
@@ -341,6 +359,11 @@ func build(level_data: Dictionary) -> void:
 		enemies.append(enemy)
 
 	_setup_goal()
+	if dish_game:
+		# цель — вся посуда на полках
+		pieces_total = dish_game.total()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
 	if leak:
 		# цель — все дыры: заклеены или не прогрызены; капли в полёте — их немного
 		pieces_total = leak.holes.size()
@@ -508,6 +531,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if leak:
 		_leak_input(event)
 		return
+	if dish_game:
+		_dish_input(event)
+		return
 	if dirt:
 		if event is InputEventScreenTouch and not event.pressed:
 			_dig_from = null
@@ -654,6 +680,49 @@ func _leak_calm() -> bool:
 	return true
 
 
+## «Стопка посуды»: палец ведёт появившуюся посуду, отпустил — падает.
+func _dish_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var p: Vector2 = make_input_local(event).position
+		if event.pressed:
+			if dish_game.grab(p):
+				_fingers[event.index] = "dish"
+		elif _fingers.get(event.index, "") == "dish":
+			_fingers.erase(event.index)
+			dish_game.drop()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag and _fingers.get(event.index, "") == "dish":
+		dish_game.hold_at(make_input_local(event).position)
+		get_viewport().set_input_as_handled()
+
+
+func _on_dish_broke(pos: Vector2) -> void:
+	if finished:
+		return
+	fx.burst(pos, Color(0.97, 0.97, 0.95), 26, 520.0, 6.0, 900.0, 0.8)
+	_shake = 9.0
+	Sfx.play(&"grate_break")
+	_lose("broke")
+
+
+## Посуда задела таракана — он убегает.
+func _on_dish_enemy(enemy: Node) -> void:
+	if finished or not (enemy is Enemy) or not enemy.alive:
+		return
+	enemy.kill()
+	fx.burst(enemy.position, Color("d9c7a1"), 14, 300.0, 5.0, 700.0, 0.6)
+	Sfx.play(&"slime_pop")
+
+
+## DevRunner: посуду в точку и отпустить.
+func dish_drop_at(p: Vector2) -> bool:
+	if dish_game == null or not dish_game.ready_to_drop():
+		return false
+	dish_game.hold_at(p)
+	dish_game.drop()
+	return true
+
+
 ## DevRunner: ведро к x, палец на дыру, палец убрать, спугнуть мышь.
 func leak_move(x: float) -> void:
 	_acted = true
@@ -697,6 +766,21 @@ func _physics_process(delta: float) -> void:
 	_run_source(delta)
 	if leak:
 		_step_leak(delta)
+	if dish_game:
+		# после поражения физика идёт дальше (посуда падает), после победы всё заморожено
+		dish_game.step(delta)
+	if dish_game and not finished:
+		# таракан убегает, когда посуда встала рядом
+		for e in enemies:
+			if e.alive:
+				for d: RigidBody2D in dish_game.dishes:
+					if d.position.distance_to(e.position) < 110.0:
+						_on_dish_enemy(e)
+						break
+		var placed: int = dish_game.placed_count()
+		if placed != pieces:
+			pieces = placed
+			gold_changed.emit(pieces, pieces_needed, pieces_total)
 	if not _hazard_hits.is_empty():
 		var hh := _hazard_hits
 		_hazard_hits = []
@@ -895,7 +979,8 @@ func _update_outcome(delta: float) -> void:
 			if _stuck_timer > STUCK_TIMEOUT:
 				_lose("blocked")
 		return
-	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe() and _leak_calm():
+	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe() and _leak_calm() \
+			and (dish_game == null or dish_game.calm()):
 		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
 		# не раньше, чем цель выполнена: лава, убившая последнего врага, ещё может
 		# долететь до героини, и поражение должно успеть сработать.
@@ -903,7 +988,7 @@ func _update_outcome(delta: float) -> void:
 		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if _stuck_timer >= 0.0 and leak == null:
+	if _stuck_timer >= 0.0 and leak == null and dish_game == null:
 		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
 		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
 		_stuck_total += delta
@@ -1072,6 +1157,8 @@ func _family_safe() -> bool:
 
 func _win() -> void:
 	_finish(true, "")
+	if dish_game:
+		dish_game.settle_all()
 	hero.celebrate()
 	if _goal_kind >= 0:
 		_walls.repair()

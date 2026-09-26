@@ -1,7 +1,3 @@
 [
-  ["gold", "left", "right"],
-  ["left", "right", "gold", "trap"],
-  ["left", "gold", "right", "trap"],
-  ["right", "left", "gold", "trap"],
-  ["right", "gold", "left", "trap"]
+  ["stack"]
 ]

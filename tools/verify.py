@@ -15,7 +15,7 @@
   G2  решение выигрывает: интервал 1.5 с при jitter 0, 1, 2; 0.8 с при 0; settle при 0.
       «Живые» уровни (verify.live: вода уже бежит, игрок действует по ходу потока) вместо
       0.8 с и settle проверяются темпом человека: 1.3 с и 1.7 с при jitter 0.
-      «Лови капли» (есть leak): ход — сценарий по времени из scripts, темп человека,
+      «Лови капли» и «Стопка посуды» (leak, dishes): ход — сценарий по времени из scripts, темп человека,
       при jitter каждое событие сдвигается на ±0,06 с; G5 и G6 не нужны
   G3  при 1.5 с и jitter 0: 3 звезды и ингредиент, если он есть
   G4  каждый порядок из fails проигрывает при jitter 0 и 1; у 2+ засовов fails не пуст
@@ -114,7 +114,7 @@ class Level:
         self.cap = lint.cap_for(data, self.info) if data else lint.DEFAULT_CAP
         v = data.get("verify") if isinstance(data, dict) and isinstance(data.get("verify"), dict) else {}
         # «лови капли»: ход — сценарий по времени; темп — человеческий, порядок и «всё сразу» не нужны
-        self.timed = isinstance(data, dict) and isinstance(data.get("leak"), dict)
+        self.timed = isinstance(data, dict) and (isinstance(data.get("leak"), dict) or isinstance(data.get("dishes"), dict))
         self.live = bool(v.get("live", False)) or self.timed
         # рисование (замазка): ходы — линии, а не порядок; G5 и G6 не имеют смысла
         self.draw = bool(v.get("draw", False)) or self.timed
