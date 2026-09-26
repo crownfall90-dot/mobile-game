@@ -17,6 +17,8 @@ const PALETTES := {
 	"floor": [Color("f0e6d6"), Color("d6b894"), Color("9c7650")],
 }
 
+## Поле головоломки на картинке художника 1440×3120 (docs/ART_BRIEF.md, «Фоны головоломок»).
+const PIC_FIELD := Rect2(260, 400, 920, 2020)
 const FULL_PAD := Vector2(700, 900)   # на сколько комната выходит за поле 720×1280
 const FLOOR := Color("c79a6e")
 
@@ -26,6 +28,7 @@ var fixed := 0.0          # 0 — вещь сломана (трещины, гр�
 ## Головоломка-предмет: форма поля — это сами стенки-корпус вещи, фон — просто комната вокруг.
 var item_mode := false
 var _t := 0.0
+var _pic: Texture2D
 
 
 ## Головоломка решена: поломка исчезает на глазах, вещь блестит.
@@ -42,6 +45,8 @@ func _process(delta: float) -> void:
 
 func setup(rect: Rect2) -> void:
 	bounds = rect
+	# картинку грузим заранее: загрузка внутри _draw даёт белый кадр
+	_pic = LevelSkin.backdrop_texture(theme)
 
 
 func _draw() -> void:
@@ -55,13 +60,10 @@ func _draw() -> void:
 	var full := Rect2(r.position.x - FULL_PAD.x, r.position.y - FULL_PAD.y,
 		r.size.x + FULL_PAD.x * 2.0, r.size.y + FULL_PAD.y * 2.0)
 	# Головоломка внутри вещи: своя картинка (если нарисована) или интерьер вещи кодом.
-	var pic := LevelSkin.backdrop_texture(theme)
-	if pic:
-		var k := maxf(full.size.x / pic.get_width(), full.size.y / pic.get_height())
-		var sz := pic.get_size() * k
-		draw_texture_rect(pic, Rect2(r.get_center() - sz * 0.5, sz), false)
-		return
 	var sk := LevelSkin.get_skin(theme)
+	if _pic:
+		_draw_picture(_pic, r, full, sk)
+		return
 	if not sk.is_empty() and item_mode:
 		_draw_room(r, full, sk)
 		return
@@ -196,6 +198,35 @@ func _box(rect: Rect2, c: Color, w: float) -> void:
 
 # --- интерьеры вещей ------------------------------------------------------------
 
+## Картинка художника 1440×3120 (2x): рисуется в натуральную величину сцены (×0.5), её поле
+## PIC_FIELD ложится центром на поле головоломки. За краями картинки (очень высокие или широкие
+## экраны) крайние ряды пикселей тянутся до края, чтобы не было пустых полос и увеличения.
+func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> void:
+	draw_rect(full, Color(str(sk.get("outer", "e6dfce"))))
+	# ширина картинки = 720 px сцены при любом её размере в пикселях
+	var sz := pic.get_size() * (720.0 / pic.get_width())
+	var field_c := PIC_FIELD.get_center() * (sz.x / 1440.0)
+	var d := Rect2(r.get_center() - field_c, sz)
+	var ts := pic.get_size()
+	var strip := 2.0
+	# верх, низ, лево, право — продолжение краёв картинки
+	if d.position.y > full.position.y:
+		draw_texture_rect_region(pic, Rect2(d.position.x, full.position.y, d.size.x, d.position.y - full.position.y),
+			Rect2(0, 0, ts.x, strip))
+	if d.end.y < full.end.y:
+		draw_texture_rect_region(pic, Rect2(d.position.x, d.end.y, d.size.x, full.end.y - d.end.y),
+			Rect2(0, ts.y - strip, ts.x, strip))
+	if d.position.x > full.position.x:
+		draw_texture_rect_region(pic, Rect2(full.position.x, d.position.y, d.position.x - full.position.x, d.size.y),
+			Rect2(0, 0, strip, ts.y))
+	if d.end.x < full.end.x:
+		draw_texture_rect_region(pic, Rect2(d.end.x, d.position.y, full.end.x - d.end.x, d.size.y),
+			Rect2(ts.x - strip, 0, strip, ts.y))
+	draw_texture_rect(pic, d, false)
+	if fixed > 0.0:
+		_repair_sparkles(r)
+
+
 ## Комната вокруг вещи-головоломки: стена с узором и пол ниже поля; мягкое затемнение по краям,
 ## чтобы корпус вещи читался. Блеск при починке — на стенках (Walls.repair).
 func _draw_room(r: Rect2, full: Rect2, sk: Dictionary) -> void:
@@ -211,11 +242,17 @@ func _draw_room(r: Rect2, full: Rect2, sk: Dictionary) -> void:
 		draw_line(Vector2(full.position.x, y), Vector2(full.end.x, y), FLOOR.darkened(0.12), 2)
 	draw_circle(r.get_center(), r.size.y * 0.62, Color(1, 1, 1, 0.08))
 	if fixed > 0.0:
-		for i in 10:
-			var a := float(i) / 10.0 * TAU + _t * 0.4
-			var p := r.get_center() + Vector2(cos(a) * r.size.x * 0.5, sin(a) * r.size.y * 0.45)
-			var pulse := 0.5 + 0.5 * sin(_t * 4.0 + i)
-			draw_circle(p, 3.0 + 4.0 * pulse, Color(1.0, 0.95, 0.7, 0.8 * fixed * pulse))
+		_repair_sparkles(r)
+
+
+## Починено: по кругу поля мерцают искры.
+func _repair_sparkles(r: Rect2) -> void:
+	for i in 10:
+		var a := float(i) / 10.0 * TAU + _t * 0.4
+		var p := r.get_center() + Vector2(cos(a) * r.size.x * 0.5, sin(a) * r.size.y * 0.45)
+		var pulse := 0.5 + 0.5 * sin(_t * 4.0 + i)
+		draw_circle(p, 3.0 + 4.0 * pulse, Color(1.0, 0.95, 0.7, 0.8 * fixed * pulse))
+
 
 ## Комната вокруг, корпус вещи вокруг поля и то, что внутри вещи. Всё приглушённое:
 ## на первом плане физика, фон только подсказывает, где мы.

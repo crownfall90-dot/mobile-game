@@ -119,6 +119,7 @@ func restart() -> void:
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
+	_layout()
 	_hud.set_goal_kind(str(_data.get("receiver", {}).get("kind", "gold")))
 	if _attempt <= 1:
 		_hud.show_place(LevelSkin.place(str(_data.get("theme", ""))))
@@ -322,6 +323,9 @@ func _layout() -> void:
 	var win := DisplayServer.window_get_size()
 	if win.y > 0:
 		_hud.set_safe_top(maxf(0.0, safe.position.y) * vs.y / win.y)
+	if _data.has("tower"):
+		var top_y: float = _data["tower"]["rect"][1]
+		_hud.place_hint((top_y - _camera.position.y) * s + vs.y * 0.5)
 
 
 func _hint() -> void:

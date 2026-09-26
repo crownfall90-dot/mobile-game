@@ -5,10 +5,13 @@ extends Node2D
 ##   цель <id>_broken.png / <id>_fixed.png в своём rect (без растяжения: вписывается по центру);
 ##   overlay-цель (дыра, порванные обои) — только слой повреждения поверх целой поверхности фона;
 ##   семья art/act1/family/family_mood<0..3>.png, ступни в family.pos, высота family.height;
+##   props — отдельные слои сценки: {img: "family/mother_kitchen", rect, z} (мама у плиты,
+##   дочка на стуле, стол). Если у локации нет "family", пара вместе не рисуется;
 ##   эффекты (дождь, ветер, капли, лужа, темнота) — код; исчезают вместе с ремонтом причины.
 ## Нет картинки — рисуется служебная рамка с подписью, чтобы логику можно было проверять.
 ## Всё в поле сцены 720×1560; hub масштабирует его равномерно (cover) и сдвигает.
-## Порядок слоёв: фон, цели z 0–1, декор, семья, цели z ≥ 2, эффекты и подсветка.
+## Порядок слоёв: фон, цели и props z 0–1, декор, семья, цели и props z ≥ 2 (по возрастанию z),
+## эффекты и подсветка.
 
 signal repair_finished(id: String)
 
@@ -19,6 +22,7 @@ const CLOTHED := "res://art/home/family_clothed.png"
 const PLACE_BROKEN := Color(0.85, 0.35, 0.3)
 const PLACE_FIXED := Color(0.3, 0.7, 0.4)
 const GLOW := Color("ffe7a1")
+const EXTEND_PAD := 1200.0
 
 var loc: Dictionary = {}
 var size := Vector2(720, 1560)
@@ -51,6 +55,8 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 		_tex[t["id"] + "_broken"] = _load(t["id"] + "_broken")
 		_tex[t["id"] + "_fixed"] = _load(t["id"] + "_fixed")
 		_done[t["id"]] = Home.is_done(t["id"])
+	for pr: Dictionary in loc.get("props", []):
+		_tex["prop_" + str(pr["img"])] = _load_path("%s%s.png" % [ART, pr["img"]])
 	# картинки декора — заранее, не во время рисования
 	for d: Dictionary in loc.get("decor", []):
 		_tex["decor_" + str(d["id"])] = _load(str(d["id"]))
@@ -116,12 +122,13 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	_canvas = self
 	if _bg:
+		_extend(_bg)
 		_fit(_bg, Rect2(Vector2.ZERO, size))
 	else:
 		_placeholder_bg()
-	for t in _sorted():
+	for t in _layers():
 		if int(t.get("z", 0)) < 2:
-			_draw_target(t)
+			_draw_layer(t)
 	# купленный декор: свой PNG в локации или общий рисунок магазина
 	for d: Dictionary in loc.get("decor", []):
 		if Profile.owns(d["id"]):
@@ -137,10 +144,10 @@ func _draw() -> void:
 ## Передний план поверх семьи: предметы z ≥ 2, эффекты причин и подсветка целей.
 func paint_front(ci: Node2D) -> void:
 	_canvas = ci
-	var list := _sorted()
-	for t: Dictionary in list:
+	for t: Dictionary in _layers():
 		if int(t.get("z", 0)) >= 2:
-			_draw_target(t)
+			_draw_layer(t)
+	var list := _sorted()
 	for t: Dictionary in list:
 		if not _done.get(t["id"], false):
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)))
@@ -163,6 +170,31 @@ func _sorted() -> Array:
 	var list: Array = loc.get("targets", []).duplicate()
 	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("z", 0)) < int(b.get("z", 0)))
 	return list
+
+
+## Цели и отдельные слои сценки вместе, по возрастанию z; при равном z цель раньше.
+func _layers() -> Array:
+	var list: Array = []
+	for t: Dictionary in loc.get("targets", []):
+		list.append(t)
+	for pr: Dictionary in loc.get("props", []):
+		list.append(pr)
+	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var za := int(a.get("z", 0))
+		var zb := int(b.get("z", 0))
+		return za < zb or (za == zb and a.has("id") and not b.has("id")))
+	return list
+
+
+func _draw_layer(t: Dictionary) -> void:
+	if t.has("id"):
+		_draw_target(t)
+		return
+	var tex: Texture2D = _tex.get("prop_" + str(t["img"]))
+	if tex:
+		_fit(tex, _rect(t))
+	else:
+		_canvas.draw_rect(_rect(t), Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
 
 
 func _draw_target(t: Dictionary) -> void:
@@ -205,6 +237,28 @@ func _layer(tex: Texture2D, r: Rect2, id: String, fixed: bool, mod: Color, shift
 	var label := "%s\n%s" % [str(_target(id).get("name", id)), "починено" if fixed else "сломано"]
 	_canvas.draw_multiline_string(_font, r.position + shift + Vector2(8, 26), label, HORIZONTAL_ALIGNMENT_LEFT,
 		r.size.x - 16, 20, 2, Color(0.15, 0.1, 0.1, mod.a))
+
+
+## За краями сцены (широкий или очень высокий экран) — крайние ряды фона, чуть темнее,
+## и мягкая тень у края: без пустых полос и без растяжения самой сцены.
+func _extend(tex: Texture2D) -> void:
+	var ts := tex.get_size()
+	var pad := EXTEND_PAD
+	var dim := Color(0.82, 0.8, 0.84)
+	draw_texture_rect_region(tex, Rect2(-pad, 0, pad, size.y), Rect2(0, 0, 2, ts.y), dim)
+	draw_texture_rect_region(tex, Rect2(size.x, 0, pad, size.y), Rect2(ts.x - 2, 0, 2, ts.y), dim)
+	draw_texture_rect_region(tex, Rect2(0, -pad, size.x, pad), Rect2(0, 0, ts.x, 2), dim)
+	draw_texture_rect_region(tex, Rect2(0, size.y, size.x, pad), Rect2(0, ts.y - 2, ts.x, 2), dim)
+	for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
+		var dst := Rect2(Vector2(-pad if corner.x == 0.0 else size.x, -pad if corner.y == 0.0 else size.y), Vector2(pad, pad))
+		draw_texture_rect_region(tex, dst, Rect2((ts - Vector2(2, 2)) * corner, Vector2(2, 2)), dim)
+	for i in 6:
+		var w := 6.0 * (i + 1)
+		var c := Color(0, 0, 0, 0.05)
+		draw_rect(Rect2(-w, 0, w, size.y), c)
+		draw_rect(Rect2(size.x, 0, w, size.y), c)
+		draw_rect(Rect2(0, -w, size.x, w), c)
+		draw_rect(Rect2(0, size.y, size.x, w), c)
 
 
 ## Рисует картинку в прямоугольник без растяжения по одной оси: вписывает и центрирует.
@@ -260,6 +314,9 @@ func _draw_fx(t: Dictionary, k: float) -> void:
 
 
 func _update_family() -> void:
+	_family.visible = loc.has("family")
+	if not _family.visible:
+		return
 	var fam: Dictionary = loc.get("family", {})
 	var mood := Home.mood()
 	var tex: Texture2D = null
@@ -298,4 +355,8 @@ static func _rect(t: Dictionary) -> Rect2:
 
 func _load(name: String) -> Texture2D:
 	var path := "%s%s/%s.png" % [ART, loc.get("id", ""), name]
+	return load(path) if ResourceLoader.exists(path) else null
+
+
+func _load_path(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
