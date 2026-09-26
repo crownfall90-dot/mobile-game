@@ -5,7 +5,8 @@ extends Node2D
 ## через `scare` секунд улетит. Батарейки хватает на `taps` поворотов: кончилась, а лампа не горит,
 ## — фонарик гаснет (проигрыш). Звёзды: поворотов не больше `par` — три.
 ## Уровень: "mirrors": {origin: [x, y], cell, cols, rows, source: [c, r, dir], lamp: [c, r],
-## items: [{id, c, r, kind: "/" | "\\" | "wall", fixed}], moth: [c, r], taps, par, scare, look,
+## items: [{id, c, r, kind: "/" | "\\" | "wall", fixed}], moth: [c, r] или moths: [[c, r], …], taps, par,
+## scare, look,
 ## blocker: "moth" | "spider" (кто сидит на зеркальце), screen: [x, y, w, h] — у «сигнала» экран
 ## телевизора на картинке загорается, когда сигнал дошёл}.
 
@@ -29,7 +30,7 @@ var source := Vector2i(0, 7)
 var source_dir := Vector2i(0, -1)
 var lamp := Vector2i(4, 0)
 var items := {}             # Vector2i -> {id, kind, fixed}
-var moth := Vector2i(-1, -1)
+var moths: Array[Vector2i] = []
 var taps_left := 5
 var taps_used := 0
 var par := 3
@@ -39,9 +40,8 @@ var screen := Rect2()
 var beam := PackedVector2Array()
 var is_lit := false
 var out := false
-var _moth_lit := 0.0
-var _moth_fly := -1.0       # анимация улёта: 0..1
-var _moth_from := Vector2.ZERO
+var _moth_lit := {}         # клетка моли -> сколько её освещает луч
+var _flies: Array = []      # улетающие: {from, t 0..1}
 var _moth_tex: Texture2D
 var _t := 0.0
 var _flash := {}            # id -> 0..1 вспышка поворота
@@ -61,7 +61,9 @@ func setup(cfg: Dictionary) -> void:
 		items[Vector2i(int(it["c"]), int(it["r"]))] = {"id": str(it.get("id", "")), "kind": str(it["kind"]),
 			"fixed": bool(it.get("fixed", false))}
 	if cfg.has("moth"):
-		moth = Vector2i(int(cfg["moth"][0]), int(cfg["moth"][1]))
+		moths.append(Vector2i(int(cfg["moth"][0]), int(cfg["moth"][1])))
+	for m in cfg.get("moths", []):
+		moths.append(Vector2i(int(m[0]), int(m[1])))
 	taps_left = int(cfg.get("taps", 5))
 	par = int(cfg.get("par", 3))
 	scare_time = float(cfg.get("scare", 0.6))
@@ -80,7 +82,7 @@ func center(c: Vector2i) -> Vector2:
 
 
 func has_moth() -> bool:
-	return moth.x >= 0
+	return not moths.is_empty()
 
 
 ## Тап в точке: повернуть зеркальце в этой клетке. true — тап попал в зеркальце.
@@ -101,7 +103,7 @@ func turn(id: String) -> void:
 			continue
 		if it["kind"] == "wall" or it["fixed"]:
 			return
-		if c == moth:
+		if moths.has(c):
 			locked_tap.emit(id)
 			_flash[id] = 1.0
 			return
@@ -118,26 +120,32 @@ func step(delta: float) -> void:
 	_t += delta
 	for id in _flash.keys():
 		_flash[id] = maxf(0.0, float(_flash[id]) - delta * 3.0)
-	if _moth_fly >= 0.0:
-		_moth_fly += delta * 1.2
-		if _moth_fly >= 1.0:
-			_moth_fly = -1.0
+	for f: Dictionary in _flies:
+		f["t"] = float(f["t"]) + delta * 1.2
+	_flies = _flies.filter(func(f: Dictionary) -> bool: return float(f["t"]) < 1.0)
 	if has_moth() and not is_lit:
 		# свет на моли: через scare_time она улетает, и луч идёт дальше
-		if _beam_reaches(moth):
-			_moth_lit += delta
-			if _moth_lit >= scare_time:
-				_moth_from = center(moth)
-				moth = Vector2i(-1, -1)
-				_moth_fly = 0.0
-				moth_left.emit(_moth_from)
-				_trace()
-		else:
-			_moth_lit = 0.0
-	if not is_lit and not out and taps_left <= 0 and _moth_fly < 0.0 and (not has_moth() or not _beam_reaches(moth)):
+		for m in moths.duplicate():
+			if _beam_reaches(m):
+				_moth_lit[m] = float(_moth_lit.get(m, 0.0)) + delta
+				if float(_moth_lit[m]) >= scare_time:
+					moths.erase(m)
+					_flies.append({"from": center(m), "t": 0.0})
+					moth_left.emit(center(m))
+					_trace()
+			else:
+				_moth_lit[m] = 0.0
+	if not is_lit and not out and taps_left <= 0 and _flies.is_empty() and not _beam_on_moth():
 		out = true
 		battery_out.emit()
 	queue_redraw()
+
+
+func _beam_on_moth() -> bool:
+	for m in moths:
+		if _beam_reaches(m):
+			return true
+	return false
 
 
 func _beam_reaches(c: Vector2i) -> bool:
@@ -160,7 +168,7 @@ func _trace() -> void:
 				is_lit = true
 				lit.emit()
 			break
-		if c == moth:
+		if moths.has(c):
 			beam.append(center(c))
 			break
 		if items.has(c):
@@ -253,12 +261,13 @@ func _draw() -> void:
 		draw_arc(lp, cell * 0.36, 0.0, TAU, 32, Color("7c7468"), 4.0, true)
 		draw_rect(Rect2(lp + Vector2(-14, -cell * 0.36 - 16), Vector2(28, 16)), Color("7c7468"))
 	# моль: сидит на зеркальце (крылышки дрожат) или улетает вверх
-	var mp := Vector2.INF
-	if has_moth():
-		mp = center(moth) + Vector2(0, -cell * 0.2) + Vector2(sin(_t * 30.0), 0) * (2.0 + _moth_lit * 6.0)
-	elif _moth_fly >= 0.0:
-		mp = _moth_from + Vector2(sin(_moth_fly * 12.0) * 40.0, -_moth_fly * 700.0)
-	if mp != Vector2.INF:
+	var spots: Array[Vector2] = []
+	for m in moths:
+		spots.append(center(m) + Vector2(0, -cell * 0.2) + Vector2(sin(_t * 30.0), 0) * (2.0 + float(_moth_lit.get(m, 0.0)) * 6.0))
+	for f: Dictionary in _flies:
+		var ft := float(f["t"])
+		spots.append(Vector2(f["from"]) + Vector2(sin(ft * 12.0) * 40.0, -ft * 700.0))
+	for mp in spots:
 		var s := cell * 0.8
 		if _moth_tex:
 			draw_texture_rect(_moth_tex, Rect2(mp - Vector2(s, s) * 0.5, Vector2(s, s)), false)

@@ -441,7 +441,7 @@ def _lint(d, path, index, rep):
                 or not isinstance(mir.get("source"), list) or len(mir["source"]) != 3:
             rep.err("mirrors needs source [c, r, dir], lamp [c, r] and items [{id, c, r, kind}]")
         else:
-            _unknown(mir, {"origin", "cell", "cols", "rows", "source", "lamp", "items", "moth", "taps", "par", "scare",
+            _unknown(mir, {"origin", "cell", "cols", "rows", "source", "lamp", "items", "moth", "moths", "taps", "par", "scare",
                            "look", "blocker", "screen"}, "mirrors", rep)
             if mir["source"][2] not in ("up", "down", "left", "right"):
                 rep.err("mirrors.source direction must be up, down, left or right")
