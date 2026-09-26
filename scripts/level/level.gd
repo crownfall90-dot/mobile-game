@@ -398,6 +398,8 @@ func build(level_data: Dictionary) -> void:
 		enemy.setup(_jittered(_vec(e["pos"])), hero.position + Vector2(0, -70), report_contact)
 		enemy.collision_mask |= Substances.LAYER_SIEVE
 		enemy.set_kind(StringName(str(e.get("kind", "slime"))))
+		if e.get("swell", false):
+			enemy.set_meta(&"swell", true)
 		if e.get("fixed", false):
 			# прилип к стенке (плесень, паутина): не катается, когда вещь поворачивают
 			enemy.freeze_mode = RigidBody2D.FREEZE_MODE_STATIC
@@ -937,6 +939,10 @@ func _resolve_contact(other: Node, source: Node) -> void:
 	if enemy:
 		if enemy.alive and _alive(item) and VULNERABLE.get(_enemy_kind(enemy), []).has(item.kind):
 			_kill_enemy(enemy, item)
+		elif enemy.alive and item.kind == Substances.Kind.WATER and enemy.get_meta(&"swell", false) and not finished:
+			# засор в унитазе от воды набухает — средство его уже не возьмёт
+			fx.burst(enemy.position, Color("8a6a45"), 16, 260.0, 6.0, 0.0, 0.6)
+			_lose("swelled")
 		return
 	if source is Item and other is Item and _alive(source) and _alive(other):
 		_react(source, other)

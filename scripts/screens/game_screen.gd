@@ -281,6 +281,10 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Батарейка села — лампа не загорелась"
 		"mold":
 			return "Плесень разрослась от воды"
+		"spill":
+			return "Вода ушла в перелив — смывать нечем"
+		"swelled":
+			return "Засор набух от воды — сначала средство!"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"walled":
