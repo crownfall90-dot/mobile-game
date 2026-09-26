@@ -13,6 +13,8 @@ signal closed(result: Variant)
 
 const IN_TIME := 0.25
 const OUT_TIME := 0.16
+const TEXT_W := 520.0    # шире строка текста переносится
+const BUTTON_W := 400.0  # кнопки попапа не уже этого и не во всю ширину
 
 ## Закрывается ли тапом мимо панели, крестиком и кнопкой «назад».
 var dismissable := true:
@@ -60,6 +62,27 @@ func _build() -> PopupFrame:
 ## Пустой: всё собрано выше. Нужен, чтобы super() в _init() наследника был допустим.
 func _init() -> void:
 	pass
+
+
+func _ready() -> void:
+	# после open() наследника (Router зовёт его сразу после добавления в дерево)
+	_tidy.call_deferred()
+
+
+## Во всех попапах: длинная строка текста переносится по словам и не растягивает панель на весь
+## экран; кнопки — удобной ширины по центру, а не во всю панель.
+func _tidy() -> void:
+	for c in content.get_children():
+		if c is Label and (c as Label).autowrap_mode == TextServer.AUTOWRAP_OFF \
+				and (c as Label).get_minimum_size().x > TEXT_W:
+			var l := c as Label
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.custom_minimum_size.x = TEXT_W
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		elif c is Button:
+			var b := c as Button
+			b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			b.custom_minimum_size.x = maxf(b.custom_minimum_size.x, BUTTON_W)
 
 
 ## Вызывается роутером после добавления в дерево. Наследник переопределяет.

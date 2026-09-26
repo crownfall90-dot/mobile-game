@@ -403,7 +403,7 @@ func _open_screen(screen_name: String) -> void:
 		# попап показываем поверх лаборатории (или того, что Router откроет вместо неё)
 		router.call(&"go", &"hub", {})
 		await _frames(SMOKE_SCREEN_FRAMES)
-		if router.call(&"popup", sn, {}) == null:
+		if router.call(&"popup", sn, _screen_args(sn)) == null:
 			print("RESULT: ERROR no screen or popup '%s'" % screen_name)
 			if check:
 				OS.remove_logger(errors)
