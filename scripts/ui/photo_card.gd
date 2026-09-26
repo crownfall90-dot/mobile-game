@@ -54,7 +54,8 @@ func _draw() -> void:
 			draw_string(ThemeDB.fallback_font, q.get_center() + Vector2(-12, 16), "?",
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Color(0.55, 0.45, 0.35, 0.8 * a))
 	# рваные швы между кусочками
-	var seam := Color(1, 1, 1, 0.55)
+	# швы склейки: пока кусочков не хватает — заметные, у целого фото — едва видны
+	var seam := Color(1, 1, 1, 0.18 if found() >= 4 else 0.55)
 	draw_line(Vector2(inner.get_center().x, inner.position.y), Vector2(inner.get_center().x, inner.end.y), seam, 2.0)
 	draw_line(Vector2(inner.position.x, inner.get_center().y), Vector2(inner.end.x, inner.get_center().y), seam, 2.0)
 	if fresh >= 0 and _t < 1.4:
