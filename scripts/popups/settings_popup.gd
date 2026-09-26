@@ -23,7 +23,7 @@ func open(_args: Dictionary) -> void:
 
 func _confirm_reset() -> void:
 	var confirm := Router.popup(&"confirm",{
-		"title":"Начать историю заново?",
+		"title":"Начать заново?",
 		"text":"Ремонты, монеты, звёзды и покупки будут удалены безвозвратно.",
 		"ok":"Сбросить прогресс",
 		"cancel":"Отмена",
