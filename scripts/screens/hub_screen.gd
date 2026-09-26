@@ -6,6 +6,7 @@ extends Control
 
 const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не зависит от кэша class_name
 const GLOOM := preload("res://scripts/art/gloom.gd")
+const ALBUM := preload("res://scripts/popups/album_popup.gd")
 const IDLE_AFTER := 6.0      # столько секунд без нажатий — и Вита подсказывает, куда нажать
 const IDLE_AGAIN := 14.0     # следующая подсказка — через столько
 
@@ -90,10 +91,10 @@ func _build_ui() -> void:
 			if result is String and result != "":
 				Router.go(&"hub", {"bought": result, "location": _loc_id})))
 	_ui.add_child(_shop)
-	# альбом: кусочки фото прабабушки и повтор сценок; точка — нашёлся новый кусочек
+	# альбом: кусочки фото прабабушки и повтор сценок; точка — есть сценка, которую ещё не смотрели
 	_album = UiKit.icon_button(&"book", "", &"glass")
 	_album.tooltip_text = "Альбом"
-	if Profile.flag("album.new"):
+	if ALBUM.has_unseen():
 		var dot := UiKit.red_dot()
 		dot.position = Vector2(66, 2)
 		_album.add_child(dot)
@@ -207,10 +208,9 @@ func _celebrate() -> void:
 		tw.tween_interval(0.35)
 	Sfx.play(&"win")
 	await get_tree().create_timer(2.4).timeout
-	# сценка-новелла локации: находится кусочек фото прабабушки; потом — следующая локация
+	# сценка-новелла локации: находится кусочек фото прабабушки (он есть у каждой готовой
+	# локации); потом — следующая локация
 	# (после последней — финал акта внутри сценки и снова гостиная)
-	Profile.set_flag("photo." + _loc_id)
-	Profile.set_flag("album.new")
 	var locs := Home.locations()
 	var i := _loc_index()
 	var next_loc := str(locs[i + 1]["id"]) if i + 1 < locs.size() else _loc_id
@@ -384,6 +384,11 @@ func _layout() -> void:
 	_settings.position = Vector2(view.x - (22 + 88) * ui_k, top + 12 * ui_k)
 	_shop.position = Vector2(view.x - (22 + 88 * 2 + 12) * ui_k, top + 12 * ui_k)
 	_album.position = Vector2(view.x - (22 + 88 * 3 + 24) * ui_k, top + 12 * ui_k)
+	# длинное название локации не заезжает под кнопки: ужимается до свободного места
+	var room_w := _album.position.x - _title.position.x - 10 * ui_k
+	var title_w := _title.get_combined_minimum_size().x * ui_k
+	if title_w > room_w:
+		_title.scale = Vector2(ui_k, ui_k) * (room_w / title_w)
 	var bottom := view.y - _safe_bottom(view) - 84 * ui_k
 	for b in [_prev, _next]:
 		if b:
