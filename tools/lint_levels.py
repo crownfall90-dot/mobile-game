@@ -389,8 +389,8 @@ def _lint(d, path, index, rep):
         else:
             _unknown(src, {"pos", "kind", "count", "rate", "delay", "x1"}, "source", rep)
     for i, hz in enumerate(_list(d, "hazards", rep)):
-        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire", "leak"):
-            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill, wire or leak")
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire", "leak", "mold"):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill, wire, leak or mold")
     # «лови капли»: труба с дырами и мышь; ходы — сценарии по времени в "scripts"
     leak = d.get("leak")
     if leak is not None:

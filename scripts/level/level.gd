@@ -1391,6 +1391,7 @@ func _on_hazard(body: Node, kind: String) -> void:
 		_remove(item)
 	for art in _hazard_arts:
 		if art.rect.grow(20).has_point(item.position):
+			art.hits += 1
 			art.spark()
 			if kind == "socket" or kind == "wire":
 				fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
@@ -1402,6 +1403,7 @@ func _on_hazard(body: Node, kind: String) -> void:
 class HazardArt extends Node2D:
 	var rect := Rect2()
 	var kind := "socket"
+	var hits := 0
 	var _flash := 0.0
 
 	func spark() -> void:
@@ -1415,6 +1417,9 @@ class HazardArt extends Node2D:
 	func _draw() -> void:
 		if kind == "wire":
 			_draw_wire()
+			return
+		if kind == "mold":
+			_draw_mold()
 			return
 		if kind != "socket":
 			# подоконник и пол нарисованы на фоне: только тревожная вспышка при каждой капле
@@ -1462,6 +1467,19 @@ class HazardArt extends Node2D:
 			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
 		if _flash > 0.0:
 			_draw_sparks(c)
+
+	## Плесень на стене: пятна растут с каждой каплей воды.
+	func _draw_mold() -> void:
+		var c := rect.get_center()
+		var grow := 1.0 + hits * 0.18
+		var spots := [Vector2(-0.3, 0.1), Vector2(0.05, -0.15), Vector2(0.3, 0.12), Vector2(-0.05, 0.25), Vector2(0.18, -0.3)]
+		for i in spots.size():
+			var p: Vector2 = c + spots[i] * rect.size
+			var r := minf(rect.size.x, rect.size.y) * (0.22 + 0.05 * (i % 3)) * grow
+			draw_circle(p, r, Color(0.28, 0.4, 0.25, 0.75))
+			draw_circle(p + Vector2(r * 0.2, -r * 0.2), r * 0.5, Color(0.42, 0.55, 0.33, 0.8))
+		if _flash > 0.0:
+			draw_circle(c, rect.size.x * 0.6 * grow, Color(0.4, 0.7, 0.3, 0.25 * _flash))
 
 	func _draw_sparks(c: Vector2) -> void:
 		for i in 8:
