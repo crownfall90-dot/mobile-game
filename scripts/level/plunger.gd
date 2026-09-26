@@ -5,7 +5,8 @@ extends Node2D
 ## назад, поэтому качать надо ровно, в ритм. Кран подкапывает: раковина наполняется и через
 ## `overflow` секунд переливается (проигрыш). Засор дошёл до конца трубы — победа.
 ## Уровень: "plunger": {path: [[x, y], ...], start, push, slide, recover, splashes, overflow,
-## sink: [x, y, w, h], cup: [x, y]}. Часы идут с первого тапа (или через `auto` секунд).
+## sink: [x, y, w, h], cup: [x, y], art}. Часы идут с первого тапа (или через `auto` секунд).
+## art: раковина и сифон нарисованы на картинке — код рисует только воду, засор и вантуз.
 
 signal pumped(ok: bool)
 signal splashed(n: int)
@@ -18,6 +19,7 @@ const WATER := Color(0.36, 0.72, 0.95, 0.85)
 const CLOG := Color("6b5236")
 const MOLD := Color("5f8f4e")
 const RUBBER := Color("c7433a")
+const ART_INSET := 120.0     # нарисованная чаша у дна уже, чем у края
 const HANDLE := Color("b88350")
 
 var path := PackedVector2Array()
@@ -29,6 +31,7 @@ var overflow := 22.0
 var sink := Rect2(200, 240, 320, 170)
 var cup := Vector2(360, 330)
 var auto := 3.0
+var art := false
 var started := false
 var done := false
 var splashes := 0
@@ -57,6 +60,7 @@ func setup(cfg: Dictionary) -> void:
 	splash_limit = int(cfg.get("splashes", splash_limit))
 	overflow = float(cfg.get("overflow", overflow))
 	auto = float(cfg.get("auto", auto))
+	art = bool(cfg.get("art", false))
 	var s: Array = cfg.get("sink", [200, 240, 320, 170])
 	sink = Rect2(s[0], s[1], s[2], s[3])
 	var c: Array = cfg.get("cup", [360, 330])
@@ -137,9 +141,13 @@ func _tangent(d: float) -> Vector2:
 func _draw() -> void:
 	# труба: тёмный край, светлое тело, внутри вода до засора
 	if path.size() >= 2:
-		draw_polyline(path, PIPE_DARK, 62.0, true)
-		draw_polyline(path, PIPE, 52.0, true)
-		draw_polyline(path, Color(0.2, 0.22, 0.24, 0.55), 36.0, true)
+		if not art:
+			draw_polyline(path, PIPE_DARK, 62.0, true)
+			draw_polyline(path, PIPE, 52.0, true)
+			draw_polyline(path, Color(0.2, 0.22, 0.24, 0.55), 36.0, true)
+		else:
+			# сифон нарисован: внутренность трубы видна «насквозь» тёмной полосой
+			draw_polyline(path, Color(0.12, 0.13, 0.15, 0.45), 26.0, true)
 		var wet := PackedVector2Array()
 		var d := 0.0
 		while d < pos:
@@ -160,12 +168,27 @@ func _draw() -> void:
 				draw_circle(c + Vector2(cos(a), sin(a)) * 13.0, 5.5, MOLD)
 			draw_circle(c + Vector2(-6, -7), 4.0, Color(1, 1, 1, 0.25))
 	# раковина: чаша с водой, уровень растёт
+	var f := fill()
+	if art:
+		# чаша нарисована: вода поднимается полупрозрачным слоем, у края краснеет
+		if f > 0.0:
+			# чаша сужается ко дну: вода — трапеция по её форме
+			var top := lerpf(sink.end.y, sink.position.y, f)
+			var inset := func(y: float) -> float:
+				return lerpf(ART_INSET, 0.0, (sink.end.y - y) / sink.size.y)
+			var a := inset.call(top) as float
+			var b := ART_INSET
+			var poly := PackedVector2Array([Vector2(sink.position.x + a, top), Vector2(sink.end.x - a, top),
+				Vector2(sink.end.x - b, sink.end.y), Vector2(sink.position.x + b, sink.end.y)])
+			var col := WATER.lerp(Color(0.95, 0.4, 0.3, 0.85), maxf(0.0, f - 0.75) * 4.0)
+			draw_colored_polygon(poly, Color(col, 0.38))
+			draw_line(poly[0], poly[1], Color(1, 1, 1, 0.5), 3.0)
 	var bowl := PackedVector2Array([sink.position, Vector2(sink.end.x, sink.position.y),
 		Vector2(sink.end.x - 40.0, sink.end.y), Vector2(sink.position.x + 40.0, sink.end.y)])
-	draw_colored_polygon(bowl, Color("f2efe8"))
-	draw_polyline(PackedVector2Array([bowl[0], bowl[1], bowl[2], bowl[3], bowl[0]]), Color("9aa0a3"), 5.0, true)
-	var f := fill()
-	if f > 0.0:
+	if not art:
+		draw_colored_polygon(bowl, Color("f2efe8"))
+		draw_polyline(PackedVector2Array([bowl[0], bowl[1], bowl[2], bowl[3], bowl[0]]), Color("9aa0a3"), 5.0, true)
+	if f > 0.0 and not art:
 		var top := lerpf(sink.end.y - 14.0, sink.position.y + 10.0, f)
 		var k := (top - sink.position.y) / sink.size.y
 		var water := PackedVector2Array([Vector2(sink.position.x + 40.0 * k + 6.0, top),
@@ -186,5 +209,6 @@ func _draw() -> void:
 		draw_circle(ring, 10.0 + 2.0 * sin(_t * 10.0), Color("f2c14e"))
 	# выплески: капли у раковины, по числу ошибок
 	for i in splash_limit:
-		var p := Vector2(sink.end.x + 34.0, sink.position.y + 20.0 + i * 34.0)
+		var p := Vector2(sink.end.x + 34.0, sink.position.y + 20.0 + i * 34.0) if not art \
+			else Vector2(sink.end.x - 30.0 - i * 34.0, sink.position.y + 40.0)
 		draw_circle(p, 11.0, Color(0.95, 0.4, 0.3) if i < splashes else Color(1, 1, 1, 0.35))
