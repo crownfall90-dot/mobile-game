@@ -45,7 +45,7 @@ ENEMY_KINDS = {"slime", "magma", "grime", "mold", "cockroach", "rat", "mouse", "
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
-            "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards",
+            "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate",
             "solution", "fails", "verify"}
 
 
@@ -371,6 +371,13 @@ def _lint(d, path, index, rep):
         if pp["id"] in pin_ids:
             rep.err(f"{where}: id '{pp['id']}' is already used")
         pin_ids.append(pp["id"])
+    rot = d.get("rotate")
+    if rot is not None:
+        if not isinstance(rot, dict):
+            rep.err("rotate must be an object {time}")
+        else:
+            _unknown(rot, {"time"}, "rotate", rep)
+            pin_ids += ["cw", "ccw"]
     src = d.get("source")
     if src is not None:
         if not isinstance(src, dict) or not is_point(src.get("pos")) or not one_of(src.get("kind", "water"), FLUIDS) \
@@ -434,7 +441,7 @@ def _lint(d, path, index, rep):
         if not isinstance(e, dict) or not is_point(e.get("pos")):
             rep.err(f"{where}: pos must be [x, y]")
             continue
-        _unknown(e, {"kind", "pos"}, where, rep)
+        _unknown(e, {"kind", "pos", "fixed"}, where, rep)
         n_enemies += 1
         if not one_of(e.get("kind", "slime"), ENEMY_KINDS):
             rep.err(f"{where}: kind must be one of {', '.join(sorted(ENEMY_KINDS))}")
@@ -484,7 +491,7 @@ def _lint(d, path, index, rep):
         sol = None
     else:
         _lint_order(sol, "solution", pin_ids, rep)
-        if pin_ids and sorted(sol) != sorted(pin_ids):
+        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d:
             rep.warn("solution does not pull every pin once, so it is not one of the searched orders")
     fails = d.get("fails", [])
     if not isinstance(fails, list) or not all(isinstance(o, list) and o and all(isinstance(x, str) for x in o)
@@ -538,7 +545,9 @@ def _lint_order(order, where, pin_ids, rep):
     for pid in order:
         if pid not in pin_ids:
             rep.err(f"{where}: no pin '{pid}'")
-    if len(set(order)) != len(order):
+    # повороты «Поверни» повторяются, засовы — нет
+    once = [pid for pid in order if pid not in ("cw", "ccw")]
+    if len(set(once)) != len(once):
         rep.err(f"{where}: a pin is pulled twice")
 
 

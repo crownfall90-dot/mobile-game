@@ -71,6 +71,9 @@ func _ready() -> void:
 	_hud.home_requested.connect(func() -> void: Router.go(&"hub", {"repaired": _repair}))
 	_hud.pause_requested.connect(func() -> void: _open_pause(false))
 	_hud.hint_requested.connect(_hint)
+	_hud.rotate_requested.connect(func(dir: int) -> void:
+		if level and level.rotate_world(dir):
+			_hud.hint_rotate(0))
 
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -109,6 +112,7 @@ func restart() -> void:
 	_attempt += 1
 	level = Level.new()
 	level.camera = null if _setting(&"low_fx", false) else _camera
+	level.view_camera = _camera
 	level.jitter_seed = _jitter
 	_dress_hero(level)
 	_world.add_child(level)
@@ -125,6 +129,8 @@ func restart() -> void:
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
 	_layout()
 	_hud.set_goal_kind(str(_data.get("receiver", {}).get("kind", "gold")))
+	_hud.show_rotate(level.can_rotate())
+	_hud.hint_rotate(0)
 	if _attempt <= 1:
 		_hud.show_place(LevelSkin.place(str(_data.get("theme", ""))))
 	_world.modulate.a = 0.0
@@ -380,6 +386,10 @@ func _hint() -> void:
 			if i >= order.size() or pulled[i] != str(order[i]):
 				matches = false
 		if matches and pulled.size() < order.size():
-			level.set_hint_pin(str(order[pulled.size()]))
+			var next := str(order[pulled.size()])
+			if next == "cw" or next == "ccw":
+				_hud.hint_rotate(1 if next == "cw" else -1)
+			else:
+				level.set_hint_pin(next)
 			return
 	Router.toast("Попробуй начать заново: порядок уже изменился")
