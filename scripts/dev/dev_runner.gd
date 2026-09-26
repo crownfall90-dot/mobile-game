@@ -453,6 +453,7 @@ func _smoke() -> void:
 	var failed := router == null
 	var opened := 0
 	var missing := PackedStringArray()
+	failed = not await load("res://tools/test_dialogue.gd").run() or failed
 	var screens := _registry(&"SCREENS")
 	var popups := _registry(&"POPUPS")
 	for sn in screens:

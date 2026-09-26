@@ -28,12 +28,17 @@ var _busy := false
 var _time := 0.0
 var _idle := 0.0
 var _talking := false
+var _leaving := false
+var _delay: Timer
 var _hand: TextureRect
 var _bubbles := {}           # кто говорит -> SpeechBubble
 var _gloom: Node2D           # Хмурь под потолком локации
 
 
 func open(args: Dictionary) -> void:
+	_delay = Timer.new()
+	_delay.one_shot = true
+	add_child(_delay)
 	_repair = str(args.get("repaired", ""))
 	_loc_id = str(args.get("location", ""))
 	if _repair != "":
@@ -78,6 +83,18 @@ func open(args: Dictionary) -> void:
 		_show_bought(str(args["bought"]))
 	else:
 		_greet.call_deferred(args.get("unlocked", false))
+
+
+func _exit_tree() -> void:
+	_leaving = true
+	if _delay:
+		_delay.stop()
+		_delay.timeout.emit()
+	if _view:
+		_view.repair_finished.emit("")
+	for b in _bubbles.values():
+		if is_instance_valid(b):
+			b.emit_signal(&"finished")
 
 
 func _build_ui() -> void:
@@ -177,11 +194,16 @@ func _gui_input(event: InputEvent) -> void:
 
 func _play_repair() -> void:
 	_busy = true
-	await get_tree().create_timer(0.5).timeout
+	_delay.start(0.5)
+	await _delay.timeout
+	if _leaving:
+		return
 	_view.play_repair(_repair)
 	Sfx.play(&"restore")
 	Sfx.haptic(40)
 	await _view.repair_finished
+	if _leaving:
+		return
 	_gloom.set_amount(_gloom_share(""))
 	Sfx.ambience(_view.ambience())
 	# радость: подпрыгнули, искры над головами, «Ура!» и реплика про починенную вещь
@@ -192,6 +214,8 @@ func _play_repair() -> void:
 	for who in ["daughter", "mother"]:
 		fx.burst(_to_screen(_view.speaker_point(who)), Color("ffe5a3"), 16, 260, 5, 300, 0.9)
 	await _say_lines(Home.task(_repair).get("cheer", []))
+	if _leaving:
+		return
 	_busy = false
 	if Home.location_done(_loc_id):
 		# итог локации рассказывает сценка-новелла (data/novel.json, <локация>_done)
@@ -224,7 +248,10 @@ func _celebrate() -> void:
 			fx.burst(Vector2(size.x * (0.2 + 0.2 * i), size.y * 0.3), Color("ffe5a3"), 30, 320, 6, 400, 1.2))
 		tw.tween_interval(0.35)
 	Sfx.play(&"win")
-	await get_tree().create_timer(2.4).timeout
+	_delay.start(2.4)
+	await _delay.timeout
+	if _leaving:
+		return
 	# сценка-новелла локации: находится кусочек фото прабабушки (он есть у каждой готовой
 	# локации); потом — следующая локация
 	# (после последней — финал акта внутри сценки и снова гостиная)
@@ -295,6 +322,8 @@ func _say_lines(lines: Array) -> void:
 		var hold := clampf(0.9 + str(l[1]).length() * 0.045, 1.4, 3.2)
 		var b := _say(str(l[0]), str(l[1]), hold)
 		await Signal(b, &"finished")
+		if _leaving:
+			return
 	_talking = false
 
 
@@ -355,7 +384,10 @@ func _greet(unlocked: bool) -> void:
 	if Profile.flag(flag) and not unlocked:
 		return
 	Profile.set_flag(flag)
-	await get_tree().create_timer(0.6).timeout
+	_delay.start(0.6)
+	await _delay.timeout
+	if _leaving:
+		return
 	await _say_lines(Home.location(_loc_id).get("lines", {}).get("enter", []))
 
 

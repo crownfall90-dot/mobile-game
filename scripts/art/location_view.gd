@@ -119,7 +119,9 @@ func play_repair(id: String) -> void:
 	var fx := Fx.new()
 	add_child(fx)
 	var r := _rect(t)
-	get_tree().create_timer(0.45).timeout.connect(func() -> void:
+	var burst := create_tween()
+	burst.tween_interval(0.45)
+	burst.tween_callback(func() -> void:
 		fx.burst(r.get_center(), GLOW, 26, 240, 5, 260, 0.9)
 		fx.ring(r.get_center(), GLOW, maxf(r.size.x, r.size.y) * 0.6, 0.45))
 
