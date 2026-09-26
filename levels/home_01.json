@@ -2,8 +2,8 @@
  "format": 2,
  "id": "home_01",
  "floor": 1,
- "title": "Окно: горка для монет",
- "hint": "Нажми на золотое кольцо засова",
+ "title": "Окно: дождь",
+ "hint": "Потяни золотое кольцо — вода стечёт в отлив",
  "tutorial": "hand",
  "intro": "",
  "hard": false,
@@ -176,7 +176,7 @@
  ],
  "pins": [
   {
-   "id": "gold",
+   "id": "rain",
    "from": [
     652,
     414
@@ -189,39 +189,40 @@
  ],
  "fills": [
   {
-   "kind": "gold",
+   "kind": "water",
    "rect": [
     390,
     300,
     190,
     100
    ],
-   "count": 12
+   "count": 30
   }
  ],
  "enemies": [],
- "hero": {
-  "pos": [
-   215,
-   1210
+ "receiver": {
+  "rect": [
+   132,
+   1140,
+   180,
+   70
   ],
-  "zone": [
-   130,
-   990,
-   270,
-   220
-  ]
+  "look": "drain",
+  "kind": "water",
+  "bad": [],
+  "mode": "collect",
+  "where": "отлив"
  },
  "goal": {
-  "gold": 0.7
+  "pieces": 18,
+  "three_star": 26
  },
  "solution": [
-  "gold"
+  "rain"
  ],
  "fails": [],
  "verify": {
   "max_win_share": 1.0,
   "daily": false
- },
- "family": true
+ }
 }
