@@ -253,11 +253,11 @@ func _draw() -> void:
 		var s := 80.0
 		var bob := sin(_t * (30.0 if _m_state == "gnaw" else 18.0)) * 3.0
 		var face := 1.0 if _m_state == "flee" else -1.0
-		var r := Rect2(_m_pos.x - s * 0.5, _m_pos.y - s * 0.8 + bob, s, s)
-		if face < 0.0:
-			r = Rect2(_m_pos.x + s * 0.5, r.position.y, -s, s)
 		if _m_tex:
-			draw_texture_rect(_m_tex, r, false)
+			# отражаем масштабом, а не отрицательной шириной прямоугольника (та рисуется со сдвигом)
+			draw_set_transform(_m_pos, 0.0, Vector2(face, 1.0))
+			draw_texture_rect(_m_tex, Rect2(-s * 0.5, -s * 0.8 + bob, s, s), false)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		else:
 			draw_circle(_m_pos, 22.0, Color("c9a27a"))
 	# узелки: сколько ошибок осталось

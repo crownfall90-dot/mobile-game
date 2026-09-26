@@ -261,11 +261,11 @@ func _draw_mouse() -> void:
 	var bob := sin(_t * (30.0 if _m_state == "gnaw" else 18.0)) * (3.0 if _m_state == "gnaw" else 2.0)
 	var s := MOUSE_SIZE
 	# художник рисует лицом влево: бегущую вправо отражаем
-	var r := Rect2(p.x - s * 0.5, p.y - s * 0.55 + bob, s, s)
-	if _m_dir > 0.0:
-		r = Rect2(p.x + s * 0.5, r.position.y, -s, s)
 	if _m_tex:
-		draw_texture_rect(_m_tex, r, false)
+		# отражаем масштабом, а не отрицательной шириной прямоугольника (та рисуется со сдвигом)
+		draw_set_transform(p, 0.0, Vector2(-1.0 if _m_dir > 0.0 else 1.0, 1.0))
+		draw_texture_rect(_m_tex, Rect2(-s * 0.5, -s * 0.55 + bob, s, s), false)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
 		draw_circle(p, s * 0.3, Color("c9a27a"))
 		draw_circle(p + Vector2(-s * 0.2 * -_m_dir, -s * 0.25), s * 0.14, Color("e8b7a8"))
