@@ -77,6 +77,25 @@ static func run() -> void:
 	assert(profile.coins() == 0)
 	assert(not profile.owns("vita_plant"))
 	profile.volatile = true
+	# Actual hub layout: every repair center stays below the HUD and above navigation.
+	for t in Home.tasks():
+		profile.set_flag("home." + t["id"])
+	for dimensions in [Vector2i(450, 800), Vector2i(450, 1000), Vector2i(720, 1600)]:
+		var viewport := SubViewport.new()
+		viewport.size = dimensions
+		(Engine.get_main_loop() as SceneTree).root.add_child(viewport)
+		for loc in Home.locations():
+			var hub = load("res://scripts/screens/hub_screen.gd").new()
+			viewport.add_child(hub)
+			hub.open({"location": loc["id"]})
+			var ui_k := minf(dimensions.x / 720.0, dimensions.y / 1280.0)
+			for target in loc["targets"]:
+				var r: Array = target["rect"]
+				var center: Vector2 = hub._to_screen(Vector2(r[0] + r[2] * 0.5, r[1] + r[3] * 0.5))
+				assert(center.x >= 0 and center.x <= dimensions.x)
+				assert(center.y >= 112 * ui_k and center.y <= dimensions.y - 92 * ui_k)
+			hub.free()
+		viewport.free()
 	profile.save_path = old_path
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp.get_basename() + ".bak"))
