@@ -116,7 +116,7 @@ class Level:
         self.cap = lint.cap_for(data, self.info) if data else lint.DEFAULT_CAP
         v = data.get("verify") if isinstance(data, dict) and isinstance(data.get("verify"), dict) else {}
         # «лови капли»: ход — сценарий по времени; темп — человеческий, порядок и «всё сразу» не нужны
-        self.timed = isinstance(data, dict) and any(isinstance(data.get(k), dict) for k in ("leak", "dishes", "plunger", "mirrors"))
+        self.timed = isinstance(data, dict) and any(isinstance(data.get(k), dict) for k in ("leak", "dishes", "plunger", "mirrors", "sew"))
         self.live = bool(v.get("live", False)) or self.timed
         # рисование (замазка): ходы — линии, а не порядок; G5 и G6 не имеют смысла
         self.draw = bool(v.get("draw", False)) or self.timed

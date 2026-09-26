@@ -8,6 +8,7 @@ const LEAK := preload("res://scripts/level/leak.gd")
 const DISHES := preload("res://scripts/level/dishes.gd")
 const PLUNGER := preload("res://scripts/level/plunger.gd")
 const MIRRORS := preload("res://scripts/level/mirrors.gd")
+const SEW := preload("res://scripts/level/sew.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -84,6 +85,7 @@ var leak: Node2D = null          # «лови капли»: труба течё�
 var dish_game: Node2D = null     # «стопка посуды»: качающиеся полки, посуда по одной
 var plunger_game: Node2D = null  # «вантуз»: качать в ритм, засор едет по сифону
 var mirror_game: Node2D = null   # «луч и зеркальца»: повернуть зеркальца, луч — в плафон
+var sew_game: Node2D = null      # «сшей диван»: стежки зигзагом, пружины, мышь
 var _bucket_to := 0.0            # куда едет ведро (x)
 var _bucket_rail := Vector2.ZERO # пределы ведра по x
 var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
@@ -178,7 +180,7 @@ func build(level_data: Dictionary) -> void:
 
 	var recv: Dictionary = data.get("receiver", {})
 	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes") \
-		or data.has("plunger") or data.has("mirrors")
+		or data.has("plunger") or data.has("mirrors") or data.has("sew")
 	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
@@ -283,6 +285,29 @@ func build(level_data: Dictionary) -> void:
 		putty = PUTTY.new()
 		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
 		add_child(putty)
+	if data.has("sew"):
+		sew_game = SEW.new()
+		sew_game.setup(data["sew"])
+		sew_game.stitched.connect(func(n: int) -> void:
+			_acted = true
+			pieces = n
+			_since_collect = 0.0
+			switched.emit("stitch")
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		sew_game.knotted.connect(func(n: int) -> void:
+			_acted = true
+			Sfx.play(&"fizz")
+			_shake = 4.0
+			if n >= sew_game.knot_limit:
+				_lose("knot"))
+		sew_game.unraveled.connect(func() -> void:
+			pieces = sew_game.progress
+			Sfx.play(&"slime_pop")
+			say("mouse", ["Мышь грызёт нитку!", "Кыш, мышка!"])
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		sew_game.mouse_scared.connect(func() -> void:
+			Sfx.play(&"slime_pop"))
+		add_child(sew_game)
 	if data.has("mirrors"):
 		mirror_game = MIRRORS.new()
 		mirror_game.setup(data["mirrors"])
@@ -408,6 +433,11 @@ func build(level_data: Dictionary) -> void:
 		enemies.append(enemy)
 
 	_setup_goal()
+	if sew_game:
+		# цель — прошить все дырки
+		pieces_total = sew_game.order.size()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
 	if mirror_game:
 		# цель — зажечь лампу
 		pieces_total = 1
@@ -614,6 +644,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_acted = true
 			get_viewport().set_input_as_handled()
 		return
+	if sew_game:
+		if event is InputEventScreenTouch and event.pressed:
+			if sew_game.tap_at(make_input_local(event).position):
+				_acted = true
+			get_viewport().set_input_as_handled()
+		return
 	if dirt:
 		if event is InputEventScreenTouch and not event.pressed:
 			_dig_from = null
@@ -803,6 +839,8 @@ func _timed_stars() -> int:
 	if mirror_game:
 		var extra: int = mirror_game.taps_used - mirror_game.par
 		return 3 if extra <= 0 else (2 if extra <= 1 else 1)
+	if sew_game:
+		return 3 - mini(sew_game.knots, 2)
 	return _stars_for(pieces)
 
 
@@ -843,9 +881,24 @@ func leak_release() -> void:
 	leak.release()
 
 
-func leak_scare() -> void:
+## DevRunner: спугнуть нарушителя (мышь на трубе или у дивана).
+func scare_intruder() -> void:
 	_acted = true
-	leak.scare()
+	if leak:
+		leak.scare()
+	elif sew_game:
+		sew_game.scare()
+
+
+## DevRunner: «Сшей диван» — стежок в дырку или пружину спрятать.
+func sew_stitch(id: String) -> void:
+	_acted = true
+	sew_game.stitch(id)
+
+
+func sew_spring(id: String) -> void:
+	_acted = true
+	sew_game.push_spring(id)
 
 
 ## DevRunner: сценарий ходов закончился — дальше без победы считается «застряли».
@@ -872,6 +925,8 @@ func _physics_process(delta: float) -> void:
 		_step_leak(delta)
 	if mirror_game:
 		mirror_game.step(delta)
+	if sew_game:
+		sew_game.step_time(delta)
 	if plunger_game:
 		plunger_game.step(delta)
 		if plunger_game.started:
@@ -1102,7 +1157,8 @@ func _update_outcome(delta: float) -> void:
 		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null and mirror_game == null:
+	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null and mirror_game == null \
+			and sew_game == null:
 		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
 		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
 		_stuck_total += delta
