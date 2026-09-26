@@ -1,6 +1,7 @@
 class_name Level
 extends Node2D
 const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
+const RECEIVER := preload("res://scripts/level/receiver.gd")   # не зависит от кэша class_name
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -153,7 +154,7 @@ func build(level_data: Dictionary) -> void:
 	if not recv.is_empty():
 		# головоломка внутри вещи: вместо семьи — приёмник (слив, ведро, ящик, конфорка, дыра)
 		var rr := _rect(recv["rect"])
-		var rc := Receiver.new()
+		var rc = RECEIVER.new()
 		rc.configure(rr, str(recv.get("look", "drain")))
 		hero = rc
 		hero.setup(Vector2(rr.get_center().x, rr.end.y), false)
