@@ -4,6 +4,7 @@ const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
 const RECEIVER := preload("res://scripts/level/receiver.gd")   # не зависит от кэша class_name
 const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
 const PUTTY := preload("res://scripts/level/putty.gd")
+const LEAK := preload("res://scripts/level/leak.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -26,6 +27,7 @@ signal switched(id: String)
 const DESIGN_SIZE := Vector2(720, 1280)
 const CHAIN_RADIUS := 25.0      # на каком расстоянии остывание перекидывается на соседнюю лаву
 const CHAIN_DELAY := 0.04       # скорость "волны" застывания
+const BUCKET_SPEED := 1500.0     # «лови капли»: ведро едет за пальцем, px/с
 const WIN_QUIET := 0.8          # победа, когда цель выполнена и столько секунд не пришло ни монеты...
 const WIN_CAP := 3.0            # ...но не позже, чем через столько после выполнения цели
 const STUCK_TIMEOUT := 5.0
@@ -75,6 +77,10 @@ var enemies: Array[Enemy] = []
 var pins: Array[Pin] = []
 var pipes: Array = []            # «живые трубы»: PipeSwitch
 var putty: Node2D = null         # «замазка»: игрок рисует стенки пальцем
+var leak: Node2D = null          # «лови капли»: труба течёт, ведро ловит, дыры клеят
+var _bucket_to := 0.0            # куда едет ведро (x)
+var _bucket_rail := Vector2.ZERO # пределы ведра по x
+var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
 var hero: Hero
 var fx: Fx
 var camera: Camera2D   # для тряски экрана; задаёт GameScreen (null — без тряски)
@@ -165,7 +171,7 @@ func build(level_data: Dictionary) -> void:
 		_jitter.seed = jitter_seed
 
 	var recv: Dictionary = data.get("receiver", {})
-	var homey: bool = data.get("family", false) or not recv.is_empty()
+	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak")
 	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
@@ -270,6 +276,12 @@ func build(level_data: Dictionary) -> void:
 		putty = PUTTY.new()
 		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
 		add_child(putty)
+	if data.has("leak"):
+		leak = LEAK.new()
+		leak.setup(data["leak"])
+		leak.spawn = _leak_drop
+		leak.changed = _leak_changed
+		add_child(leak)
 
 	fx = Fx.new()
 	add_child(fx)
@@ -329,6 +341,16 @@ func build(level_data: Dictionary) -> void:
 		enemies.append(enemy)
 
 	_setup_goal()
+	if leak:
+		# цель — все дыры: заклеены или не прогрызены; капли в полёте — их немного
+		pieces_total = leak.holes.size()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
+		fluid_count += int(data["leak"].get("drops", 40))
+		var rail: Array = data["leak"].get("rail", [170, 550])
+		_bucket_rail = Vector2(float(rail[0]), float(rail[1]))
+		_bucket_to = hero.position.x
+		leak.miss_limit = int(_hazard_limits.get("leak", 3))
 	fluid.setup(self, DESIGN_SIZE, fluid_count)
 	gold_changed.emit.call_deferred(pieces, pieces_needed, pieces_total)
 
@@ -483,6 +505,9 @@ func report_contact(other: Node, source: Node) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if finished:
 		return
+	if leak:
+		_leak_input(event)
+		return
 	if dirt:
 		if event is InputEventScreenTouch and not event.pressed:
 			_dig_from = null
@@ -555,6 +580,101 @@ func dig(a: Vector2, b: Vector2) -> void:
 		dug.emit(b)
 
 
+## «Лови капли»: пальцы внизу водят ведро, на трубе — клеят дыру (держать) или пугают мышь.
+## Каждый палец (index) помнит, чем занят, — двумя пальцами можно и клеить, и ловить.
+var _fingers := {}
+
+
+func _leak_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var p: Vector2 = make_input_local(event).position
+		if event.pressed:
+			_acted = true
+			if leak.press(p):
+				_fingers[event.index] = "pipe"
+			else:
+				_fingers[event.index] = "bucket"
+				_bucket_to = p.x
+				leak.start()
+		else:
+			if _fingers.get(event.index, "") == "pipe":
+				leak.release()
+			_fingers.erase(event.index)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		if _fingers.get(event.index, "") == "bucket":
+			_bucket_to = make_input_local(event).position.x
+		get_viewport().set_input_as_handled()
+
+
+func _step_leak(delta: float) -> void:
+	if finished:
+		return
+	leak.step(delta)
+	if leak.started:
+		_acted = true
+	var x := clampf(_bucket_to, _bucket_rail.x, _bucket_rail.y)
+	if absf(hero.position.x - x) > 0.1:
+		hero.position.x = move_toward(hero.position.x, x, BUCKET_SPEED * delta)
+		_zone.position = hero.position - _zone_origin
+
+
+func _leak_drop(pos: Vector2) -> void:
+	var item := _spawn_item(Substances.Kind.WATER, pos)
+	item.linear_velocity = Vector2(0, 60)
+
+
+func _leak_changed(at: Vector2) -> void:
+	var n: int = leak.done_count()
+	if at != Vector2.ZERO:
+		Sfx.play(&"restore")
+		fx.ring(at, SPARK, 60.0, 0.4)
+		fx.burst(at, Color("e6d6a8"), 10, 260.0, 4.0, 600.0, 0.6)
+	pieces = n
+	gold_changed.emit(pieces, pieces_needed, pieces_total)
+
+
+func _catch_drop(item: Item) -> void:
+	fx.burst(item.position, Color("8ce6ff"), 6, 200.0, 3.0, 0.0, 0.4)
+	_remove(item)
+	hero.bounce()
+	_since_collect = 0.0
+	Sfx.play(&"coin", 5.0, -4.0)
+
+
+## Победа в «лови капли» — только когда мышь ушла, дыры заклеены и в воздухе нет капель.
+func _leak_calm() -> bool:
+	if leak == null:
+		return true
+	if not leak.calm():
+		return false
+	for item in items:
+		if item.kind == Substances.Kind.WATER and not item.removed:
+			return false
+	return true
+
+
+## DevRunner: ведро к x, палец на дыру, палец убрать, спугнуть мышь.
+func leak_move(x: float) -> void:
+	_acted = true
+	_bucket_to = x
+	leak.start()
+
+
+func leak_press(id: String) -> void:
+	_acted = true
+	leak.press_hole(id)
+
+
+func leak_release() -> void:
+	leak.release()
+
+
+func leak_scare() -> void:
+	_acted = true
+	leak.scare()
+
+
 ## DevRunner: сценарий ходов закончился — дальше без победы считается «застряли».
 func actions_done() -> void:
 	if _stuck_timer < 0.0:
@@ -575,6 +695,8 @@ func _physics_process(delta: float) -> void:
 	_process_cooling(delta)
 	_apply_rotation()
 	_run_source(delta)
+	if leak:
+		_step_leak(delta)
 	if not _hazard_hits.is_empty():
 		var hh := _hazard_hits
 		_hazard_hits = []
@@ -725,6 +847,9 @@ func _on_zone_hit(body: Node) -> void:
 	if not (body is Item) or not _alive(body):
 		return
 	var item: Item = body
+	if leak and item.kind == Substances.Kind.WATER:
+		_catch_drop(item)
+		return
 	if _goal_kind >= 0:
 		if item.kind == _goal_kind and not _fill_mode:
 			_collect(item)
@@ -770,7 +895,7 @@ func _update_outcome(delta: float) -> void:
 			if _stuck_timer > STUCK_TIMEOUT:
 				_lose("blocked")
 		return
-	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe():
+	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe() and _leak_calm():
 		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
 		# не раньше, чем цель выполнена: лава, убившая последнего врага, ещё может
 		# долететь до героини, и поражение должно успеть сработать.
@@ -778,7 +903,7 @@ func _update_outcome(delta: float) -> void:
 		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if _stuck_timer >= 0.0:
+	if _stuck_timer >= 0.0 and leak == null:
 		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
 		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
 		_stuck_total += delta
@@ -979,7 +1104,7 @@ func _finish(win: bool, reason: String) -> void:
 
 func _snapshot(win: bool, reason: String) -> Dictionary:
 	return {
-		"won": win, "stars": _stars_for(pieces) if win else 0,
+		"won": win, "stars": (3 - mini(leak.misses, 2) if leak else _stars_for(pieces)) if win else 0,
 		"pieces": pieces, "pieces_total": pieces_total, "needed": pieces_needed,
 		"coins_pieces": coins_pieces, "gems": gems, "relic": relic, "reason": reason,
 	}
@@ -1074,6 +1199,10 @@ func _on_hazard(body: Node, kind: String) -> void:
 	if not Substances.is_fluid(item.kind):
 		return
 	_hazard_count[kind] = int(_hazard_count.get(kind, 0)) + 1
+	if leak and kind == "leak":
+		leak.misses = _hazard_count[kind]
+		Sfx.play(&"fizz")
+		_remove(item)
 	for art in _hazard_arts:
 		if art.rect.grow(20).has_point(item.position):
 			art.spark()

@@ -128,7 +128,7 @@ func restart() -> void:
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
 	_layout()
-	_hud.set_goal_kind(str(_data.get("receiver", {}).get("kind", "gold")))
+	_hud.set_goal_kind("tape" if _data.has("leak") else str(_data.get("receiver", {}).get("kind", "gold")))
 	_hud.show_rotate(level.can_rotate())
 	if level.putty:
 		_hud.set_ink(level.putty.ink_left, level.putty.ink)
@@ -266,6 +266,8 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Дождь залил подоконник"
 		"wire":
 			return "Вода попала на проводку — искры!"
+		"leak":
+			return "Вода протекла на кухню"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"walled":
@@ -362,7 +364,7 @@ func _layout() -> void:
 	if win.y > 0:
 		_hud.set_safe_top(maxf(0.0, safe.position.y) * vs.y / win.y)
 	if _data.has("tower"):
-		_hud.place_hint((_content_top() - _camera.position.y) * s + vs.y * 0.5)
+		_hud.place_hint((_content_top() - _camera.position.y) * s + vs.y * 0.5, 0.5 if _data.has("leak") else 0.7)
 
 
 ## Верх того, что есть на поле (стенки, засовы, жидкости), в координатах уровня.
@@ -375,11 +377,18 @@ func _content_top() -> float:
 		top = minf(top, float(pin["from"][1]) - 14.0)
 	for f: Dictionary in _data.get("fills", []):
 		top = minf(top, float(f["rect"][1]))
+	if _data.has("leak"):
+		# «лови капли»: над трубой бегает мышь — подсказка не должна её закрывать
+		top = minf(top, float(_data["leak"].get("pipe_top", 186.0)) - 100.0)
 	return top if top < INF else float(_data["tower"]["rect"][1])
 
 
 func _hint() -> void:
 	if level == null or level.finished:
+		return
+	if level.leak:
+		level.leak.hint()
+		Router.toast("Подставь ведро под капли, а на дыре держи палец, пока лента не прилипнет")
 		return
 	if level.has_strokes():
 		# копать можно где угодно: показываем весь путь решения, засовы — кольцом

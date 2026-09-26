@@ -99,7 +99,7 @@ func set_safe_top(px: float) -> void:
 
 ## Подсказка — в свободной полосе между верхней панелью и полем головоломки (field_top —
 ## верх поля на экране). Если полоса слишком узкая, остаётся прежнее место в нижней части.
-func place_hint(field_top: float) -> void:
+func place_hint(field_top: float, low := 0.7) -> void:
 	var top := _bar.offset_bottom + 4.0
 	if field_top - top >= 64.0:
 		_hint.anchor_top = 0.0
@@ -107,8 +107,8 @@ func place_hint(field_top: float) -> void:
 		_hint.offset_top = top
 		_hint.offset_bottom = field_top - 4.0
 	else:
-		_hint.anchor_top = 0.7
-		_hint.anchor_bottom = 0.7
+		_hint.anchor_top = low
+		_hint.anchor_bottom = low
 		_hint.offset_top = -60.0
 		_hint.offset_bottom = 60.0
 
@@ -457,7 +457,7 @@ class IconButton extends Button:
 
 ## Иконка монеты для счётчика золота.
 class CoinIcon extends Control:
-	var kind := "gold"   # что считаем: gold, water, stone, lava
+	var kind := "gold"   # что считаем: gold, water, stone, lava, tape (заклеенные дыры)
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(40, 40)
@@ -475,6 +475,13 @@ class CoinIcon extends Control:
 			"stone":
 				draw_circle(c, 16.0, Color("6d6560"), true, -1.0, true)
 				draw_circle(c + Vector2(-5, -5), 5.0, Color("9a918a"), true, -1.0, true)
+				return
+			"tape":
+				# рулон ленты: «сколько дыр заклеено»
+				draw_rect(Rect2(c + Vector2(4, 8), Vector2(16, 8)), Color("c9b98a"))
+				draw_circle(c, 16.0, Color("9c8a5c"), true, -1.0, true)
+				draw_circle(c, 14.0, Color("e6d6a8"), true, -1.0, true)
+				draw_circle(c, 6.5, Color("6b5a3a"), true, -1.0, true)
 				return
 		draw_circle(c, 18.0, Color("b8741a"), true, -1.0, true)
 		draw_circle(c + Vector2(0, -1.5), 15.0, Color("ffc933"), true, -1.0, true)
