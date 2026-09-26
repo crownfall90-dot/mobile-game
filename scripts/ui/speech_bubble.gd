@@ -1,6 +1,6 @@
 class_name SpeechBubble
 extends Node2D
-## Облачко реплики над головой: мягкая рамка, хвостик вниз к говорящему, перенос строк.
+## Облачко реплики над головой: мягкая рамка, хвостик вниз к говорящему (или вверх, below), перенос строк.
 ## position — кончик хвостика (над головой). Появляется «пружинкой», держится hold секунд и тает;
 ## сигнал finished — когда исчезло. Ширина ограничена, края экрана учитывает вызывающий (clamp_x).
 
@@ -14,6 +14,7 @@ const INK := Color("4a3226")
 const EDGE := Color("6b4a33")
 
 var text := ""
+var below := false         # рамка под хвостиком (хвостик вверх) — для говорящих под потолком
 var _font: Font
 var _box := Vector2.ZERO
 var _shift := 0.0          # сдвиг рамки вбок, чтобы не вылезала за экран (хвостик остаётся на месте)
@@ -49,7 +50,8 @@ func show_line(line: String, hold := 2.2, clamp_x := Vector2(-INF, INF), base :=
 func _draw() -> void:
 	if _font == null:
 		return
-	var r := Rect2(Vector2(-_box.x * 0.5 + _shift, -_box.y - 18.0), _box)
+	var r := Rect2(Vector2(-_box.x * 0.5 + _shift, 18.0 if below else -_box.y - 18.0), _box)
+	var d := -1.0 if below else 1.0
 	var box := StyleBoxFlat.new()
 	box.bg_color = PAPER
 	box.border_color = EDGE
@@ -58,8 +60,8 @@ func _draw() -> void:
 	box.shadow_color = Color(0, 0, 0, 0.18)
 	box.shadow_size = 6
 	box.shadow_offset = Vector2(0, 3)
-	draw_colored_polygon(PackedVector2Array([Vector2(-14, -21), Vector2(14, -21), Vector2(0, 0)]), EDGE)
+	draw_colored_polygon(PackedVector2Array([Vector2(-14, -21 * d), Vector2(14, -21 * d), Vector2.ZERO]), EDGE)
 	draw_style_box(box, r)
-	draw_colored_polygon(PackedVector2Array([Vector2(-9, -22), Vector2(9, -22), Vector2(0, -5)]), PAPER)
+	draw_colored_polygon(PackedVector2Array([Vector2(-9, -22 * d), Vector2(9, -22 * d), Vector2(0, -5 * d)]), PAPER)
 	draw_multiline_string(_font, r.position + Vector2(PAD.x, PAD.y + FONT_SIZE * 0.8), text,
 		HORIZONTAL_ALIGNMENT_CENTER, _box.x - PAD.x * 2.0, FONT_SIZE, -1, INK)
