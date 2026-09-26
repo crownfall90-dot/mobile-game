@@ -1,0 +1,230 @@
+{
+ "format": 2,
+ "id": "home_17",
+ "floor": 1,
+ "title": "Люстра: не горит",
+ "hint": "Поворачивай контакты — ток к лампочке. Моли боятся тока!",
+ "tutorial": "",
+ "intro": "",
+ "hard": false,
+ "theme": "living_lamp",
+ "tower": {
+  "rect": [
+   130,
+   200,
+   460,
+   1010
+  ]
+ },
+ "walls": [],
+ "pins": [],
+ "fills": [],
+ "enemies": [],
+ "receiver": {
+  "rect": [
+   300,
+   1330,
+   120,
+   40
+  ],
+  "look": "art",
+  "kind": "gold",
+  "bad": [],
+  "mode": "collect"
+ },
+ "goal": {
+  "pieces": 1,
+  "three_star": 1
+ },
+ "solution": [
+  "light"
+ ],
+ "fails": [
+  [
+   "waste"
+  ],
+  [
+   "wrong"
+  ]
+ ],
+ "verify": {
+  "max_win_share": 0.34,
+  "daily": false
+ },
+ "mirrors": {
+  "origin": [
+   45,
+   190
+  ],
+  "cell": 90,
+  "cols": 7,
+  "rows": 10,
+  "look": "current",
+  "source": [
+   0,
+   2,
+   "right"
+  ],
+  "lamp": [
+   3,
+   0
+  ],
+  "moths": [
+   [
+    2,
+    7
+   ],
+   [
+    5,
+    3
+   ]
+  ],
+  "taps": 6,
+  "par": 4,
+  "scare": 0.6,
+  "items": [
+   {
+    "id": "A",
+    "c": 2,
+    "r": 2,
+    "kind": "/"
+   },
+   {
+    "id": "B",
+    "c": 2,
+    "r": 7,
+    "kind": "/"
+   },
+   {
+    "id": "C",
+    "c": 5,
+    "r": 7,
+    "kind": "\\"
+   },
+   {
+    "id": "D",
+    "c": 5,
+    "r": 3,
+    "kind": "/"
+   },
+   {
+    "id": "E",
+    "c": 3,
+    "r": 3,
+    "kind": "\\"
+   },
+   {
+    "id": "F",
+    "c": 4,
+    "r": 5,
+    "kind": "/"
+   },
+   {
+    "id": "G",
+    "c": 1,
+    "r": 4,
+    "kind": "\\"
+   },
+   {
+    "id": "w1",
+    "c": 0,
+    "r": 5,
+    "kind": "wall"
+   },
+   {
+    "id": "w2",
+    "c": 1,
+    "r": 9,
+    "kind": "wall"
+   }
+  ]
+ },
+ "scripts": {
+  "light": [
+   [
+    0.0,
+    "tap",
+    "A"
+   ],
+   [
+    1.4,
+    "tap",
+    "B"
+   ],
+   [
+    2.1,
+    "tap",
+    "C"
+   ],
+   [
+    3.5,
+    "tap",
+    "D"
+   ]
+  ],
+  "waste": [
+   [
+    0.0,
+    "tap",
+    "F"
+   ],
+   [
+    0.5,
+    "tap",
+    "G"
+   ],
+   [
+    1.0,
+    "tap",
+    "F"
+   ],
+   [
+    1.5,
+    "tap",
+    "G"
+   ],
+   [
+    2.0,
+    "tap",
+    "F"
+   ],
+   [
+    2.5,
+    "tap",
+    "G"
+   ]
+  ],
+  "wrong": [
+   [
+    0.0,
+    "tap",
+    "C"
+   ],
+   [
+    0.5,
+    "tap",
+    "A"
+   ],
+   [
+    1.9,
+    "tap",
+    "E"
+   ],
+   [
+    2.4,
+    "tap",
+    "B"
+   ],
+   [
+    3.9,
+    "tap",
+    "F"
+   ],
+   [
+    4.4,
+    "tap",
+    "G"
+   ]
+  ]
+ }
+}
