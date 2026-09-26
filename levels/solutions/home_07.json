@@ -1,4 +1,6 @@
 [
-  ["drop", "water", "gate", "shelf"],
-  ["water", "gate", "drop", "shelf"]
+  ["ccw", "ccw", "ccw", "ccw"],
+  ["cw", "cw", "ccw", "ccw"],
+  ["cw", "ccw", "cw", "cw"],
+  ["cw", "ccw", "ccw", "ccw"]
 ]

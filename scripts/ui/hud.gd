@@ -7,6 +7,8 @@ signal restart_requested
 signal home_requested
 signal pause_requested
 signal hint_requested
+## «Поверни»: игрок нажал ↻ (1) или ↺ (-1).
+signal rotate_requested(dir: int)
 signal next_requested
 
 const ACCENT := Color("f5c542")
@@ -17,6 +19,8 @@ var _bar: HBoxContainer
 var _title: Label
 var _gold: Label
 var _hint: Label
+var _rotate_row: HBoxContainer
+var _rotate_buttons := {}      # dir -> RotateButton
 var _hint_tween: Tween
 var _overlay: ColorRect
 var _panel: PanelContainer
@@ -35,6 +39,39 @@ func _ready() -> void:
 	_build_top_bar()
 	_build_hint()
 	_build_overlay()
+
+
+## Кнопки поворота вещи внизу по краям (мини-игра «Поверни»).
+func show_rotate(on: bool) -> void:
+	if on and _rotate_row == null:
+		_rotate_row = HBoxContainer.new()
+		_rotate_row.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		_rotate_row.offset_top = -250
+		_rotate_row.offset_bottom = -124
+		_rotate_row.offset_left = 20
+		_rotate_row.offset_right = -20
+		_rotate_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_rotate_row)
+		for dir: int in [-1, 1]:
+			var b := RotateButton.new()
+			b.dir = dir
+			b.tooltip_text = "Повернуть по часовой" if dir > 0 else "Повернуть против часовой"
+			b.pressed.connect(func() -> void: rotate_requested.emit(dir))
+			_rotate_row.add_child(b)
+			_rotate_buttons[dir] = b
+			if dir < 0:
+				var spacer := Control.new()
+				spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_rotate_row.add_child(spacer)
+	if _rotate_row:
+		_rotate_row.visible = on
+
+
+## Подсказка: пульсирует кнопка поворота, которую нажать следующей (0 — никакая).
+func hint_rotate(dir: int) -> void:
+	for d: int in _rotate_buttons:
+		_rotate_buttons[d].hinted = d == dir
 
 
 func set_safe_top(px: float) -> void:
@@ -312,6 +349,45 @@ static func _box(bg: Color, radius: int, border: Color, padding: int, border_w :
 	sb.content_margin_bottom = padding * 0.6
 	sb.anti_aliasing = true
 	return sb
+
+
+## Большая круглая кнопка поворота: дуга со стрелкой по или против часовой.
+class RotateButton extends Button:
+	var dir := 1
+	var hinted := false
+	var _t := 0.0
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(124, 124)
+		focus_mode = Control.FOCUS_NONE
+		add_theme_stylebox_override("normal", Hud._box(Color(0.95, 0.76, 0.3, 0.92), 62, Color(1, 1, 1, 0.7), 0, 4))
+		add_theme_stylebox_override("hover", Hud._box(Color(1.0, 0.82, 0.38, 0.95), 62, Color(1, 1, 1, 0.8), 0, 4))
+		add_theme_stylebox_override("pressed", Hud._box(Color(0.85, 0.62, 0.2, 0.95), 62, Color(1, 1, 1, 0.9), 0, 4))
+		add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+	func _process(delta: float) -> void:
+		_t += delta
+		pivot_offset = size * 0.5
+		scale = Vector2.ONE * (1.0 + (0.08 * sin(_t * 8.0) if hinted else 0.0))
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := 34.0
+		var ink := Color("4a3226")
+		var a0 := -PI * 0.75
+		var a1 := PI * 0.6
+		if dir < 0:
+			var t0 := a0
+			a0 = PI - a1
+			a1 = PI - t0
+		draw_arc(c, r, a0, a1, 32, ink, 9.0, true)
+		var end := a1 if dir > 0 else a0
+		var p := c + Vector2.from_angle(end) * r
+		var tangent := Vector2(-sin(end), cos(end)) * float(dir)
+		var nrm := Vector2.from_angle(end)
+		draw_colored_polygon(PackedVector2Array([p + tangent * 16.0, p + nrm * 13.0 - tangent * 4.0,
+			p - nrm * 13.0 - tangent * 4.0]), ink)
 
 
 ## Круглая кнопка "заново" с нарисованной иконкой.

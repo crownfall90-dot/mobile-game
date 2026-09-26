@@ -28,6 +28,7 @@ const CHAIN_DELAY := 0.04       # скорость "волны" застыван
 const WIN_QUIET := 0.8          # победа, когда цель выполнена и столько секунд не пришло ни монеты...
 const WIN_CAP := 3.0            # ...но не позже, чем через столько после выполнения цели
 const STUCK_TIMEOUT := 5.0
+const STUCK_HARD := 14.0
 const FALL_LIMIT := 1500.0
 const SCARE_DISTANCE := 260.0
 const DROWN_CELL := 380.0       # площадь зоны на одну каплю воды при плотной укладке
@@ -75,6 +76,7 @@ var pipes: Array = []            # «живые трубы»: PipeSwitch
 var hero: Hero
 var fx: Fx
 var camera: Camera2D   # для тряски экрана; задаёт GameScreen (null — без тряски)
+var view_camera: Camera2D   # камера экрана всегда: «Поверни» вращает вид вместе с гравитацией
 
 ## Задать до build(): ±1 px к каждому телу при появлении (0 — выкл.). Только для проверок.
 var jitter_seed := 0
@@ -125,6 +127,7 @@ var _said := {}               # какие реплики уже звучали 
 var _say_cooldown := 0.0
 var _dig_fx_at := Vector2(-999, -999)
 var _stuck_timer := -1.0
+var _stuck_total := 0.0
 var _drown_time := 0.0
 var _shake := 0.0
 var _scare_timer := 0.0
@@ -134,6 +137,11 @@ var _source_acc := 0.0
 var _source_time := 0.0
 var _hazard_hits: Array = []     # [тело, вид опасности]
 var _hazard_arts: Array = []
+var _rot: Dictionary = {}        # «Поверни»: {time} — вещь поворачивается на 90° кнопками
+var _angle := 0.0                # насколько повёрнута вещь (по часовой — плюс)
+var _angle_to := 0.0
+var _rot_busy := false
+var _rot_queue: Array[int] = []
 
 
 ## Таблица реакций: пара веществ -> обработчик. Новая реакция — одна строка здесь.
@@ -282,6 +290,7 @@ func build(level_data: Dictionary) -> void:
 		if _is_goal(kind):
 			pieces_total += n
 
+	_rot = data.get("rotate", {})
 	_source = data.get("source", {})
 	if not _source.is_empty():
 		_source_left = int(_source.get("count", 40))
@@ -296,6 +305,10 @@ func build(level_data: Dictionary) -> void:
 		enemy.setup(_jittered(_vec(e["pos"])), hero.position + Vector2(0, -70), report_contact)
 		enemy.collision_mask |= Substances.LAYER_SIEVE
 		enemy.set_kind(StringName(str(e.get("kind", "slime"))))
+		if e.get("fixed", false):
+			# прилип к стенке (плесень, паутина): не катается, когда вещь поворачивают
+			enemy.freeze_mode = RigidBody2D.FREEZE_MODE_STATIC
+			enemy.freeze = true
 		_bodies.add_child(enemy)
 		enemies.append(enemy)
 
@@ -309,6 +322,54 @@ func pin_by_id(pin_id: String) -> Pin:
 		if pin.id == pin_id:
 			return pin
 	return null
+
+
+func can_rotate() -> bool:
+	return not _rot.is_empty()
+
+
+## «Поверни»: вещь поворачивается на 90° по часовой (dir = 1) или против (dir = -1). Гравитация
+## поворачивается в обратную сторону, а камера — вместе с вещью: всё падает к низу экрана.
+func rotate_world(dir: int) -> bool:
+	if _rot.is_empty() or finished:
+		return false
+	if _rot_busy:
+		# нажали, пока вещь ещё поворачивается: повернём следующей, ничего не теряется
+		_rot_queue.append(dir)
+		return true
+	_rot_busy = true
+	_angle_to += dir * PI * 0.5
+	var id := "cw" if dir > 0 else "ccw"
+	_pulled.append(id)
+	_acted = true
+	var tw := create_tween()
+	tw.tween_property(self, "_angle", _angle_to, float(_rot.get("time", 0.9))).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func() -> void:
+		_rot_busy = false
+		if not _rot_queue.is_empty():
+			rotate_world(_rot_queue.pop_front()))
+	switched.emit(id)
+	return true
+
+
+func _apply_rotation() -> void:
+	if _rot.is_empty():
+		return
+	PhysicsServer2D.area_set_param(get_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR,
+		Vector2.DOWN.rotated(-_angle))
+	if view_camera:
+		view_camera.ignore_rotation = false
+		view_camera.rotation = -_angle
+	if _rot_busy:
+		_wake_all()
+
+
+func _exit_tree() -> void:
+	# гравитация общая для мира: после «Поверни» возвращаем её вниз
+	if not _rot.is_empty():
+		PhysicsServer2D.area_set_param(get_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, Vector2.DOWN)
+		if view_camera:
+			view_camera.rotation = 0.0
 
 
 func pipe_by_id(pipe_id: String) -> Node:
@@ -463,6 +524,7 @@ func _physics_process(delta: float) -> void:
 		for b in hits:
 			_on_zone_hit(b)
 	_process_cooling(delta)
+	_apply_rotation()
 	_run_source(delta)
 	if not _hazard_hits.is_empty():
 		var hh := _hazard_hits
@@ -667,9 +729,12 @@ func _update_outcome(delta: float) -> void:
 			_win()
 		return
 	if _stuck_timer >= 0.0:
-		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось
-		_stuck_timer = 0.0 if (dirt or _source_left > 0 or not _source.is_empty()) and _anything_moving() else _stuck_timer + delta
-		if _stuck_timer > STUCK_TIMEOUT:
+		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
+		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
+		_stuck_total += delta
+		_stuck_timer = 0.0 if (dirt or not _source.is_empty() or not _rot.is_empty()) and _anything_moving() \
+			else _stuck_timer + delta
+		if _stuck_timer > STUCK_TIMEOUT or _stuck_total > STUCK_HARD:
 			_lose("stuck")
 
 
@@ -797,10 +862,14 @@ func _count_fill() -> void:
 func _family_safe() -> bool:
 	if _goal_kind >= 0:
 		# приёмник: пока к нему летит то, что его испортит, победу не объявляем
+		# опасно только то, что летит к приёмнику (или уже рядом); уползающее прочь — не мешает
+		var zc := _zone_rect.get_center()
 		for item in items:
 			if _alive(item) and _bad_kinds.has(item.kind) and item.linear_velocity.length() > 12.0:
-				_goal_time = -1.0
-				return false
+				var to_zone := zc - item.position
+				if to_zone.length() < 200.0 or item.linear_velocity.dot(to_zone) > 0.0:
+					_goal_time = -1.0
+					return false
 		return true
 	if not data.get("family", false):
 		return true

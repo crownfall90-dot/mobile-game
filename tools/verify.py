@@ -96,6 +96,10 @@ class Level:
         strokes = data.get("strokes", {}) if data else {}
         self.pins += [str(k) for k in strokes] if isinstance(strokes, dict) else []
         self.pins += [str(p["id"]) for p in _items(data, "pipes") if isinstance(p, dict) and "id" in p]
+        # «Поверни»: ходы — повороты по и против часовой, повторяются; ищем все последовательности
+        self.rotate = isinstance(data, dict) and isinstance(data.get("rotate"), dict)
+        if self.rotate:
+            self.pins = ["cw", "ccw"]
         self.solution = tuple(str(x) for x in _items(data, "solution"))
         self.fails = [tuple(str(x) for x in o) for o in _items(data, "fails") if isinstance(o, list)]
         fills = _items(data, "fills")
@@ -139,6 +143,13 @@ def tempos(lv):
         (("0.8", "0.8 s seed 0"), ("settle", "settle seed 0"))
 
 
+def searched(lv):
+    """Порядки для G6: перестановки ходов; у «Поверни» — все последовательности длины решения."""
+    if lv.rotate:
+        return list(itertools.product(lv.pins, repeat=len(lv.solution)))
+    return list(itertools.permutations(lv.pins))
+
+
 def plan(lv, quick):
     sol = lv.solution
     for s in (spec(sol, NORMAL, 0), spec(sol, NORMAL, 1), spec(sol, NORMAL, 2)):
@@ -153,7 +164,7 @@ def plan(lv, quick):
     if len(lv.pins) >= 3:
         lv.add(spec(None, NORMAL, 0))
         lv.add(spec(None, NORMAL, 1))
-    for perm in itertools.permutations(lv.pins):
+    for perm in searched(lv):
         lv.add(spec(perm, NORMAL, 0))
         lv.add(spec(perm, NORMAL, 1))
     if lv.has_gold and lv.daily:
@@ -352,7 +363,7 @@ def judge(lv, quick):
     else:
         g["G5"] = ("-", ["n/a (fewer than 3 pins)"])
     # G6
-    perms = list(itertools.permutations(lv.pins))
+    perms = searched(lv)
     bad, info = [], []
     any_win, flaky, errors = [], [], []
     solid = []

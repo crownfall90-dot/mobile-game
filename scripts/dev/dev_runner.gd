@@ -185,6 +185,9 @@ func _act(id: String) -> void:
 	var strokes: Dictionary = _level.data.get("strokes", {})
 	if _level.pin_by_id(id) == null and strokes.has(id):
 		await _stroke(strokes[id])
+	elif (id == "cw" or id == "ccw") and _level.can_rotate():
+		print("rotate ", id)
+		_level.rotate_world(1 if id == "cw" else -1)
 	elif _level.pipe_by_id(id) != null:
 		print("flip ", id)
 		_level.flip_pipe(id)
