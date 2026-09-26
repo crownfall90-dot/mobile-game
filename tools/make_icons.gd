@@ -4,15 +4,22 @@ extends SceneTree
 ##   icon_192.png — старая иконка лаунчера: фон + рисунок, скруглённый квадрат;
 ##   icon_512.png — иконка Google Play: квадрат без скругления (маску накладывает Play);
 ##   res://icon.svg — иконка проекта.
+## Если художник положил PNG-слои в art/act1/icon/ (icon_fg.png, icon_bg.png, icon_mono.png,
+## каждый 1024×1024 на сетке 108 dp), иконки собираются из них, а не из SVG.
 ## Запуск: godot --headless --path . --script res://tools/make_icons.gd
 
 const DIR := "res://art/app/"
+const ART := "res://art/act1/icon/"
 const FULL := Rect2(0, 0, 108, 108)
 const LEGACY := Rect2(16, 16, 76, 76)   # видимая часть слоёв для 192 и icon.svg
 const PLAY := Rect2(14, 14, 80, 80)
 
 
 func _initialize() -> void:
+	if FileAccess.file_exists(ART + "icon_fg.png") and FileAccess.file_exists(ART + "icon_bg.png") \
+			and FileAccess.file_exists(ART + "icon_mono.png"):
+		quit(0 if _from_png() else 1)
+		return
 	var bg := _inner("icon_bg.svg")
 	var fg := _inner("icon_fg.svg")
 	var mono := _inner("icon_mono.svg")
@@ -63,4 +70,66 @@ func _png(svg: String, file: String) -> bool:
 		return false
 	var err := img.save_png(ProjectSettings.globalize_path(DIR + file))
 	print("icon: %s %dx%d %s" % [file, px, px, "ok" if err == OK else error_string(err)])
+	return err == OK
+
+
+# --- из PNG художника --------------------------------------------------------------
+
+func _from_png() -> bool:
+	var fg := _load(ART + "icon_fg.png")
+	var bg := _load(ART + "icon_bg.png")
+	var mono := _load(ART + "icon_mono.png")
+	if fg == null or bg == null or mono == null:
+		return false
+	var ok := _save(_scaled(fg, 432), "icon_fg_432.png")
+	ok = _save(_scaled(bg, 432), "icon_bg_432.png") and ok
+	ok = _save(_scaled(mono, 432), "icon_mono_432.png") and ok
+	var full := bg.duplicate() as Image
+	full.convert(Image.FORMAT_RGBA8)
+	full.blend_rect(fg, Rect2i(Vector2i.ZERO, fg.get_size()), Vector2i.ZERO)
+	ok = _save(_scaled(_crop(full, PLAY), 512), "icon_512.png") and ok
+	var legacy := _scaled(_crop(full, LEGACY), 192)
+	_round(legacy, 192.0 * 15.0 / LEGACY.size.x)
+	ok = _save(legacy, "icon_192.png") and ok
+	return ok
+
+
+func _load(path: String) -> Image:
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if img == null or img.get_width() != img.get_height():
+		push_error("make_icons: %s must be a square PNG" % path)
+		return null
+	img.convert(Image.FORMAT_RGBA8)
+	return img
+
+
+## Часть сетки 108 dp (Rect2 в dp) из квадратной картинки любого размера.
+func _crop(img: Image, dp: Rect2) -> Image:
+	var k := img.get_width() / 108.0
+	return img.get_region(Rect2i(roundi(dp.position.x * k), roundi(dp.position.y * k), roundi(dp.size.x * k), roundi(dp.size.y * k)))
+
+
+func _scaled(img: Image, px: int) -> Image:
+	var out := img.duplicate() as Image
+	out.resize(px, px, Image.INTERPOLATE_LANCZOS)
+	return out
+
+
+## Скруглённые углы для старой иконки лаунчера: снаружи дуги — прозрачно, край сглажен.
+func _round(img: Image, r: float) -> void:
+	var n := img.get_width()
+	for y in n:
+		for x in n:
+			var cx := clampf(x + 0.5, r, n - r)
+			var cy := clampf(y + 0.5, r, n - r)
+			var d := Vector2(x + 0.5 - cx, y + 0.5 - cy).length()
+			if d > r - 1.0:
+				var c := img.get_pixel(x, y)
+				c.a *= clampf(r - d, 0.0, 1.0)
+				img.set_pixel(x, y, c)
+
+
+func _save(img: Image, file: String) -> bool:
+	var err := img.save_png(ProjectSettings.globalize_path(DIR + file))
+	print("icon: %s %dx%d %s" % [file, img.get_width(), img.get_height(), "ok" if err == OK else error_string(err)])
 	return err == OK
