@@ -12,24 +12,15 @@ const SCREENS := {
 	&"novel": "res://scripts/screens/novel_screen.gd",
 	&"loading": "res://scripts/screens/loading_screen.gd",
 	&"hub": "res://scripts/screens/hub_screen.gd",
-	&"map": "res://scripts/screens/map_screen.gd",
 	&"game": "res://scripts/screens/game_screen.gd",
-	&"wardrobe": "res://scripts/screens/wardrobe_screen.gd",
-	&"grimoire": "res://scripts/screens/grimoire_screen.gd",
 }
 const POPUPS := {
 	&"shop": "res://scripts/popups/shop_popup.gd",
 	&"pause": "res://scripts/popups/pause_popup.gd",
-	&"result": "res://scripts/popups/result_popup.gd",
-	&"chest": "res://scripts/popups/chest_popup.gd",
 	&"settings": "res://scripts/popups/settings_popup.gd",
 	&"album": "res://scripts/popups/album_popup.gd",
 	&"howto": "res://scripts/popups/howto_popup.gd",
 	&"confirm": "res://scripts/popups/confirm_popup.gd",
-	&"intro_card": "res://scripts/popups/intro_card.gd",
-	&"story_card": "res://scripts/popups/story_card.gd",
-	&"floor_complete": "res://scripts/popups/floor_complete.gd",
-	&"daily": "res://scripts/popups/daily_popup.gd",
 }
 const POPUP_DIR := "res://scripts/popups/"
 const DEV_RUNNER := "res://scripts/dev/dev_runner.gd"

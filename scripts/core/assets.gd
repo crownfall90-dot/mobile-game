@@ -7,7 +7,7 @@ extends Node
 ## подгружает следующую локацию.
 
 const MAX_ACTIVE := 2
-const KEEP := 60
+const KEEP := 40            # ~2 локации: фон 1440×3120 в памяти ≈ 18 МБ
 const ART := "res://art/act1/"
 
 var _queue: Array[String] = []
