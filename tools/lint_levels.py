@@ -389,8 +389,8 @@ def _lint(d, path, index, rep):
         else:
             _unknown(src, {"pos", "kind", "count", "rate", "delay", "x1"}, "source", rep)
     for i, hz in enumerate(_list(d, "hazards", rep)):
-        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire", "leak", "mold"):
-            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill, wire, leak or mold")
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill", "wire", "leak", "mold", "spill"):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket, sill, wire, leak, mold or spill")
     # «лови капли»: труба с дырами и мышь; ходы — сценарии по времени в "scripts"
     leak = d.get("leak")
     if leak is not None:
@@ -517,7 +517,7 @@ def _lint(d, path, index, rep):
         if not isinstance(e, dict) or not is_point(e.get("pos")):
             rep.err(f"{where}: pos must be [x, y]")
             continue
-        _unknown(e, {"kind", "pos", "fixed"}, where, rep)
+        _unknown(e, {"kind", "pos", "fixed", "swell"}, where, rep)
         n_enemies += 1
         if not one_of(e.get("kind", "slime"), ENEMY_KINDS):
             rep.err(f"{where}: kind must be one of {', '.join(sorted(ENEMY_KINDS))}")

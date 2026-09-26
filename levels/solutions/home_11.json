@@ -1,5 +1,3 @@
 [
-  ["gold", "water", "left", "right"],
-  ["water", "left", "right", "gold", "trap"],
-  ["left", "water", "right", "gold", "trap"]
+  ["P", "A"]
 ]
