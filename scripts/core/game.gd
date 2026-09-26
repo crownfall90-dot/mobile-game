@@ -122,7 +122,7 @@ static func parse_flags(args: PackedStringArray) -> Dictionary:
 		var key := parts[0]
 		var val := parts[1] if parts.size() > 1 else ""
 		match key:
-			"level", "file", "screen", "shot", "home-stage", "home-items", "screen-args":
+			"level", "file", "screen", "shot", "home-stage", "home-items", "screen-args", "profile-flags":
 				d[key] = val
 			"autoplay", "all-at-once", "json", "smoke", "home-selfcheck":
 				d[key.replace("-", "_")] = true

@@ -119,10 +119,11 @@ func play_repair(id: String) -> void:
 
 
 ## Несделанная цель под точкой поля сцены (верхняя по z); {} — ничего.
-func target_at(p: Vector2) -> Dictionary:
+## Сломанная вещь под пальцем (repaired = true — уже починенная, для повтора ради звёзд).
+func target_at(p: Vector2, repaired := false) -> Dictionary:
 	var best := {}
 	for t: Dictionary in loc.get("targets", []):
-		if _done.get(t["id"], false) or _anim.has(t["id"]):
+		if bool(_done.get(t["id"], false)) != repaired or _anim.has(t["id"]):
 			continue
 		var hit := _rect(t).grow(12).has_point(p)
 		for extra: Array in t.get("more", []):
@@ -235,6 +236,24 @@ func _draw() -> void:
 				HomeArt.draw_decor(self, d["id"], r, Transform2D(sway, foot))
 
 
+## После «Праздника новоселья» — флажки-гирлянда под потолком, чуть колышутся.
+func _draw_bunting() -> void:
+	if not Profile.flag("seen.novel.housewarming"):
+		return
+	var colors := [Color("e8574a"), Color("f2c14e"), Color("5fae62"), Color("4a90d9"), Color("c77dd8")]
+	var y0 := 260.0
+	var pts := PackedVector2Array()
+	for i in 13:
+		var x := i * size.x / 12.0
+		pts.append(Vector2(x, y0 + sin(i * 0.52) * 38.0 + 30.0 + sin(_t * 1.5 + i) * 2.0))
+	_canvas.draw_polyline(pts, Color("7a5a3a"), 3.0, true)
+	for i in 12:
+		var a := pts[i].lerp(pts[i + 1], 0.2)
+		var b := pts[i].lerp(pts[i + 1], 0.8)
+		var tip := (a + b) * 0.5 + Vector2(sin(_t * 2.0 + i) * 3.0, 34.0)
+		_canvas.draw_colored_polygon(PackedVector2Array([a, b, tip]), colors[i % colors.size()])
+
+
 ## Пылинки в воздухе, пока комната запущена: медленно плывут и поблёскивают.
 func _draw_dust() -> void:
 	if _wear < 0.2:
@@ -275,6 +294,8 @@ func paint_front(ci: Node2D) -> void:
 		if not _done.get(t["id"], false):
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)))
 	_draw_teddy(ci)
+	_canvas = ci
+	_draw_bunting()
 	if show_targets:
 		for t: Dictionary in list:
 			if not _done.get(t["id"], false) and not _anim.has(t["id"]):
@@ -319,7 +340,6 @@ func _draw_teddy(ci: Node2D) -> void:
 	r.position.y += sin(_t * 2.2) * 1.5
 	_canvas = ci
 	_fit(_teddy, r)
-	_canvas = self
 
 
 func _sorted() -> Array:

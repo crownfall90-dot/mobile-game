@@ -21,6 +21,19 @@ func open(_args: Dictionary) -> void:
 	var note := UiKit.body(caption, 24, UiKit.TEXT)
 	note.custom_minimum_size.x = 480
 	content.add_child(note)
+	# цели главы: сюжет и «Праздник новоселья» — все звёзды и все покупки
+	var g := goals()
+	var lines := "Ремонты %d/%d · Фото %d/4 · Звёзды %d/%d · Уют %d/%d" % [g.repairs, g.repairs_total,
+		n, g.stars, g.stars_total, g.items, g.items_total]
+	var goal := UiKit.body(lines, 22, UiKit.GOLD)
+	goal.custom_minimum_size.x = 500
+	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(goal)
+	if not available("housewarming"):
+		var aim := UiKit.body("Главная цель: все звёзды и все покупки — «Праздник новоселья»", 22, UiKit.TEXT)
+		aim.custom_minimum_size.x = 500
+		aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(aim)
 	for entry: Array in _album():
 		var id := str(entry[0])
 		var open_ := available(id)
@@ -34,9 +47,24 @@ func open(_args: Dictionary) -> void:
 		content.add_child(b)
 
 
+## Прогресс главы: ремонты, звёзды (по 3 за ремонт), покупки магазина.
+static func goals() -> Dictionary:
+	var g := {"repairs": Home.completed(), "repairs_total": Home.total(), "stars": 0,
+		"stars_total": Home.total() * 3, "items": 0, "items_total": Home.SHOP.size()}
+	for t: Dictionary in Home.tasks():
+		g.stars += Profile.best_stars(str(t.get("level", "")))
+	for item: Dictionary in Home.SHOP:
+		if Profile.owns(item.id):
+			g.items += 1
+	return g
+
+
 static func available(id: String) -> bool:
 	if Profile.flag("seen.novel." + id):
 		return true
+	if id == "housewarming":
+		var g := goals()
+		return g.stars >= g.stars_total and g.items >= g.items_total
 	return id.ends_with("_done") and Home.location_done(id.trim_suffix("_done"))
 
 

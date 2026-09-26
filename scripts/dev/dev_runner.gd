@@ -84,6 +84,10 @@ func run(flags: Dictionary) -> void:
 				Profile.set_flag("seen.novel.%s_done" % loc["id"])
 		if Home.completed() >= Home.total():
 			Profile.set_flag("seen.novel.act1_end")
+	# --profile-flags=a,b — флаги профиля для снимков (например seen.novel.housewarming)
+	if flags.has("profile-flags"):
+		for f in str(flags["profile-flags"]).split(",", false):
+			Profile.set_flag(f)
 	if flags.has("home-items"):
 		for id in str(flags["home-items"]).split(",", false):
 			Profile.grant(id)
