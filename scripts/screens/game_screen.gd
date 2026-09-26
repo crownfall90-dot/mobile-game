@@ -33,6 +33,8 @@ var _idle := 0.0              # сколько секунд игрок ниче�
 var _idle_hinted := false
 const IDLE_HINT := 10.0       # после стольких секунд бездействия — подсказка сама
 const HOWTO := preload("res://scripts/popups/howto_popup.gd")
+## Звук действия по механике (id из Level.switched); остальное — щелчок засова.
+const SWITCH_SFX := {"stitch": &"stitch", "dish": &"clink", "pump": &"plunk", "mirror": &"stone_tock", "putty": &"squish"}
 var _result_tween: Tween
 var _pause: Node
 var _repair := ""
@@ -124,8 +126,8 @@ func restart() -> void:
 	level.gold_changed.connect(_hud.set_gold)
 	level.pin_pulled.connect(_on_pin_pulled)
 	level.dug.connect(_on_dug)
-	level.switched.connect(func(_id: String) -> void:
-		Sfx.play(&"pin")
+	level.switched.connect(func(id: String) -> void:
+		Sfx.play(SWITCH_SFX.get(id, &"pin"))
 		Sfx.haptic(15)
 		_hud.hide_hint())
 	level.won.connect(_on_won)
