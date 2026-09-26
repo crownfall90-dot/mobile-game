@@ -41,6 +41,7 @@ var _next := {}
 var _auto := false
 var _start := 0
 var _finished := false
+var _bg_tween: Tween
 var _skipping := false
 var _typing := false
 var _shown := 0.0
@@ -227,6 +228,18 @@ func _safe_bottom(view: Vector2) -> float:
 
 # --- ход сцены ---------------------------------------------------------------
 
+## Закрытие экрана не означает, что игрок просмотрел сцену.
+## Освобождаем ожидающие реплики/выборы до удаления их узлов.
+func _exit_tree() -> void:
+	_finished = true
+	_skipping = true
+	_advance.emit()
+	_chosen.emit(-1)
+	if _bg_tween and _bg_tween.is_running():
+		_bg_tween.kill()
+		_bg_tween.finished.emit()
+
+
 func _play() -> void:
 	var steps := _steps(_scene_id)
 	# для снимков: начало с шага N — предыдущие шаги только расставляют сцену
@@ -266,6 +279,8 @@ func _run(steps: Array) -> void:
 func _step(st: Dictionary) -> void:
 	if st.has("bg"):
 		await _set_bg(st)
+	if _skipping:
+		return
 	if st.has("show"):
 		_show(st["show"])
 	if st.has("gloom"):
@@ -274,8 +289,12 @@ func _step(st: Dictionary) -> void:
 		_hide_card()
 	if st.has("cg"):
 		await _show_card(st)
+	if _skipping:
+		return
 	if st.has("choice"):
 		await _choose(st["choice"])
+	if _skipping:
+		return
 	if st.has("text"):
 		await _line(str(st.get("say", "")), str(st["text"]), str(st.get("mood", "")))
 	if st.has("scene"):
@@ -395,13 +414,15 @@ func _set_bg(st: Dictionary) -> void:
 	if _auto or _bg_node == null:
 		_make_bg(st)
 		return
-	var tw := create_tween()
-	tw.tween_property(_fade, "color:a", 1.0, 0.3)
-	await tw.finished
+	_bg_tween = create_tween()
+	_bg_tween.tween_property(_fade, "color:a", 1.0, 0.3)
+	await _bg_tween.finished
+	if _skipping:
+		return
 	_make_bg(st)
-	tw = create_tween()
-	tw.tween_property(_fade, "color:a", 0.0, 0.35)
-	await tw.finished
+	_bg_tween = create_tween()
+	_bg_tween.tween_property(_fade, "color:a", 0.0, 0.35)
+	await _bg_tween.finished
 
 
 func _make_bg(st: Dictionary) -> void:
@@ -563,6 +584,8 @@ func _choose(options: Array) -> void:
 			create_tween().tween_property(b, "modulate:a", 1.0, 0.25).set_delay(0.1 * i)
 		_layout()
 		pick = await _chosen
+		if _skipping:
+			return
 		for b in _choices.get_children():
 			b.queue_free()
 		await get_tree().process_frame
