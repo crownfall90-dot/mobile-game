@@ -7,6 +7,7 @@ const PUTTY := preload("res://scripts/level/putty.gd")
 const LEAK := preload("res://scripts/level/leak.gd")
 const DISHES := preload("res://scripts/level/dishes.gd")
 const PLUNGER := preload("res://scripts/level/plunger.gd")
+const MIRRORS := preload("res://scripts/level/mirrors.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -82,6 +83,7 @@ var putty: Node2D = null         # «замазка»: игрок рисует �
 var leak: Node2D = null          # «лови капли»: труба течёт, ведро ловит, дыры клеят
 var dish_game: Node2D = null     # «стопка посуды»: качающиеся полки, посуда по одной
 var plunger_game: Node2D = null  # «вантуз»: качать в ритм, засор едет по сифону
+var mirror_game: Node2D = null   # «луч и зеркальца»: повернуть зеркальца, луч — в плафон
 var _bucket_to := 0.0            # куда едет ведро (x)
 var _bucket_rail := Vector2.ZERO # пределы ведра по x
 var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
@@ -176,7 +178,7 @@ func build(level_data: Dictionary) -> void:
 
 	var recv: Dictionary = data.get("receiver", {})
 	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes") \
-		or data.has("plunger")
+		or data.has("plunger") or data.has("mirrors")
 	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
@@ -281,6 +283,27 @@ func build(level_data: Dictionary) -> void:
 		putty = PUTTY.new()
 		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
 		add_child(putty)
+	if data.has("mirrors"):
+		mirror_game = MIRRORS.new()
+		mirror_game.setup(data["mirrors"])
+		mirror_game.turned.connect(func(_id: String) -> void:
+			_acted = true
+			switched.emit("mirror"))
+		mirror_game.locked_tap.connect(func(_id: String) -> void:
+			Sfx.play(&"fizz")
+			say("moth", ["Там моль сидит!", "Посвети на неё!"]))
+		mirror_game.lit.connect(func() -> void:
+			pieces = 1
+			_since_collect = 0.0
+			Sfx.play(&"restore")
+			fx.ring(mirror_game.center(mirror_game.lamp), SPARK, 90.0, 0.5)
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		mirror_game.battery_out.connect(func() -> void:
+			_lose("battery"))
+		mirror_game.moth_left.connect(func(pos: Vector2) -> void:
+			fx.burst(pos, Color("d9c7a1"), 12, 300.0, 4.0, -200.0, 0.6)
+			Sfx.play(&"slime_pop"))
+		add_child(mirror_game)
 	if data.has("plunger"):
 		plunger_game = PLUNGER.new()
 		plunger_game.setup(data["plunger"])
@@ -383,6 +406,11 @@ func build(level_data: Dictionary) -> void:
 		enemies.append(enemy)
 
 	_setup_goal()
+	if mirror_game:
+		# цель — зажечь лампу
+		pieces_total = 1
+		pieces_needed = 1
+		_three_needed = 1
 	if plunger_game:
 		# цель — прогнать засор до конца трубы
 		pieces_total = 1
@@ -569,6 +597,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			plunger_game.pump()
 			get_viewport().set_input_as_handled()
 		return
+	if mirror_game:
+		if event is InputEventScreenTouch and event.pressed:
+			if mirror_game.tap_at(make_input_local(event).position):
+				_acted = true
+			get_viewport().set_input_as_handled()
+		return
 	if dirt:
 		if event is InputEventScreenTouch and not event.pressed:
 			_dig_from = null
@@ -749,6 +783,24 @@ func _on_dish_enemy(enemy: Node) -> void:
 	Sfx.play(&"slime_pop")
 
 
+## Звёзды: у ловкостных механик — по ошибкам, у остальных — по собранному.
+func _timed_stars() -> int:
+	if leak:
+		return 3 - mini(leak.misses, 2)
+	if plunger_game:
+		return 3 - mini(plunger_game.splashes, 2)
+	if mirror_game:
+		var extra: int = mirror_game.taps_used - mirror_game.par
+		return 3 if extra <= 0 else (2 if extra <= 1 else 1)
+	return _stars_for(pieces)
+
+
+## DevRunner: повернуть зеркальце.
+func mirror_tap(id: String) -> void:
+	_acted = true
+	mirror_game.turn(id)
+
+
 ## DevRunner: качнуть вантуз.
 func plunger_pump() -> void:
 	_acted = true
@@ -807,6 +859,8 @@ func _physics_process(delta: float) -> void:
 	_run_source(delta)
 	if leak:
 		_step_leak(delta)
+	if mirror_game:
+		mirror_game.step(delta)
 	if plunger_game:
 		plunger_game.step(delta)
 		if plunger_game.started:
@@ -1033,7 +1087,7 @@ func _update_outcome(delta: float) -> void:
 		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null:
+	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null and mirror_game == null:
 		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
 		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
 		_stuck_total += delta
@@ -1236,8 +1290,7 @@ func _finish(win: bool, reason: String) -> void:
 
 func _snapshot(win: bool, reason: String) -> Dictionary:
 	return {
-		"won": win, "stars": (3 - mini(leak.misses, 2) if leak else (3 - mini(plunger_game.splashes, 2)
-			if plunger_game else _stars_for(pieces))) if win else 0,
+		"won": win, "stars": _timed_stars() if win else 0,
 		"pieces": pieces, "pieces_total": pieces_total, "needed": pieces_needed,
 		"coins_pieces": coins_pieces, "gems": gems, "relic": relic, "reason": reason,
 	}

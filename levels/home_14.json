@@ -1,0 +1,202 @@
+{
+ "format": 2,
+ "id": "home_14",
+ "floor": 1,
+ "title": "Светильник: темно",
+ "hint": "Поворачивай зеркальца — свет в плафон. Моль спугни светом!",
+ "tutorial": "",
+ "intro": "",
+ "hard": false,
+ "theme": "bath_light",
+ "tower": {
+  "rect": [
+   130,
+   200,
+   460,
+   1010
+  ]
+ },
+ "walls": [],
+ "pins": [],
+ "fills": [],
+ "enemies": [],
+ "receiver": {
+  "rect": [
+   300,
+   1330,
+   120,
+   40
+  ],
+  "look": "art",
+  "kind": "gold",
+  "bad": [],
+  "mode": "collect"
+ },
+ "goal": {
+  "pieces": 1,
+  "three_star": 1
+ },
+ "solution": [
+  "light"
+ ],
+ "fails": [
+  [
+   "waste"
+  ],
+  [
+   "wrong"
+  ]
+ ],
+ "verify": {
+  "max_win_share": 0.34,
+  "daily": false
+ },
+ "mirrors": {
+  "origin": [
+   135,
+   250
+  ],
+  "cell": 90,
+  "cols": 5,
+  "rows": 8,
+  "source": [
+   0,
+   7,
+   "up"
+  ],
+  "lamp": [
+   4,
+   0
+  ],
+  "moth": [
+   2,
+   1
+  ],
+  "taps": 5,
+  "par": 3,
+  "scare": 0.6,
+  "items": [
+   {
+    "id": "A",
+    "c": 0,
+    "r": 4,
+    "kind": "\\"
+   },
+   {
+    "id": "B",
+    "c": 2,
+    "r": 4,
+    "kind": "/"
+   },
+   {
+    "id": "C",
+    "c": 2,
+    "r": 1,
+    "kind": "\\"
+   },
+   {
+    "id": "D",
+    "c": 4,
+    "r": 1,
+    "kind": "\\"
+   },
+   {
+    "id": "E",
+    "c": 0,
+    "r": 1,
+    "kind": "/"
+   },
+   {
+    "id": "F",
+    "c": 4,
+    "r": 4,
+    "kind": "\\"
+   },
+   {
+    "id": "w1",
+    "c": 2,
+    "r": 6,
+    "kind": "wall"
+   },
+   {
+    "id": "w2",
+    "c": 3,
+    "r": 3,
+    "kind": "wall"
+   }
+  ]
+ },
+ "scripts": {
+  "light": [
+   [
+    0.0,
+    "tap",
+    "A"
+   ],
+   [
+    1.4,
+    "tap",
+    "C"
+   ],
+   [
+    2.2,
+    "tap",
+    "D"
+   ]
+  ],
+  "waste": [
+   [
+    0.0,
+    "tap",
+    "E"
+   ],
+   [
+    0.5,
+    "tap",
+    "F"
+   ],
+   [
+    1.0,
+    "tap",
+    "B"
+   ],
+   [
+    1.5,
+    "tap",
+    "E"
+   ],
+   [
+    2.0,
+    "tap",
+    "F"
+   ]
+  ],
+  "wrong": [
+   [
+    0.0,
+    "tap",
+    "D"
+   ],
+   [
+    0.5,
+    "tap",
+    "A"
+   ],
+   [
+    1.0,
+    "tap",
+    "B"
+   ],
+   [
+    1.5,
+    "tap",
+    "F"
+   ],
+   [
+    2.0,
+    "tap",
+    "E"
+   ]
+  ]
+ }
+}

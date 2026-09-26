@@ -128,8 +128,8 @@ func restart() -> void:
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
 	_layout()
-	_hud.set_goal_kind("tape" if _data.has("leak") else ("plate" if _data.has("dishes") else ("clog" if _data.has("plunger")
-		else str(_data.get("receiver", {}).get("kind", "gold")))))
+	_hud.set_goal_kind("tape" if _data.has("leak") else ("plate" if _data.has("dishes") else ("clog" if _data.has("plunger") else ("lamp" if _data.has("mirrors")
+		else str(_data.get("receiver", {}).get("kind", "gold"))))))
 	_hud.show_rotate(level.can_rotate())
 	if level.putty:
 		_hud.set_ink(level.putty.ink_left, level.putty.ink)
@@ -277,6 +277,8 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Вода выплеснулась на пол — качай в ритм"
 		"overflow":
 			return "Раковина переполнилась"
+		"battery":
+			return "Батарейка села — лампа не загорелась"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"walled":

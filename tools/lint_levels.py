@@ -46,9 +46,9 @@ WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
             "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate", "putty",
-            "leak", "dishes", "plunger", "scripts", "solution", "fails", "verify"}
-LEAK_EVENTS = ("move", "press", "up", "scare", "drop", "pump")
-TIMED_KEYS = ("leak", "dishes", "plunger")
+            "leak", "dishes", "plunger", "mirrors", "scripts", "solution", "fails", "verify"}
+LEAK_EVENTS = ("move", "press", "up", "scare", "drop", "pump", "tap")
+TIMED_KEYS = ("leak", "dishes", "plunger", "mirrors")
 DISH_KINDS = {"plate", "cup", "bowl", "pot"}
 
 
@@ -434,12 +434,27 @@ def _lint(d, path, index, rep):
         else:
             _unknown(plg, {"path", "start", "push", "slide", "recover", "splashes", "overflow", "sink", "cup", "auto"},
                      "plunger", rep)
+    # «луч и зеркальца»: поле клеток, фонарик, плафон, зеркальца и стены
+    mir = d.get("mirrors")
+    if mir is not None:
+        if not isinstance(mir, dict) or not isinstance(mir.get("items"), list) or not isinstance(mir.get("lamp"), list) \
+                or not isinstance(mir.get("source"), list) or len(mir["source"]) != 3:
+            rep.err("mirrors needs source [c, r, dir], lamp [c, r] and items [{id, c, r, kind}]")
+        else:
+            _unknown(mir, {"origin", "cell", "cols", "rows", "source", "lamp", "items", "moth", "taps", "par", "scare",
+                           "look"}, "mirrors", rep)
+            if mir["source"][2] not in ("up", "down", "left", "right"):
+                rep.err("mirrors.source direction must be up, down, left or right")
+            for i, it in enumerate(mir["items"]):
+                if not isinstance(it, dict) or it.get("kind") not in ("/", "\\", "wall") \
+                        or not isinstance(it.get("c"), int) or not isinstance(it.get("r"), int):
+                    rep.err(f"mirrors.items[{i}]: needs c, r and kind / or \\ or wall")
     scripts = d.get("scripts", {})
     if not isinstance(scripts, dict):
         rep.err("scripts must be an object {name: [[t, action, arg], ...]}")
         scripts = {}
     if scripts and not any(k in d for k in TIMED_KEYS):
-        rep.err("scripts need leak, dishes or plunger")
+        rep.err("scripts need leak, dishes, plunger or mirrors")
     for name, evs in scripts.items():
         if name in pin_ids:
             rep.err(f"scripts: id '{name}' is already used")
