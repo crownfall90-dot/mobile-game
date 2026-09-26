@@ -6,9 +6,9 @@
 | Файл | Статус | Заметки |
 |---|---|---|
 | art/act1/family/family_mood0.png | в игре | Claude: масштаб и ноги в комнате в порядке (снимки 720×1280/1600). |
-| art/act1/family/family_mood1.png | нет | |
-| art/act1/family/family_mood2.png | нет | |
-| art/act1/family/family_mood3.png | нет | |
+| art/act1/family/family_mood1.png | черновик | Та же пара осторожно улыбается, 700×1120; проверить смену без скачка. |
+| art/act1/family/family_mood2.png | черновик | Та же пара радуется, 700×1120; проверить смену без скачка. |
+| art/act1/family/family_mood3.png | черновик | Та же пара счастлива, 700×1120; проверить смену без скачка. |
 | art/act1/room/background.png | в игре | Claude: подключён; окно на фоне в перспективе левой стены — слои окна подгоняются под него. |
 | art/act1/room/room_window_broken.png | переделать | Claude: нужен в перспективе проёма фона, 356×1044, шаблон docs/art_guides/room_window_guide.png. |
 | art/act1/room/room_window_fixed.png | переделать | Claude: то же — по шаблону проёма, 356×1044. |
