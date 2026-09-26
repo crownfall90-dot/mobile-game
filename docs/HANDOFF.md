@@ -487,3 +487,16 @@ SHA-256 `3ade2fbf001f13143d53b7da3df13ae19a070c44c532777e0336bd0950554a24`, то
 "Android" build/vita_unsigned.apk` (без подмены XDG_DATA_HOME); вернуть пресет; подписать
 `uber-apk-signer.jar` ключом `scratchpad/apk/vita-cloud.jks` (алиас `vita`, пароль в
 `ks_pass.txt`); в `scratchpad/apkrepo` (ветка apk-builds) заменить APK и README, push.
+
+## APK 0.8.0 (26.09, 09:52 UTC)
+
+https://github.com/crownfall90-dot/mobile-game/blob/apk-builds/Vita-0.8.0.apk — versionCode 12,
+SHA-256 `39cb79c3c9e326840da7d2f8ccf9476c48059fa739be0d927ea212b30f932c5f`, облачный ключ.
+Вошло: расстановка комнат по просьбам владельца, мишка в руках, таблички глав, загрузка с
+фоновой подгрузкой (autoload `Assets`), звуки дождя/ветра (`scripts/audio/ambience.gd`), дрожь
+семьи и оживление сцены, польза покупок, награда в итоге и правило звёзд в паузе, окна без
+растянутых кнопок, отчёты о сбоях в Sentry (выключены до ключа DSN в `data/telemetry.json`).
+На телефоне не проверено. ChatGPT потерял доступ к GitHub — ТЗ на наполнение локаций
+(`docs/ART_BRIEF.md`, раздел 26.09) владелец передаёт вручную.
+Дальше: понятность уровней (обучение каждой механики), новый контент (акт 2), живость
+предметов по мере картинок от ChatGPT.
