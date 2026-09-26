@@ -137,7 +137,7 @@ Loc склеивает все файлы при старте (по алфави�
 Примеры:
 
 ```sh
-godot --headless --path . --fixed-fps 60 -- --level=f1_05 --autoplay --json
+godot --headless --path . --fixed-fps 60 -- --level=home_05 --autoplay --json
 xvfb-run -a -s "-screen 0 720x1280x24" godot --path . --rendering-driver opengl3 \
   --resolution 720x1280 -- --level=f1_05 --shot=/tmp/start.png@2.5
 tools/test_levels.sh
