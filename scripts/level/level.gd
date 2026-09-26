@@ -2,6 +2,7 @@ class_name Level
 extends Node2D
 const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
 const RECEIVER := preload("res://scripts/level/receiver.gd")   # не зависит от кэша class_name
+const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -18,6 +19,8 @@ signal reaction(id: StringName, pos: Vector2, info: Dictionary)
 signal collected(kind: StringName, pos: Vector2)
 ## Палец выкопал землю (для звука и лёгкой вибрации).
 signal dug(pos: Vector2)
+## Повернули колено трубы (или другой переключатель мини-игры).
+signal switched(id: String)
 
 const DESIGN_SIZE := Vector2(720, 1280)
 const CHAIN_RADIUS := 25.0      # на каком расстоянии остывание перекидывается на соседнюю лаву
@@ -68,6 +71,7 @@ var data: Dictionary = {}
 var items: Array[Item] = []
 var enemies: Array[Enemy] = []
 var pins: Array[Pin] = []
+var pipes: Array = []            # «живые трубы»: PipeSwitch
 var hero: Hero
 var fx: Fx
 var camera: Camera2D   # для тряски экрана; задаёт GameScreen (null — без тряски)
@@ -124,6 +128,12 @@ var _stuck_timer := -1.0
 var _drown_time := 0.0
 var _shake := 0.0
 var _scare_timer := 0.0
+var _source: Dictionary = {}     # вода, которая уже бежит: {pos, kind, count, rate, delay}
+var _source_left := 0
+var _source_acc := 0.0
+var _source_time := 0.0
+var _hazard_hits: Array = []     # [тело, вид опасности]
+var _hazard_arts: Array = []
 
 
 ## Таблица реакций: пара веществ -> обработчик. Новая реакция — одна строка здесь.
@@ -229,6 +239,14 @@ func build(level_data: Dictionary) -> void:
 		pins.append(pin)
 		glint += 0.7
 
+	for pp in data.get("pipes", []):
+		var ps = PIPE_SWITCH.new()
+		ps.setup(str(pp["id"]), _vec(pp["pos"]), bool(pp.get("right", true)), float(pp.get("size", 150.0)))
+		add_child(ps)
+		pipes.append(ps)
+	for hz in data.get("hazards", []):
+		_add_hazard(_rect(hz["rect"]), str(hz.get("kind", "socket")))
+
 	fx = Fx.new()
 	add_child(fx)
 
@@ -264,6 +282,15 @@ func build(level_data: Dictionary) -> void:
 		if _is_goal(kind):
 			pieces_total += n
 
+	_source = data.get("source", {})
+	if not _source.is_empty():
+		_source_left = int(_source.get("count", 40))
+		var skind := Substances.from_name(str(_source.get("kind", "water")))
+		if Substances.is_fluid(skind):
+			fluid_count += _source_left
+		if _is_goal(skind):
+			pieces_total += _source_left
+
 	for e in data.get("enemies", []):
 		var enemy := Enemy.new()
 		enemy.setup(_jittered(_vec(e["pos"])), hero.position + Vector2(0, -70), report_contact)
@@ -282,6 +309,27 @@ func pin_by_id(pin_id: String) -> Pin:
 		if pin.id == pin_id:
 			return pin
 	return null
+
+
+func pipe_by_id(pipe_id: String) -> Node:
+	for pp in pipes:
+		if pp.id == pipe_id:
+			return pp
+	return null
+
+
+## Повернуть колено трубы (палец или DevRunner). false — такого колена нет.
+func flip_pipe(pipe_id: String) -> bool:
+	var pp := pipe_by_id(pipe_id)
+	if pp == null or finished:
+		return pp != null
+	pp.flip()
+	_pulled.append(pipe_id)
+	_acted = true
+	fx.ring(pp.position + Vector2(0, -pp.size * 0.28), PIPE_SWITCH.KNOB, 30.0)
+	_wake_all()
+	switched.emit(pipe_id)
+	return true
 
 
 func pull_pin(pin: Pin) -> void:
@@ -304,6 +352,8 @@ func pulled_ids() -> PackedStringArray:
 func set_hint_pin(pin_id: String) -> void:
 	for pin in pins:
 		pin.set_hint(pin_id != "" and pin.id == pin_id and not pin.pulled)
+	for pp in pipes:
+		pp.hinted = pin_id != "" and pp.id == pin_id
 	if _dig_hint and pin_id == "":
 		_dig_hint.set_paths([])
 
@@ -355,6 +405,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventScreenTouch and event.pressed):
 		return
 	var p: Vector2 = make_input_local(event).position
+	for pp in pipes:
+		if pp.hit(p):
+			flip_pipe(pp.id)
+			get_viewport().set_input_as_handled()
+			return
 	var best: Pin = null
 	var best_d := Pin.HIT_RADIUS
 	for pin in pins:
@@ -408,6 +463,12 @@ func _physics_process(delta: float) -> void:
 		for b in hits:
 			_on_zone_hit(b)
 	_process_cooling(delta)
+	_run_source(delta)
+	if not _hazard_hits.is_empty():
+		var hh := _hazard_hits
+		_hazard_hits = []
+		for h in hh:
+			_on_hazard(h[0], h[1])
 	_check_drowning(delta)
 	_count_fill()
 	_walk(delta)
@@ -606,8 +667,8 @@ func _update_outcome(delta: float) -> void:
 			_win()
 		return
 	if _stuck_timer >= 0.0:
-		# где копают, вода может долго бежать по ходам: «застряли» — только когда всё успокоилось
-		_stuck_timer = 0.0 if dirt and _anything_moving() else _stuck_timer + delta
+		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось
+		_stuck_timer = 0.0 if (dirt or _source_left > 0 or not _source.is_empty()) and _anything_moving() else _stuck_timer + delta
 		if _stuck_timer > STUCK_TIMEOUT:
 			_lose("stuck")
 
@@ -830,6 +891,98 @@ func _on_pin_out(_pin: Pin) -> void:
 		if not pin.pulled:
 			return
 	_stuck_timer = 0.0
+
+
+# --- вода из трубы и опасности -----------------------------------------------
+
+## Вода уже бежит: через delay секунд источник выпускает count капель со скоростью rate в секунду.
+func _run_source(delta: float) -> void:
+	if _source_left <= 0 or finished:
+		return
+	_source_time += delta
+	if _source_time < float(_source.get("delay", 1.0)):
+		return
+	_acted = true
+	_source_acc += delta * float(_source.get("rate", 12.0))
+	var kind := Substances.from_name(str(_source.get("kind", "water")))
+	var at := _vec(_source["pos"])
+	while _source_acc >= 1.0 and _source_left > 0:
+		_source_acc -= 1.0
+		_source_left -= 1
+		var item := _spawn_item(kind, at + Vector2(float(_source_left % 5 - 2) * 4.0, 0.0))
+		item.linear_velocity = Vector2(0, 140)
+	if _source_left == 0 and _stuck_timer < 0.0:
+		_stuck_timer = 0.0
+
+
+## Опасное место: розетка. Вода в ней — искры и поражение.
+func _add_hazard(r: Rect2, kind: String) -> void:
+	var area := Area2D.new()
+	area.collision_layer = 0
+	area.collision_mask = Substances.LAYER_ITEMS
+	area.monitorable = false
+	var shape := RectangleShape2D.new()
+	shape.size = r.size
+	var cs := CollisionShape2D.new()
+	cs.shape = shape
+	cs.position = r.get_center()
+	area.add_child(cs)
+	area.body_entered.connect(func(b: Node2D) -> void: _hazard_hits.append([b, kind]))
+	add_child(area)
+	var art := HazardArt.new()
+	art.rect = r
+	art.kind = kind
+	add_child(art)
+	_hazard_arts.append(art)
+
+
+func _on_hazard(body: Node, kind: String) -> void:
+	if finished or not (body is Item) or not _alive(body):
+		return
+	var item: Item = body
+	if not Substances.is_fluid(item.kind):
+		return
+	for art in _hazard_arts:
+		if art.rect.grow(20).has_point(item.position):
+			art.spark()
+			fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
+	_lose(kind)
+
+
+## Розетка на стене: белая пластина, два отверстия; при беде — искры.
+class HazardArt extends Node2D:
+	var rect := Rect2()
+	var kind := "socket"
+	var _flash := 0.0
+
+	func spark() -> void:
+		_flash = 1.0
+		create_tween().tween_property(self, "_flash", 0.0, 0.8)
+
+	func _process(_delta: float) -> void:
+		if _flash > 0.0:
+			queue_redraw()
+
+	func _draw() -> void:
+		var c := rect.get_center()
+		var r := Rect2(c - Vector2(34, 34), Vector2(68, 68))
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("f4f1ea")
+		box.border_color = Color("8a8078")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(12)
+		draw_style_box(box, r)
+		draw_circle(c, 22.0, Color("e2ddd3"))
+		for sx in [-9.0, 9.0]:
+			draw_circle(c + Vector2(sx, 0), 4.5, Color("3a3230"))
+		# предупреждающая молния
+		var z := c + Vector2(0, -52)
+		draw_colored_polygon(PackedVector2Array([z + Vector2(-4, -14), z + Vector2(6, -14), z + Vector2(0, -2),
+			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
+		if _flash > 0.0:
+			for i in 8:
+				var a := i * TAU / 8.0
+				draw_line(c, c + Vector2(cos(a), sin(a)) * (30.0 + 40.0 * _flash), Color(1.0, 0.9, 0.3, _flash), 4.0)
 
 
 # --- служебное --------------------------------------------------------------

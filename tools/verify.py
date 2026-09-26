@@ -12,7 +12,9 @@
 
 Ворота:
   G1  tools/lint_levels.py без ошибок
-  G2  решение выигрывает: интервал 1.5 с при jitter 0, 1, 2; 0.8 с при 0; settle при 0
+  G2  решение выигрывает: интервал 1.5 с при jitter 0, 1, 2; 0.8 с при 0; settle при 0.
+      «Живые» уровни (verify.live: вода уже бежит, игрок действует по ходу потока) вместо
+      0.8 с и settle проверяются темпом человека: 1.3 с и 1.7 с при jitter 0
   G3  при 1.5 с и jitter 0: 3 звезды и ингредиент, если он есть
   G4  каждый порядок из fails проигрывает при jitter 0 и 1; у 2+ засовов fails не пуст
   G5  3+ засова: все засовы в одном кадре не выигрывают (jitter 0 и 1)
@@ -93,6 +95,7 @@ class Level:
         self.pins = [str(p["id"]) for p in _items(data, "pins") if isinstance(p, dict) and "id" in p]
         strokes = data.get("strokes", {}) if data else {}
         self.pins += [str(k) for k in strokes] if isinstance(strokes, dict) else []
+        self.pins += [str(p["id"]) for p in _items(data, "pipes") if isinstance(p, dict) and "id" in p]
         self.solution = tuple(str(x) for x in _items(data, "solution"))
         self.fails = [tuple(str(x) for x in o) for o in _items(data, "fails") if isinstance(o, list)]
         fills = _items(data, "fills")
@@ -101,6 +104,8 @@ class Level:
         v = data.get("verify", {}) if data else {}
         self.daily = not (isinstance(v, dict) and v.get("daily") is False)
         self.cap = lint.cap_for(data, self.info) if data else lint.DEFAULT_CAP
+        v = data.get("verify") if isinstance(data, dict) and isinstance(data.get("verify"), dict) else {}
+        self.live = bool(v.get("live", False))
         self.specs = {}          # key -> spec
         self.results = {}        # key -> исход
         self.meta = {}           # ключ кэша
@@ -128,11 +133,18 @@ class Level:
         return self.results.get(spec_key(s))
 
 
+def tempos(lv):
+    """Темпы G2: обычный уровень — ещё быстрый и «по успокоению»; живой — темп человека."""
+    return (("1.3", "1.3 s seed 0"), ("1.7", "1.7 s seed 0")) if lv.live else \
+        (("0.8", "0.8 s seed 0"), ("settle", "settle seed 0"))
+
+
 def plan(lv, quick):
     sol = lv.solution
-    for s in (spec(sol, NORMAL, 0), spec(sol, NORMAL, 1), spec(sol, NORMAL, 2),
-              spec(sol, "0.8", 0), spec(sol, "settle", 0)):
+    for s in (spec(sol, NORMAL, 0), spec(sol, NORMAL, 1), spec(sol, NORMAL, 2)):
         lv.add(s)
+    for t, _label in tempos(lv):
+        lv.add(spec(sol, t, 0))
     for f in lv.fails:
         lv.add(spec(f, NORMAL, 0))
         lv.add(spec(f, NORMAL, 1))
@@ -304,8 +316,7 @@ def judge(lv, quick):
     # G2
     bad = []
     for s, label in ((spec(sol, NORMAL, 0), "1.5 s seed 0"), (spec(sol, NORMAL, 1), "1.5 s seed 1"),
-                     (spec(sol, NORMAL, 2), "1.5 s seed 2"), (spec(sol, "0.8", 0), "0.8 s seed 0"),
-                     (spec(sol, "settle", 0), "settle seed 0")):
+                     (spec(sol, NORMAL, 2), "1.5 s seed 2")) + tuple((spec(sol, t, 0), lb) for t, lb in tempos(lv)):
         r = lv.res(s)
         if not won(r):
             bad.append(f"solution {label}: {outcome(r)}")

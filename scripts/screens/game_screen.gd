@@ -116,6 +116,10 @@ func restart() -> void:
 	level.gold_changed.connect(_hud.set_gold)
 	level.pin_pulled.connect(_on_pin_pulled)
 	level.dug.connect(_on_dug)
+	level.switched.connect(func(_id: String) -> void:
+		Sfx.play(&"pin")
+		Sfx.haptic(15)
+		_hud.hide_hint())
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
@@ -245,6 +249,8 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Средство разъело %s" % where
 		"water":
 			return "Вода залила %s" % where
+		"socket":
+			return "Вода попала в розетку — искры!"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"stuck":
