@@ -23,6 +23,10 @@ const PLACE_BROKEN := Color(0.85, 0.35, 0.3)
 const PLACE_FIXED := Color(0.3, 0.7, 0.4)
 const GLOW := Color("ffe7a1")
 const EXTEND_PAD := 1200.0
+## Мишка из магазина у Виты в руках. На картинке пары мама+дочка (family_mood*) — доли размера
+## картинки: свободная рука дочки; в локациях с отдельными позами — "teddy": [x, y, w, h].
+const TEDDY := "res://art/home/teddy.png"
+const TEDDY_ON_PAIR := Rect2(0.74, 0.62, 0.19, 0.13)
 const WEAR_SHADER := preload("res://shaders/wear.gdshader")
 const WEAR_SPEED := 0.5           # за сколько секунд комната светлеет после ремонта (~2 с)
 
@@ -43,6 +47,7 @@ var _bg_sprite: Sprite2D         # фон под износом (шейдер we
 var _wear := -1.0                # текущий общий износ; -1 — ещё не выставлен
 var _spot := {}                  # id цели -> сила грязного пятна вокруг неё, 0..1
 var _cracks := {}                # id цели -> ломаные трещин (считаются один раз)
+var _teddy: Texture2D
 var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
 var _hop := {}                   # img отдельного слоя -> подскок (радость), px
 
@@ -71,6 +76,8 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 	for d: Dictionary in loc.get("decor", []):
 		_tex["decor_" + str(d["id"])] = _load(str(d["id"]))
 		HomeArt.preload_decor(str(d["id"]))
+	# картинки — заранее: загрузка во время рисования даёт белый прямоугольник в первом кадре
+	_teddy = load(TEDDY) if ResourceLoader.exists(TEDDY) else null
 	_family = Sprite2D.new()
 	_family.centered = false
 	add_child(_family)
@@ -221,6 +228,7 @@ func paint_front(ci: Node2D) -> void:
 	for t: Dictionary in list:
 		if not _done.get(t["id"], false):
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)))
+	_draw_teddy(ci)
 	if show_targets:
 		for t: Dictionary in list:
 			if not _done.get(t["id"], false) and not _anim.has(t["id"]):
@@ -233,6 +241,26 @@ func paint_front(ci: Node2D) -> void:
 					ci.draw_circle(c, 9.0, Color(GLOW, a + 0.3))
 				else:
 					ci.draw_rect(_rect(t).grow(6), Color(GLOW, a), false, 4.0)
+	_canvas = self
+
+
+## Мишка поверх семьи: у пары — в свободной руке дочки, у отдельных поз — по "teddy" локации.
+func _draw_teddy(ci: Node2D) -> void:
+	if _teddy == null or not Profile.owns("vita_teddy"):
+		return
+	var r := Rect2()
+	if _family.visible and _family.texture:
+		var ts := _family.texture.get_size() * _family.scale
+		r = Rect2(_family.position + TEDDY_ON_PAIR.position * ts, TEDDY_ON_PAIR.size * ts)
+	elif loc.has("teddy"):
+		var v: Array = loc["teddy"]
+		r = Rect2(v[0], v[1], v[2], v[3])
+	else:
+		return
+	# чуть покачивается вместе с дочкой
+	r.position.y += sin(_t * 2.2) * 1.5
+	_canvas = ci
+	_fit(_teddy, r)
 	_canvas = self
 
 
