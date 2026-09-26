@@ -186,7 +186,7 @@ func _play(order: PackedStringArray) -> void:
 func _act(id: String) -> void:
 	var scripts: Dictionary = _level.data.get("scripts", {})
 	if (_level.leak != null or _level.dish_game != null or _level.plunger_game != null
-			or _level.mirror_game != null) and scripts.has(id):
+			or _level.mirror_game != null or _level.sew_game != null) and scripts.has(id):
 		await _leak_script(scripts[id])
 		return
 	var strokes: Dictionary = _level.data.get("strokes", {})
@@ -210,6 +210,7 @@ func _act(id: String) -> void:
 ## [t, "press", id] палец на дыру, [t, "up"] убрать палец, [t, "scare"] мышь.
 ## «Стопка посуды»: [t, "drop", x, y] — отпустить посуду в точке (ждёт, пока она появится).
 ## «Вантуз»: [t, "pump"] — качнуть. «Луч и зеркальца»: [t, "tap", id] — повернуть зеркальце.
+## «Сшей диван»: [t, "stitch", id] — стежок, [t, "spring", id] — спрятать пружину, [t, "scare"] — мышь.
 ## При --jitter каждое событие сдвигается на ±LEAK_JITTER (рука человека не точна).
 func _leak_script(events: Array) -> void:
 	print("leak script ", events.size(), " events")
@@ -230,7 +231,11 @@ func _leak_script(events: Array) -> void:
 			"up":
 				_level.leak_release()
 			"scare":
-				_level.leak_scare()
+				_level.scare_intruder()
+			"stitch":
+				_level.sew_stitch(str(ev[2]))
+			"spring":
+				_level.sew_spring(str(ev[2]))
 			"pump":
 				_level.plunger_pump()
 			"tap":

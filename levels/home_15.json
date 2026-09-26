@@ -1,0 +1,202 @@
+{
+ "format": 2,
+ "id": "home_15",
+ "floor": 1,
+ "title": "Диван: порвалась обивка",
+ "hint": "Шей зигзагом: слева, справа, слева… Пружину — спрячь тапом!",
+ "tutorial": "",
+ "intro": "",
+ "hard": false,
+ "theme": "sofa",
+ "tower": {
+  "rect": [
+   130,
+   200,
+   460,
+   1010
+  ]
+ },
+ "walls": [],
+ "pins": [],
+ "fills": [],
+ "enemies": [],
+ "receiver": {
+  "rect": [
+   300,
+   1330,
+   120,
+   40
+  ],
+  "look": "art",
+  "kind": "gold",
+  "bad": [],
+  "mode": "collect"
+ },
+ "goal": {
+  "pieces": 10,
+  "three_star": 10
+ },
+ "solution": [
+  "sew"
+ ],
+ "fails": [
+  [
+   "straight"
+  ],
+  [
+   "spring"
+  ]
+ ],
+ "verify": {
+  "max_win_share": 0.34,
+  "daily": false
+ },
+ "sew": {
+  "top": [
+   360,
+   300
+  ],
+  "step": 150,
+  "gap": 70,
+  "pairs": 5,
+  "hide": 3.0,
+  "knots": 3,
+  "springs": [
+   {
+    "id": "s1",
+    "pair": 2
+   },
+   {
+    "id": "s2",
+    "pair": 4
+   }
+  ],
+  "mouse": {
+   "at": 2.5,
+   "speed": 160,
+   "gnaw": 1.5
+  }
+ },
+ "scripts": {
+  "sew": [
+   [
+    0.0,
+    "stitch",
+    "L1"
+   ],
+   [
+    0.5,
+    "stitch",
+    "R1"
+   ],
+   [
+    1.0,
+    "stitch",
+    "L2"
+   ],
+   [
+    1.3,
+    "spring",
+    "s1"
+   ],
+   [
+    1.6,
+    "stitch",
+    "R2"
+   ],
+   [
+    2.1,
+    "stitch",
+    "L3"
+   ],
+   [
+    2.6,
+    "stitch",
+    "R3"
+   ],
+   [
+    3.4,
+    "scare"
+   ],
+   [
+    3.9,
+    "stitch",
+    "L4"
+   ],
+   [
+    4.2,
+    "spring",
+    "s2"
+   ],
+   [
+    4.7,
+    "stitch",
+    "R4"
+   ],
+   [
+    5.2,
+    "stitch",
+    "L5"
+   ],
+   [
+    5.7,
+    "stitch",
+    "R5"
+   ]
+  ],
+  "straight": [
+   [
+    0.0,
+    "stitch",
+    "L1"
+   ],
+   [
+    0.5,
+    "stitch",
+    "L2"
+   ],
+   [
+    1.0,
+    "stitch",
+    "L3"
+   ],
+   [
+    1.5,
+    "stitch",
+    "L4"
+   ]
+  ],
+  "spring": [
+   [
+    0.0,
+    "stitch",
+    "L1"
+   ],
+   [
+    0.5,
+    "stitch",
+    "R1"
+   ],
+   [
+    1.0,
+    "stitch",
+    "L2"
+   ],
+   [
+    1.5,
+    "stitch",
+    "R2"
+   ],
+   [
+    2.0,
+    "stitch",
+    "R2"
+   ],
+   [
+    2.5,
+    "stitch",
+    "R2"
+   ]
+  ]
+ }
+}

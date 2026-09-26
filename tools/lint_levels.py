@@ -46,9 +46,9 @@ WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
             "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate", "putty",
-            "leak", "dishes", "plunger", "mirrors", "scripts", "solution", "fails", "verify"}
-LEAK_EVENTS = ("move", "press", "up", "scare", "drop", "pump", "tap")
-TIMED_KEYS = ("leak", "dishes", "plunger", "mirrors")
+            "leak", "dishes", "plunger", "mirrors", "sew", "scripts", "solution", "fails", "verify"}
+LEAK_EVENTS = ("move", "press", "up", "scare", "drop", "pump", "tap", "stitch", "spring")
+TIMED_KEYS = ("leak", "dishes", "plunger", "mirrors", "sew")
 DISH_KINDS = {"plate", "cup", "bowl", "pot"}
 
 
@@ -449,12 +449,23 @@ def _lint(d, path, index, rep):
                 if not isinstance(it, dict) or it.get("kind") not in ("/", "\\", "wall") \
                         or not isinstance(it.get("c"), int) or not isinstance(it.get("r"), int):
                     rep.err(f"mirrors.items[{i}]: needs c, r and kind / or \\ or wall")
+    # «сшей диван»: пары дырок вдоль разрыва, пружины, мышь
+    sew = d.get("sew")
+    if sew is not None:
+        if not isinstance(sew, dict) or not isinstance(sew.get("pairs"), int) or sew["pairs"] < 1:
+            rep.err("sew needs pairs >= 1")
+        else:
+            _unknown(sew, {"top", "step", "gap", "pairs", "springs", "hide", "knots", "mouse"}, "sew", rep)
+            for i, sp in enumerate(sew.get("springs", [])):
+                if not isinstance(sp, dict) or not isinstance(sp.get("pair"), int) \
+                        or not 1 <= sp["pair"] <= sew["pairs"]:
+                    rep.err(f"sew.springs[{i}]: needs id and pair 1..{sew['pairs']}")
     scripts = d.get("scripts", {})
     if not isinstance(scripts, dict):
         rep.err("scripts must be an object {name: [[t, action, arg], ...]}")
         scripts = {}
     if scripts and not any(k in d for k in TIMED_KEYS):
-        rep.err("scripts need leak, dishes, plunger or mirrors")
+        rep.err("scripts need leak, dishes, plunger, mirrors or sew")
     for name, evs in scripts.items():
         if name in pin_ids:
             rep.err(f"scripts: id '{name}' is already used")
