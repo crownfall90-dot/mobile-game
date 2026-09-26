@@ -9,7 +9,7 @@ extends Node
 signal screen_changed(name: StringName)
 
 const SCREENS := {
-	&"story": "res://scripts/screens/story_screen.gd",
+	&"novel": "res://scripts/screens/novel_screen.gd",
 	&"loading": "res://scripts/screens/loading_screen.gd",
 	&"hub": "res://scripts/screens/hub_screen.gd",
 	&"map": "res://scripts/screens/map_screen.gd",

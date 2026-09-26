@@ -40,6 +40,15 @@ func set_amount(share: float) -> void:
 		_leave = 0.0
 
 
+## Становится белым облачком-другом (финал акта в новелле).
+func befriend() -> void:
+	friendly = true
+	amount = 1.0
+	_shown = 1.0
+	var path := ART % "white"
+	_tex = load(path) if ResourceLoader.exists(path) else null
+
+
 func talk() -> void:
 	_talk = 1.0
 
