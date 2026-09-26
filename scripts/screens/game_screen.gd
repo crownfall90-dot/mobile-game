@@ -264,8 +264,12 @@ func _item_lose_text(res: Dictionary) -> String:
 			return "Вода попала в розетку — искры!"
 		"sill":
 			return "Дождь залил подоконник"
+		"wire":
+			return "Вода попала на проводку — искры!"
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
+		"walled":
+			return "Заделали, а %s внутри! Сначала прогони" % str(who[0]).to_lower()
 		"stuck":
 			if int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
 				return "%s ещё мешает" % who[0]
