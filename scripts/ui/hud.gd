@@ -42,6 +42,22 @@ func set_safe_top(px: float) -> void:
 	_bar.offset_bottom = _bar.offset_top + 88.0
 
 
+## Подсказка — в свободной полосе между верхней панелью и полем головоломки (field_top —
+## верх поля на экране). Если полоса слишком узкая, остаётся прежнее место в нижней части.
+func place_hint(field_top: float) -> void:
+	var top := _bar.offset_bottom + 4.0
+	if field_top - top >= 64.0:
+		_hint.anchor_top = 0.0
+		_hint.anchor_bottom = 0.0
+		_hint.offset_top = top
+		_hint.offset_bottom = field_top - 4.0
+	else:
+		_hint.anchor_top = 0.7
+		_hint.anchor_bottom = 0.7
+		_hint.offset_top = -60.0
+		_hint.offset_bottom = 60.0
+
+
 ## Заставка в начале уровня: где мы («Внутри раковины»), крупно, на пару секунд.
 func show_place(text: String) -> void:
 	if text == "":

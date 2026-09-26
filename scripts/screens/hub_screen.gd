@@ -218,13 +218,17 @@ func _layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	var scene := _scene_size()
-	# cover: заполняем экран целиком одним масштабом, излишек поровну обрезаем
-	_k = maxf(view.x / scene.x, view.y / scene.y)
+	# cover: заполняем экран целиком одним масштабом, излишек поровну обрезаем. Но safe-область
+	# со всеми целями видна всегда: на планшете, раскладушке или 21:9 масштаб меньше cover,
+	# а за краем сцены тянется продолжение фона (LocationView рисует его сам).
+	var safe := _safe_rect()
+	_k = minf(maxf(view.x / scene.x, view.y / scene.y), minf(view.x / safe.size.x, view.y / safe.size.y))
 	_offset = (view - scene * _k) * 0.5
 	_view.get_parent().position = _offset
 	_view.get_parent().scale = Vector2(_k, _k)
 	var top := _safe_top(view)
-	var ui_k := view.x / 720.0
+	# кнопки и надписи — по меньшей стороне, чтобы на широком экране не раздувались
+	var ui_k := minf(view.x / 720.0, view.y / 1280.0)
 	_title.position = Vector2(22 * ui_k, top + 14 * ui_k)
 	_title.scale = Vector2(ui_k, ui_k)
 	_settings.scale = Vector2(ui_k, ui_k)
@@ -266,6 +270,11 @@ func _loc_index() -> int:
 		if locs[i]["id"] == _loc_id:
 			return i
 	return 0
+
+
+static func _safe_rect() -> Rect2:
+	var v: Array = Home.data().get("scene", {}).get("safe", [0, 0, 720, 1560])
+	return Rect2(v[0], v[1], v[2], v[3])
 
 
 static func _scene_size() -> Vector2:
