@@ -6,6 +6,9 @@ extends Node2D
 ##    Капли рисуются аддитивно в маленький SubViewport в половинном разрешении,
 ##    каждое вещество в свой канал: вода -> R, лава -> G, кислота -> B.
 ## 2. Шейдер fluid.gdshader отсекает поле по порогу, добавляет блики и свечение.
+## Буфер капель перерисовывается, только пока хоть одна капля движется: когда все уснули,
+## он хранит последний кадр (свечение лавы в шейдере при этом живёт дальше). Когда капель
+## не осталось совсем (вся лава застыла), спрайт прячется.
 
 const DOWNSCALE := 0.5
 const BLOB_SIZE := 46.0
@@ -13,6 +16,11 @@ const SHADER := preload("res://shaders/fluid.gdshader")
 
 var _level: Level
 var _mm: MultiMesh
+var _vp: SubViewport
+var _sprite: Sprite2D
+var _live := false      # буфер обновляется каждый кадр
+var _drops := -1        # капель при последней перестройке
+var _sig := -1          # сумма видов капель: ловит смену вида (кислота -> вода) у спящих
 
 
 func setup(level: Level, design_size: Vector2, capacity: int) -> void:
@@ -21,8 +29,9 @@ func setup(level: Level, design_size: Vector2, capacity: int) -> void:
 	vp.size = Vector2i(design_size * DOWNSCALE)
 	vp.transparent_bg = true
 	vp.disable_3d = true
-	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(vp)
+	_vp = vp
 
 	_mm = MultiMesh.new()
 	_mm.transform_format = MultiMesh.TRANSFORM_2D
@@ -50,21 +59,68 @@ func setup(level: Level, design_size: Vector2, capacity: int) -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = SHADER
 	sprite.material = mat
+	sprite.visible = false
 	add_child(sprite)
+	_sprite = sprite
+
+
+## Уходим со сцены: сначала отвязываем текстуру вьюпорта и останавливаем его, потом освобождаемся.
+## Освобождение SubViewport, чью текстуру ещё рисует спрайт, роняет некоторые GLES-драйверы.
+func _exit_tree() -> void:
+	if _sprite:
+		_sprite.texture = null
+		_sprite.visible = false
+	if _vp:
+		_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
 func _process(_delta: float) -> void:
+	# дешёвый проход: только читаем флаги, пока не встретим движущуюся каплю
 	var n := 0
-	var cap := _mm.instance_count
+	var sig := 0
+	var moving := false
 	for item in _level.items:
-		if n >= cap:
-			break
 		if item.removed or not Substances.is_fluid(item.kind):
 			continue
-		_mm.set_instance_transform_2d(n, Transform2D(0.0, item.position))
-		_mm.set_instance_color(n, Substances.channel(item.kind))
+		if not item.sleeping:
+			moving = true
+			break
 		n += 1
-	_mm.visible_instance_count = n
+		sig += item.kind + 1
+	if moving or n != _drops or sig != _sig:
+		_rebuild()
+		var any := _drops > 0
+		_sprite.visible = any
+		_set_live(any)
+	elif _live:
+		# всё уснуло: ещё один кадр с точными позициями, дальше буфер стоит
+		_rebuild()
+		_set_live(false)
+		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+func _rebuild() -> void:
+	var n := 0
+	var sig := 0
+	var cap := _mm.instance_count
+	for item in _level.items:
+		if item.removed or not Substances.is_fluid(item.kind):
+			continue
+		if n < cap:
+			_mm.set_instance_transform_2d(n, Transform2D(0.0, item.position))
+			_mm.set_instance_color(n, Substances.channel(item.kind))
+		n += 1
+		sig += item.kind + 1
+	_mm.visible_instance_count = mini(n, cap)
+	_drops = n
+	_sig = sig
+
+
+func _set_live(on: bool) -> void:
+	if on == _live:
+		return
+	_live = on
+	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 
 
 static func _blob_texture() -> Texture2D:

@@ -1,0 +1,194 @@
+{
+ "format": 2,
+ "id": "home_08",
+ "floor": 1,
+ "title": "Шкафы: полки качаются",
+ "hint": "Веди посуду пальцем и отпусти. Тяжёлое — ближе к винту!",
+ "tutorial": "",
+ "intro": "",
+ "hard": false,
+ "theme": "cabinet",
+ "tower": {
+  "rect": [
+   130,
+   200,
+   460,
+   1010
+  ]
+ },
+ "walls": [],
+ "pins": [],
+ "fills": [],
+ "enemies": [
+  {
+   "kind": "cockroach",
+   "pos": [
+    160,
+    350
+   ],
+   "fixed": true
+  }
+ ],
+ "receiver": {
+  "rect": [
+   300,
+   1330,
+   120,
+   40
+  ],
+  "look": "art",
+  "kind": "gold",
+  "bad": [],
+  "mode": "collect"
+ },
+ "goal": {
+  "pieces": 6,
+  "three_star": 6
+ },
+ "solution": [
+  "stack"
+ ],
+ "fails": [
+  [
+   "lopsided"
+  ],
+  [
+   "floor"
+  ]
+ ],
+ "verify": {
+  "max_win_share": 0.34,
+  "daily": false
+ },
+ "dishes": {
+  "queue": [
+   "plate",
+   "cup",
+   "plate",
+   "bowl",
+   "pot",
+   "cup"
+  ],
+  "shelves": [
+   {
+    "id": "top",
+    "rect": [
+     114,
+     380,
+     490,
+     18
+    ],
+    "pivot": 0.08,
+    "stiff": 7700000.0,
+    "damp": 1200000.0
+   },
+   {
+    "id": "low",
+    "rect": [
+     114,
+     866,
+     490,
+     18
+    ],
+    "pivot": 0.92,
+    "stiff": 7700000.0,
+    "damp": 1200000.0
+   }
+  ],
+  "spawn": [
+   360,
+   230
+  ],
+  "floor_y": 1180,
+  "sides": [
+   114,
+   604
+  ]
+ },
+ "scripts": {
+  "stack": [
+   [
+    0.0,
+    "drop",
+    215,
+    330
+   ],
+   [
+    1.0,
+    "drop",
+    520,
+    815
+   ],
+   [
+    2.0,
+    "drop",
+    330,
+    330
+   ],
+   [
+    3.0,
+    "drop",
+    440,
+    815
+   ],
+   [
+    4.0,
+    "drop",
+    215,
+    300
+   ],
+   [
+    5.0,
+    "drop",
+    330,
+    320
+   ]
+  ],
+  "lopsided": [
+   [
+    0.0,
+    "drop",
+    560,
+    330
+   ],
+   [
+    1.0,
+    "drop",
+    560,
+    320
+   ],
+   [
+    2.0,
+    "drop",
+    560,
+    300
+   ],
+   [
+    3.0,
+    "drop",
+    560,
+    290
+   ],
+   [
+    4.0,
+    "drop",
+    560,
+    260
+   ],
+   [
+    5.0,
+    "drop",
+    560,
+    240
+   ]
+  ],
+  "floor": [
+   [
+    0.0,
+    "drop",
+    360,
+    1100
+   ]
+  ]
+ }
+}

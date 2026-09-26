@@ -1,0 +1,5 @@
+[
+  ["cleaner", "water", "faucet", "plug"],
+  ["cleaner", "water", "plug", "faucet"],
+  ["cleaner", "faucet", "water", "plug"]
+]

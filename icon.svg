@@ -1,19 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1b1236"/>
-      <stop offset="1" stop-color="#5a2b6e"/>
-    </linearGradient>
-    <linearGradient id="potion" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd23f"/>
-      <stop offset="1" stop-color="#ff5a1f"/>
-    </linearGradient>
-  </defs>
-  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
-  <path d="M104 44h48v52l52 92a20 20 0 0 1-18 30H70a20 20 0 0 1-18-30l52-92z" fill="#ffffff22" stroke="#cbb8ff" stroke-width="8" stroke-linejoin="round"/>
-  <path d="M78 150h100l24 42a12 12 0 0 1-11 18H65a12 12 0 0 1-11-18z" fill="url(#potion)"/>
-  <circle cx="110" cy="176" r="8" fill="#fff6" />
-  <circle cx="148" cy="164" r="5" fill="#fff6" />
-  <rect x="30" y="118" width="196" height="14" rx="7" fill="#f5c542" stroke="#a8741a" stroke-width="3"/>
-  <circle cx="30" cy="125" r="18" fill="none" stroke="#f5c542" stroke-width="9"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="16 16 76 76">
+<defs><linearGradient id="bgGrad" x2="1" y2="1"><stop stop-color="#315c60"/><stop offset="1" stop-color="#203b42"/></linearGradient></defs>
+<rect x="16" y="16" width="76" height="76" rx="15" fill="url(#bgGrad)"/>
+
+<path d="M26 47L54 24L82 47V82H26Z" fill="#efd5a3" stroke="#f8eaca" stroke-width="3" stroke-linejoin="round"/>
+<path d="M20 48L54 20L88 48" fill="none" stroke="#e9a573" stroke-width="7" stroke-linecap="round"/>
+<path d="M29 79V66Q29 53 42 53Q56 53 56 68V83" fill="#538d85"/>
+<ellipse cx="42" cy="46" rx="12" ry="15" fill="#5c3a35"/><circle cx="33" cy="35" r="6" fill="#5c3a35"/>
+<ellipse cx="43" cy="47" rx="9" ry="11" fill="#f2c8aa"/><path d="M33 44Q39 28 52 43L48 39L40 42Z" fill="#5c3a35"/>
+<path d="M39 47h1m6 0h1" stroke="#3e3d38" stroke-width="2" stroke-linecap="round"/><path d="M40 52q3 3 6 0" fill="none" stroke="#a7685b" stroke-width="1.5"/>
+<path d="M52 81V72Q52 62 65 62Q78 62 78 74V83" fill="#e99e7b"/>
+<circle cx="65" cy="56" r="12" fill="#5c3a35"/><circle cx="54" cy="57" r="5" fill="#5c3a35"/><circle cx="76" cy="57" r="5" fill="#5c3a35"/>
+<ellipse cx="65" cy="57" rx="9" ry="10" fill="#f2c8aa"/><path d="M56 54Q62 40 74 54L66 48Z" fill="#5c3a35"/>
+<path d="M61 57h1m6 0h1" stroke="#3e3d38" stroke-width="2" stroke-linecap="round"/><path d="M62 62q3 3 6 0" fill="none" stroke="#a7685b" stroke-width="1.5"/>
+<path d="M47 69Q54 79 61 71" fill="none" stroke="#f2c8aa" stroke-width="5" stroke-linecap="round"/>
+<path d="M74 28c-5-8-16 0 0 11c16-11 5-19 0-11" fill="#edaa91"/>
 </svg>

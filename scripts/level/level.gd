@@ -1,21 +1,74 @@
 class_name Level
 extends Node2D
+const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
+const RECEIVER := preload("res://scripts/level/receiver.gd")   # не зависит от кэша class_name
+const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
+const PUTTY := preload("res://scripts/level/putty.gd")
+const LEAK := preload("res://scripts/level/leak.gd")
+const DISHES := preload("res://scripts/level/dishes.gd")
+const PLUNGER := preload("res://scripts/level/plunger.gd")
+const MIRRORS := preload("res://scripts/level/mirrors.gd")
+const SEW := preload("res://scripts/level/sew.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
+##
+## Уровень не зовёт звук, вибрацию, Profile и Economy: он только шлёт сигналы,
+## а экран и слой эффектов на них отвечают. Так проверка без окна остаётся чистой.
 
 signal won(stars: int)
 signal lost(reason: String)
 signal gold_changed(collected: int, needed: int, total: int)
 signal pin_pulled(pin: Pin)
+## steam {}, stone {n}, wave_end {n}, slime_pop {enemy, killer}, acid_stone, dilute, noble_gold
+signal reaction(id: StringName, pos: Vector2, info: Dictionary)
+## &"coin", &"gem", &"relic"
+signal collected(kind: StringName, pos: Vector2)
+## Палец выкопал землю (для звука и лёгкой вибрации).
+signal dug(pos: Vector2)
+## Повернули колено трубы (или другой переключатель мини-игры).
+signal switched(id: String)
 
 const DESIGN_SIZE := Vector2(720, 1280)
 const CHAIN_RADIUS := 25.0      # на каком расстоянии остывание перекидывается на соседнюю лаву
 const CHAIN_DELAY := 0.04       # скорость "волны" застывания
-const WIN_DELAY := 0.8
+const BUCKET_SPEED := 1500.0     # «лови капли»: ведро едет за пальцем, px/с
+const WIN_QUIET := 0.8          # победа, когда цель выполнена и столько секунд не пришло ни монеты...
+const WIN_CAP := 3.0            # ...но не позже, чем через столько после выполнения цели
 const STUCK_TIMEOUT := 5.0
-const RESULT_DELAY := 1.0
+const STUCK_HARD := 14.0
 const FALL_LIMIT := 1500.0
 const SCARE_DISTANCE := 260.0
+const DROWN_CELL := 380.0       # площадь зоны на одну каплю воды при плотной укладке
+const DROWN_FILL := 0.45
+const DROWN_SPEED := 150.0       # быстрее — это поток, а не стоящая вода
+const DROWN_TIME := 0.35
+# Ходьба семьи к двери на уровнях с "exit".
+const WALK_SPEED := 95.0
+const WALK_DELAY := 0.8
+const STEP_UP := 34.0
+const STEP_DOWN := 46.0
+const WALK_ZONE := Rect2(-46, -150, 92, 146)   # зона семьи относительно ступней
+# Реплики семьи (облачко над головами): страх, облегчение, радость.
+const LINES_START := ["Мама, мне страшно…", "Держись за меня, солнышко.", "Мы справимся!", "Мама, а мы успеем?"]
+const LINES_DANGER := {
+	"lava": ["Ой, горячо!", "Мама, лава!"], "acid": ["Осторожно, кислота!", "Фу, она шипит!"],
+	"enemy": ["Там слизень!", "Мама, он на нас смотрит!"], "water": ["Вода прибывает!", "Мама, мокро!"],
+}
+const LINES_RELIEF := ["Фух…", "Пронесло!", "Еле-еле!"]
+const THREE_STAR_PERCENT := 95  # 3 звезды за столько % сокровищ (для цели-доли)
+
+## Кого чем можно убить: вид врага -> вещества.
+## Кто от чего уходит (docs/CAST.md). Кислота в доме — чистящее средство, лава — огонь плиты.
+const VULNERABLE := {
+	&"slime": [Substances.Kind.LAVA, Substances.Kind.ACID],
+	&"grime": [Substances.Kind.ACID],
+	&"mold": [Substances.Kind.ACID],
+	&"cockroach": [Substances.Kind.ACID, Substances.Kind.LAVA],   # и от огня плиты
+	&"rat": [Substances.Kind.WATER],
+	&"mouse": [Substances.Kind.WATER],
+	&"spider": [Substances.Kind.WATER],
+	&"moth": [Substances.Kind.WATER],
+}
 
 const STEAM := Color(1, 1, 1, 0.55)
 const SPARK := Color("ffe27a")
@@ -26,35 +79,131 @@ var data: Dictionary = {}
 var items: Array[Item] = []
 var enemies: Array[Enemy] = []
 var pins: Array[Pin] = []
+var pipes: Array = []            # «живые трубы»: PipeSwitch
+var putty: Node2D = null         # «замазка»: игрок рисует стенки пальцем
+var leak: Node2D = null          # «лови капли»: труба течёт, ведро ловит, дыры клеят
+var dish_game: Node2D = null     # «стопка посуды»: качающиеся полки, посуда по одной
+var plunger_game: Node2D = null  # «вантуз»: качать в ритм, засор едет по сифону
+var mirror_game: Node2D = null   # «луч и зеркальца»: повернуть зеркальца, луч — в плафон
+var sew_game: Node2D = null      # «сшей диван»: стежки зигзагом, пружины, мышь
+var _bucket_to := 0.0            # куда едет ведро (x)
+var _bucket_rail := Vector2.ZERO # пределы ведра по x
+var _leak_finger := ""           # чем занят палец: "bucket" или "pipe"
 var hero: Hero
 var fx: Fx
-var gold_total := 0
-var gold_needed := 0
-var gold_collected := 0
-var finished := false
-var camera: Camera2D   # для тряски экрана; задаёт Main
+var camera: Camera2D   # для тряски экрана; задаёт GameScreen (null — без тряски)
+var view_camera: Camera2D   # камера экрана всегда: «Поверни» вращает вид вместе с гравитацией
 
+## Задать до build(): ±1 px к каждому телу при появлении (0 — выкл.). Только для проверок.
+var jitter_seed := 0
+
+var pieces_total := 0      # монеты + самоцветы на уровне
+var pieces_needed := 0
+var pieces := 0            # собрано
+var coins_pieces := 0
+var gems := 0
+var relic := false
+var finished := false
+
+var _three_needed := 0
+var _two_needed := 0
+var _result: Dictionary = {}
+var _reactions: Dictionary = {}   # вид_a * 16 + вид_b -> Callable(a, b)
+var _pulled := PackedStringArray()
 var _bodies: Node2D
-var _rng := RandomNumberGenerator.new()
+var _rng := RandomNumberGenerator.new()      # только внешний вид
+var _jitter: RandomNumberGenerator = null
 var _contacts: Array = []   # [other, source] — обрабатываются в _physics_process
 var _zone_hits: Array = []
 var _cooling: Array = []    # [оставшееся время, Item]
-var _win_timer := -1.0
+var _wave_n := 0
+var _wave_pos := Vector2.ZERO
+var _noble_seen := false
+var _goal_time := -1.0      # сколько цель уже выполнена (-1 — ещё нет)
+var _since_collect := 0.0
+var dirt: Dirt = null
+var door: ExitDoor = null
+var _zone: Area2D
+var _zone_origin := Vector2.ZERO
+var _zone_rect := Rect2()
+var _acted := false          # был ли первый ход: засов или копание
+var _dig_from = null         # Vector2 последней точки пальца, null — палец не копает
+var _walk_time := 0.0
+var _dig_hint: DigHint = null
+var _goal_kind := -1          # приёмник: что в него нужно доставить (-1 — монеты, как раньше)
+var _bad_kinds: Array[int] = []   # приёмник: что его портит
+var _fill_mode := false       # приёмник-«дыра»: считаем, сколько лежит внутри, а не забираем
+var _fill_tick := 0
+var _walls: Walls
+var _danger_kind := ""        # чего семья боится сейчас (для реплик)
+var _danger_time := 0.0
+var _said := {}               # какие реплики уже звучали в этой попытке
+var _say_cooldown := 0.0
+var _dig_fx_at := Vector2(-999, -999)
 var _stuck_timer := -1.0
+var _stuck_total := 0.0
+var _drown_time := 0.0
 var _shake := 0.0
 var _scare_timer := 0.0
+var _source: Dictionary = {}     # вода, которая уже бежит: {pos, kind, count, rate, delay}
+var _source_left := 0
+var _source_acc := 0.0
+var _source_time := 0.0
+var _hazard_hits: Array = []     # [тело, вид опасности]
+var _hazard_arts: Array = []
+var _hazard_limits := {}         # вид -> сколько капель ещё можно (подоконник терпит несколько)
+var _hazard_count := {}
+var _rot: Dictionary = {}        # «Поверни»: {time} — вещь поворачивается на 90° кнопками
+var _angle := 0.0                # насколько повёрнута вещь (по часовой — плюс)
+var _angle_to := 0.0
+var _rot_busy := false
+var _rot_queue: Array[int] = []
+
+
+## Таблица реакций: пара веществ -> обработчик. Новая реакция — одна строка здесь.
+func _init() -> void:
+	_add_reaction(Substances.Kind.WATER, Substances.Kind.LAVA, _water_lava)
+	_add_reaction(Substances.Kind.ACID, Substances.Kind.STONE, _acid_stone)
+	_add_reaction(Substances.Kind.ACID, Substances.Kind.WATER, _acid_water)
+	_add_reaction(Substances.Kind.ACID, Substances.Kind.GOLD, _acid_gold)
+	_add_reaction(Substances.Kind.ACID, Substances.Kind.GEM, _acid_gold)
 
 
 func build(level_data: Dictionary) -> void:
 	data = level_data
 	_rng.seed = hash(str(data.get("id", "level")))
+	if jitter_seed != 0:
+		_jitter = RandomNumberGenerator.new()
+		_jitter.seed = jitter_seed
 
-	var backdrop := Backdrop.new()
+	var recv: Dictionary = data.get("receiver", {})
+	var homey: bool = data.get("family", false) or not recv.is_empty() or data.has("leak") or data.has("dishes") \
+		or data.has("plunger") or data.has("mirrors") or data.has("sew")
+	var backdrop: Node2D = HOME_BACKDROP.new() if homey else Backdrop.new()
+	if backdrop is HomePuzzleBackdrop:
+		backdrop.theme = str(data.get("theme", ""))
+		backdrop.item_mode = not recv.is_empty()
 	backdrop.setup(_rect(data["tower"]["rect"]))
 	add_child(backdrop)
 
-	hero = Hero.new()
-	hero.setup(_vec(data["hero"]["pos"]))
+	if not recv.is_empty():
+		# головоломка внутри вещи: вместо семьи — приёмник (слив, ведро, ящик, конфорка, дыра)
+		var rr := _rect(recv["rect"])
+		var rc = RECEIVER.new()
+		rc.configure(rr, str(recv.get("look", "drain")))
+		hero = rc
+		hero.setup(Vector2(rr.get_center().x, rr.end.y), false)
+		_goal_kind = Substances.from_name(str(recv.get("kind", "gold")))
+		_fill_mode = str(recv.get("mode", "collect")) == "fill"
+		_bad_kinds.clear()
+		for k in recv.get("bad", ["lava", "acid"]):
+			_bad_kinds.append(Substances.from_name(str(k)))
+	else:
+		hero = FamilyHero.new() if data.get("family", false) else Hero.new()
+		if hero is FamilyHero:
+			hero.stage = Home.stage()
+		# идущая семья без твёрдого тела: не толкает камни, вода и лава обтекают её зону
+		hero.setup(_vec(data["hero"]["pos"]), not data.has("exit"))
 	add_child(hero)
 
 	var fluid := FluidRenderer.new()
@@ -64,8 +213,51 @@ func build(level_data: Dictionary) -> void:
 	add_child(_bodies)
 
 	var walls := Walls.new()
+	if homey:
+		walls.palette = [Color("9a6b4a"), Color("6e4a33"), Color("d8ac80")]
+		walls.pattern = "wood"
+		var skin := LevelSkin.wall_palette(str(data.get("theme", "")))
+		if not skin.is_empty():
+			walls.palette = [skin[0], skin[1], skin[2]]
+			walls.pattern = skin[3]
+	if not recv.is_empty():
+		walls.wear = 1.0
 	walls.setup(data.get("walls", []))
 	add_child(walls)
+	_walls = walls
+	if recv.get("look", "") == "art" or str(recv.get("mode", "collect")) == "fill":
+		# нарисованный слив: невидимое дно под приёмником, чтобы после исхода ничего
+		# не проваливалось сквозь картинку; у дыры (mode fill) — дно всегда: в ней сидит нарушитель
+		# (дыру заделывают — mode fill: ещё и стенки по бокам, получается чашка)
+		var rr := _rect(recv["rect"])
+		var fill := str(recv.get("mode", "collect")) == "fill"
+		var floor_body := StaticBody2D.new()
+		# у дыры дно — щели: вода уходит, камни остаются
+		floor_body.collision_layer = Substances.LAYER_SIEVE if fill else Substances.LAYER_WORLD
+		var parts: Array[Rect2] = [Rect2(rr.position.x - 20.0, rr.end.y, rr.size.x + 40.0, 28.0)]
+		if fill:
+			parts.append(Rect2(rr.position.x - 16.0, rr.position.y, 16.0, rr.size.y + 28.0))
+			parts.append(Rect2(rr.end.x, rr.position.y, 16.0, rr.size.y + 28.0))
+		for part in parts:
+			var seg := CollisionShape2D.new()
+			var shape := RectangleShape2D.new()
+			shape.size = part.size
+			seg.shape = shape
+			seg.position = part.get_center()
+			floor_body.add_child(seg)
+		add_child(floor_body)
+
+	if data.has("dirt"):
+		dirt = Dirt.new()
+		dirt.setup(DESIGN_SIZE, data["dirt"], data.get("holes", []))
+		dirt.set_colors(LevelSkin.dirt_colors(str(data.get("theme", ""))))
+		dirt.rebuilt.connect(_wake_all)
+		add_child(dirt)
+	if data.has("exit"):
+		door = ExitDoor.new()
+		door.position = _vec(data["exit"]["pos"])
+		add_child(door)
+		move_child(door, get_children().find(hero))
 
 	var glint := 0.0
 	for p in data.get("pins", []):
@@ -76,6 +268,108 @@ func build(level_data: Dictionary) -> void:
 		pins.append(pin)
 		glint += 0.7
 
+	for pp in data.get("pipes", []):
+		var ps = PIPE_SWITCH.new()
+		ps.setup(str(pp["id"]), _vec(pp["pos"]), bool(pp.get("right", true)), float(pp.get("size", 150.0)))
+		add_child(ps)
+		pipes.append(ps)
+	for hz in data.get("hazards", []):
+		_add_hazard(_rect(hz["rect"]), str(hz.get("kind", "socket")), int(hz.get("limit", 0)))
+	if data.has("putty"):
+		putty = PUTTY.new()
+		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
+		add_child(putty)
+	if data.has("sew"):
+		sew_game = SEW.new()
+		sew_game.setup(data["sew"])
+		sew_game.knot_limit += _brave()
+		sew_game.stitched.connect(func(n: int) -> void:
+			_acted = true
+			pieces = n
+			_since_collect = 0.0
+			switched.emit("stitch")
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		sew_game.knotted.connect(func(n: int) -> void:
+			_acted = true
+			Sfx.play(&"fizz")
+			_shake = 4.0
+			if n >= sew_game.knot_limit:
+				_lose("knot"))
+		sew_game.unraveled.connect(func() -> void:
+			pieces = sew_game.progress
+			Sfx.play(&"slime_pop")
+			say("mouse", ["Мышь грызёт нитку!", "Кыш, мышка!"])
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		sew_game.mouse_scared.connect(func() -> void:
+			Sfx.play(&"slime_pop"))
+		add_child(sew_game)
+	if data.has("mirrors"):
+		mirror_game = MIRRORS.new()
+		mirror_game.setup(data["mirrors"])
+		mirror_game.turned.connect(func(_id: String) -> void:
+			_acted = true
+			switched.emit("mirror"))
+		mirror_game.locked_tap.connect(func(_id: String) -> void:
+			Sfx.play(&"fizz")
+			say("moth", ["Там моль сидит!", "Посвети на неё!"]))
+		mirror_game.lit.connect(func() -> void:
+			pieces = 1
+			_since_collect = 0.0
+			Sfx.play(&"restore")
+			fx.ring(mirror_game.center(mirror_game.lamp), SPARK, 90.0, 0.5)
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		mirror_game.battery_out.connect(func() -> void:
+			_lose("battery"))
+		mirror_game.moth_left.connect(func(pos: Vector2) -> void:
+			fx.burst(pos, Color("d9c7a1"), 12, 300.0, 4.0, -200.0, 0.6)
+			Sfx.play(&"slime_pop"))
+		add_child(mirror_game)
+	if data.has("plunger"):
+		plunger_game = PLUNGER.new()
+		plunger_game.setup(data["plunger"])
+		plunger_game.splash_limit += _brave()
+		plunger_game.pumped.connect(func(ok: bool) -> void:
+			_acted = true
+			if not ok:
+				Sfx.play(&"fizz")   # удачный качок звучит через switched («чпок»)
+			if ok:
+				_shake = 3.0
+				switched.emit("pump"))
+		plunger_game.splashed.connect(func(n: int) -> void:
+			fx.burst(plunger_game.sink.get_center(), Color("8ce6ff"), 16, 420.0, 6.0, 900.0, 0.7)
+			if n >= plunger_game.splash_limit:
+				_lose("splash"))
+		plunger_game.cleared.connect(func() -> void:
+			pieces = 1
+			_since_collect = 0.0
+			Sfx.play(&"restore")
+			gold_changed.emit(pieces, pieces_needed, pieces_total))
+		plunger_game.overflowed.connect(func() -> void:
+			_lose("overflow"))
+		add_child(plunger_game)
+	if data.has("dishes"):
+		dish_game = DISHES.new()
+		dish_game.setup(data["dishes"])
+		dish_game.broke.connect(_on_dish_broke)
+		dish_game.snapped.connect(func(pos: Vector2) -> void:
+			if finished:
+				return
+			fx.burst(pos, Color("8d969b"), 12, 360.0, 4.0, 900.0, 0.5)
+			_shake = 10.0
+			Sfx.play(&"grate_break")
+			_lose("shelf"))
+		dish_game.dropped.connect(func() -> void:
+			_acted = true
+			switched.emit("dish"))
+		dish_game.touched_enemy.connect(_on_dish_enemy)
+		add_child(dish_game)
+	if data.has("leak"):
+		leak = LEAK.new()
+		leak.setup(data["leak"])
+		leak.spawn = _leak_drop
+		leak.changed = _leak_changed
+		add_child(leak)
+
 	fx = Fx.new()
 	add_child(fx)
 
@@ -83,7 +377,13 @@ func build(level_data: Dictionary) -> void:
 	zone.collision_layer = 0
 	zone.collision_mask = Substances.LAYER_ITEMS | Substances.LAYER_ENEMY
 	zone.monitorable = false
-	var zr := _rect(data["hero"]["zone"])
+	var zr: Rect2
+	if not recv.is_empty():
+		zr = _rect(recv["rect"])
+	elif door:
+		zr = Rect2(hero.position + WALK_ZONE.position, WALK_ZONE.size)
+	else:
+		zr = _rect(data["hero"]["zone"])
 	var zshape := RectangleShape2D.new()
 	zshape.size = zr.size
 	var zcs := CollisionShape2D.new()
@@ -92,6 +392,9 @@ func build(level_data: Dictionary) -> void:
 	zone.add_child(zcs)
 	zone.body_entered.connect(func(b: Node2D) -> void: _zone_hits.append(b))
 	add_child(zone)
+	_zone = zone
+	_zone_origin = hero.position
+	_zone_rect = zr
 
 	var fluid_count := 0
 	for fill in data.get("fills", []):
@@ -99,19 +402,70 @@ func build(level_data: Dictionary) -> void:
 		var n := _spawn_fill(kind, _rect(fill["rect"]), int(fill["count"]))
 		if Substances.is_fluid(kind):
 			fluid_count += n
-		if kind == Substances.Kind.GOLD:
-			gold_total += n
+		if _is_goal(kind):
+			pieces_total += n
+
+	_rot = data.get("rotate", {})
+	_source = data.get("source", {})
+	if not _source.is_empty():
+		_source_left = int(_source.get("count", 40))
+		var skind := Substances.from_name(str(_source.get("kind", "water")))
+		if Substances.is_fluid(skind):
+			fluid_count += _source_left
+		if _is_goal(skind):
+			pieces_total += _source_left
 
 	for e in data.get("enemies", []):
 		var enemy := Enemy.new()
-		enemy.setup(_vec(e["pos"]), hero.position + Vector2(0, -70), report_contact)
+		enemy.setup(_jittered(_vec(e["pos"])), hero.position + Vector2(0, -70), report_contact)
+		enemy.collision_mask |= Substances.LAYER_SIEVE
+		enemy.set_kind(StringName(str(e.get("kind", "slime"))))
+		if e.get("swell", false):
+			enemy.set_meta(&"swell", true)
+		if data.has("dirt"):
+			# нарушитель в норке внутри земли: рисуем поверх земли, иначе его не видно
+			enemy.z_index = 1
+		if e.get("fixed", false):
+			# прилип к стенке (плесень, паутина): не катается, когда вещь поворачивают
+			enemy.freeze_mode = RigidBody2D.FREEZE_MODE_STATIC
+			enemy.freeze = true
 		_bodies.add_child(enemy)
 		enemies.append(enemy)
 
-	var ratio := float(data.get("goal", {}).get("gold", 0.7))
-	gold_needed = maxi(1, ceili(gold_total * ratio)) if gold_total > 0 else 0
+	_setup_goal()
+	if sew_game:
+		# цель — прошить все дырки
+		pieces_total = sew_game.order.size()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
+	if mirror_game:
+		# цель — зажечь лампу
+		pieces_total = 1
+		pieces_needed = 1
+		_three_needed = 1
+	if plunger_game:
+		# цель — прогнать засор до конца трубы
+		pieces_total = 1
+		pieces_needed = 1
+		_three_needed = 1
+	if dish_game:
+		# цель — вся посуда на полках
+		pieces_total = dish_game.total()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
+	if leak:
+		# цель — все дыры: заклеены или не прогрызены; капли в полёте — их немного
+		pieces_total = leak.holes.size()
+		pieces_needed = pieces_total
+		_three_needed = pieces_total
+		fluid_count += int(data["leak"].get("drops", 40))
+		var rail: Array = data["leak"].get("rail", [170, 550])
+		_bucket_rail = Vector2(float(rail[0]), float(rail[1]))
+		_bucket_to = hero.position.x
+		_hazard_limits["leak"] = int(_hazard_limits.get("leak", 3)) + _brave()
+		leak.miss_limit = int(_hazard_limits["leak"])
 	fluid.setup(self, DESIGN_SIZE, fluid_count)
-	gold_changed.emit.call_deferred(gold_collected, gold_needed, gold_total)
+	gold_changed.emit.call_deferred(pieces, pieces_needed, pieces_total)
 
 
 func pin_by_id(pin_id: String) -> Pin:
@@ -121,13 +475,148 @@ func pin_by_id(pin_id: String) -> Pin:
 	return null
 
 
+func can_rotate() -> bool:
+	return not _rot.is_empty()
+
+
+## «Поверни»: вещь поворачивается на 90° по часовой (dir = 1) или против (dir = -1). Гравитация
+## поворачивается в обратную сторону, а камера — вместе с вещью: всё падает к низу экрана.
+## "rotate": {step} — угол шага в градусах (наклон ванны — 25°), {max} — сколько шагов в каждую
+## сторону можно наклонить (0 — без предела); упёрлись в предел — ход не засчитывается.
+var _rot_steps := 0
+
+
+func rotate_world(dir: int) -> bool:
+	if _rot.is_empty() or finished:
+		return false
+	if _rot_busy:
+		# нажали, пока вещь ещё поворачивается: повернём следующей, ничего не теряется
+		_rot_queue.append(dir)
+		return true
+	var limit := int(_rot.get("max", 0))
+	if limit > 0 and absi(_rot_steps + dir) > limit:
+		return false
+	_rot_steps += dir
+	_rot_busy = true
+	_angle_to += dir * deg_to_rad(float(_rot.get("step", 90.0)))
+	var id := "cw" if dir > 0 else "ccw"
+	_pulled.append(id)
+	_acted = true
+	var tw := create_tween()
+	tw.tween_property(self, "_angle", _angle_to, float(_rot.get("time", 0.9))).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func() -> void:
+		_rot_busy = false
+		if not _rot_queue.is_empty():
+			rotate_world(_rot_queue.pop_front()))
+	switched.emit(id)
+	return true
+
+
+func _apply_rotation() -> void:
+	if _rot.is_empty():
+		return
+	PhysicsServer2D.area_set_param(get_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR,
+		Vector2.DOWN.rotated(-_angle))
+	if view_camera:
+		view_camera.ignore_rotation = false
+		view_camera.rotation = -_angle
+	if _rot_busy:
+		_wake_all()
+
+
+func _exit_tree() -> void:
+	# гравитация общая для мира: после «Поверни» возвращаем её вниз
+	if not _rot.is_empty():
+		PhysicsServer2D.area_set_param(get_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, Vector2.DOWN)
+		if view_camera:
+			view_camera.rotation = 0.0
+
+
+## «Замазка» для DevRunner: линия по точкам сразу застывает.
+func putty_line(points: Array) -> void:
+	if putty == null or finished:
+		return
+	var line := PackedVector2Array()
+	for q in points:
+		line.append(Vector2(q[0], q[1]))
+	if putty.add_line(line):
+		_acted = true
+		_wake_all()
+		switched.emit("putty")
+
+
+func pipe_by_id(pipe_id: String) -> Node:
+	for pp in pipes:
+		if pp.id == pipe_id:
+			return pp
+	return null
+
+
+## Повернуть колено трубы (палец или DevRunner). false — такого колена нет.
+func flip_pipe(pipe_id: String) -> bool:
+	var pp := pipe_by_id(pipe_id)
+	if pp == null or finished:
+		return pp != null
+	pp.flip()
+	_pulled.append(pipe_id)
+	_acted = true
+	fx.ring(pp.position + Vector2(0, -pp.size * 0.28), PIPE_SWITCH.KNOB, 30.0)
+	_wake_all()
+	switched.emit(pipe_id)
+	return true
+
+
 func pull_pin(pin: Pin) -> void:
 	if finished or pin == null or pin.pulled:
 		return
 	pin.pull()
+	_pulled.append(pin.id)
+	_acted = true
 	fx.ring(pin.position, Pin.GOLD, 42.0)
 	_wake_all()
 	pin_pulled.emit(pin)
+
+
+## Засовы в порядке, в котором их тянули.
+func pulled_ids() -> PackedStringArray:
+	return _pulled.duplicate()
+
+
+## Подсветка засова для подсказки: кольцо и рука. "" снимает.
+func set_hint_pin(pin_id: String) -> void:
+	for pin in pins:
+		pin.set_hint(pin_id != "" and pin.id == pin_id and not pin.pulled)
+	for pp in pipes:
+		pp.hinted = pin_id != "" and pp.id == pin_id
+	if _dig_hint and pin_id == "":
+		_dig_hint.set_paths([])
+
+
+## Подсказка копания: палец проходит по мазкам решения (ids из "strokes") по очереди.
+func show_dig_hint(ids: Array) -> void:
+	var strokes: Dictionary = data.get("strokes", {})
+	var paths: Array = []
+	for id in ids:
+		if strokes.has(str(id)):
+			paths.append(strokes[str(id)])
+	if paths.is_empty():
+		return
+	if _dig_hint == null:
+		_dig_hint = DigHint.new()
+		add_child(_dig_hint)
+	_dig_hint.set_paths(paths)
+
+
+func has_strokes() -> bool:
+	return not data.get("strokes", {}).is_empty()
+
+
+## Итог уровня: {won, stars, pieces, pieces_total, needed, coins_pieces, gems, relic, reason}.
+## После won/lost — снимок того момента, из которого посчитаны звёзды; дальше он не меняется.
+func result() -> Dictionary:
+	if finished:
+		return _result.duplicate()
+	return _snapshot(false, "")
 
 
 ## Вызывается из сигналов body_entered капель и врагов.
@@ -138,9 +627,67 @@ func report_contact(other: Node, source: Node) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if finished:
 		return
+	if leak:
+		_leak_input(event)
+		return
+	if dish_game:
+		_dish_input(event)
+		return
+	if plunger_game:
+		if event is InputEventScreenTouch and event.pressed:
+			_acted = true
+			plunger_game.pump()
+			get_viewport().set_input_as_handled()
+		return
+	if mirror_game:
+		if event is InputEventScreenTouch and event.pressed:
+			if mirror_game.tap_at(make_input_local(event).position):
+				_acted = true
+			get_viewport().set_input_as_handled()
+		return
+	if sew_game:
+		if event is InputEventScreenTouch and event.pressed:
+			if sew_game.tap_at(make_input_local(event).position):
+				_acted = true
+			get_viewport().set_input_as_handled()
+		return
+	if dirt:
+		if event is InputEventScreenTouch and not event.pressed:
+			_dig_from = null
+		elif event is InputEventScreenDrag and _dig_from != null:
+			var q: Vector2 = make_input_local(event).position
+			dig(_dig_from, q)
+			_dig_from = q
+			get_viewport().set_input_as_handled()
+			return
+	if putty:
+		if event is InputEventScreenTouch and not event.pressed and putty.is_drawing():
+			if putty.finish():
+				_acted = true
+				_wake_all()
+				switched.emit("putty")
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventScreenDrag and putty.is_drawing():
+			putty.extend(make_input_local(event).position)
+			get_viewport().set_input_as_handled()
+			return
 	if not (event is InputEventScreenTouch and event.pressed):
 		return
 	var p: Vector2 = make_input_local(event).position
+	if putty:
+		var on_pin := false
+		for pin in pins:
+			on_pin = on_pin or (not pin.pulled and pin.distance_to_point(p) < Pin.HIT_RADIUS)
+		if not on_pin:
+			putty.begin(p)
+			get_viewport().set_input_as_handled()
+			return
+	for pp in pipes:
+		if pp.hit(p):
+			flip_pipe(pp.id)
+			get_viewport().set_input_as_handled()
+			return
 	var best: Pin = null
 	var best_d := Pin.HIT_RADIUS
 	for pin in pins:
@@ -153,6 +700,238 @@ func _unhandled_input(event: InputEvent) -> void:
 	if best:
 		pull_pin(best)
 		get_viewport().set_input_as_handled()
+	elif dirt:
+		_dig_from = p
+		dig(p, p)
+		get_viewport().set_input_as_handled()
+
+
+## Выкопать землю по отрезку a→b (палец или DevRunner).
+func dig(a: Vector2, b: Vector2) -> void:
+	if finished or dirt == null:
+		return
+	if dirt.carve(a, b):
+		if _dig_hint and _dig_hint.visible and not _acted:
+			_dig_hint.set_paths([])
+		# крошки из-под пальца цвета того, что копаем
+		if b.distance_to(_dig_fx_at) > 26.0 and fx:
+			_dig_fx_at = b
+			var cols := LevelSkin.dirt_colors(str(data.get("theme", "")))
+			fx.burst(b, cols[0] if not cols.is_empty() else Color("9e6b45"), 4, 160.0, 3.5, 900.0, 0.45)
+		_acted = true
+		_wake_all()
+		dug.emit(b)
+
+
+## «Лови капли»: пальцы внизу водят ведро, на трубе — клеят дыру (держать) или пугают мышь.
+## Каждый палец (index) помнит, чем занят, — двумя пальцами можно и клеить, и ловить.
+var _fingers := {}
+
+
+func _leak_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var p: Vector2 = make_input_local(event).position
+		if event.pressed:
+			_acted = true
+			if leak.press(p):
+				_fingers[event.index] = "pipe"
+			else:
+				_fingers[event.index] = "bucket"
+				_bucket_to = p.x
+				leak.start()
+		else:
+			if _fingers.get(event.index, "") == "pipe":
+				leak.release()
+			_fingers.erase(event.index)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		if _fingers.get(event.index, "") == "bucket":
+			_bucket_to = make_input_local(event).position.x
+		get_viewport().set_input_as_handled()
+
+
+func _step_leak(delta: float) -> void:
+	if finished:
+		return
+	leak.step(delta)
+	if leak.started:
+		_acted = true
+	var x := clampf(_bucket_to, _bucket_rail.x, _bucket_rail.y)
+	if absf(hero.position.x - x) > 0.1:
+		hero.position.x = move_toward(hero.position.x, x, BUCKET_SPEED * delta)
+		_zone.position = hero.position - _zone_origin
+
+
+func _leak_drop(pos: Vector2) -> void:
+	var item := _spawn_item(Substances.Kind.WATER, pos)
+	item.linear_velocity = Vector2(0, 60)
+
+
+func _leak_changed(at: Vector2) -> void:
+	var n: int = leak.done_count()
+	if at != Vector2.ZERO:
+		Sfx.play(&"restore")
+		fx.ring(at, SPARK, 60.0, 0.4)
+		fx.burst(at, Color("e6d6a8"), 10, 260.0, 4.0, 600.0, 0.6)
+	pieces = n
+	gold_changed.emit(pieces, pieces_needed, pieces_total)
+
+
+func _catch_drop(item: Item) -> void:
+	fx.burst(item.position, Color("8ce6ff"), 6, 200.0, 3.0, 0.0, 0.4)
+	_remove(item)
+	hero.bounce()
+	_since_collect = 0.0
+	Sfx.play(&"drip")
+
+
+## Победа в «лови капли» — только когда мышь ушла, дыры заклеены и в воздухе нет капель.
+func _leak_calm() -> bool:
+	if leak == null:
+		return true
+	if not leak.calm():
+		return false
+	for item in items:
+		if item.kind == Substances.Kind.WATER and not item.removed:
+			return false
+	return true
+
+
+## «Стопка посуды»: палец ведёт появившуюся посуду, отпустил — падает.
+func _dish_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var p: Vector2 = make_input_local(event).position
+		if event.pressed:
+			if dish_game.grab(p):
+				_fingers[event.index] = "dish"
+		elif _fingers.get(event.index, "") == "dish":
+			_fingers.erase(event.index)
+			dish_game.drop()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag and _fingers.get(event.index, "") == "dish":
+		dish_game.hold_at(make_input_local(event).position)
+		get_viewport().set_input_as_handled()
+
+
+func _on_dish_broke(pos: Vector2) -> void:
+	if finished:
+		return
+	fx.burst(pos, Color(0.97, 0.97, 0.95), 26, 520.0, 6.0, 900.0, 0.8)
+	_shake = 9.0
+	Sfx.play(&"grate_break")
+	_lose("broke")
+
+
+## Посуда задела таракана — он убегает.
+func _on_dish_enemy(enemy: Node) -> void:
+	if finished or not (enemy is Enemy) or not enemy.alive:
+		return
+	enemy.kill()
+	fx.burst(enemy.position, Color("d9c7a1"), 14, 300.0, 5.0, 700.0, 0.6)
+	Sfx.play(&"slime_pop")
+
+
+## Звёзды: у ловкостных механик — по ошибкам, у остальных — по собранному.
+## Правило звёзд этого уровня словами (пауза и итог).
+func star_rule() -> String:
+	var errs := ""
+	if leak:
+		errs = "промахов"
+	elif plunger_game:
+		errs = "выплесков"
+	elif sew_game:
+		errs = "узелков"
+	if errs != "":
+		return "★★★ — без %s, ★★ — одна ошибка, ★ — больше" % errs
+	if mirror_game:
+		return "★★★ — за %d поворотов или меньше, ★★ — на один больше, ★ — больше" % mirror_game.par
+	if dish_game:
+		return "★★★ — вся посуда на полках"
+	if _three_needed > pieces_needed:
+		return "★ — собрать %d из %d, ★★ — %d, ★★★ — %d" % [pieces_needed, pieces_total, _two_needed, _three_needed]
+	return "★★★ — выполнить цель"
+
+
+## Мишка из магазина: с ним Вите не страшно — в уровнях с ошибками одна прощается (звёзды — как
+## прежде, по числу ошибок). В проверках уровней профиль чистый, пороги не меняются.
+func _brave() -> int:
+	return 1 if Profile.owns("vita_teddy") else 0
+
+
+func _timed_stars() -> int:
+	if leak:
+		return 3 - mini(leak.misses, 2)
+	if plunger_game:
+		return 3 - mini(plunger_game.splashes, 2)
+	if mirror_game:
+		var extra: int = mirror_game.taps_used - mirror_game.par
+		return 3 if extra <= 0 else (2 if extra <= 1 else 1)
+	if sew_game:
+		return 3 - mini(sew_game.knots, 2)
+	return _stars_for(pieces)
+
+
+## DevRunner: повернуть зеркальце.
+func mirror_tap(id: String) -> void:
+	_acted = true
+	mirror_game.turn(id)
+
+
+## DevRunner: качнуть вантуз.
+func plunger_pump() -> void:
+	_acted = true
+	plunger_game.pump()
+
+
+## DevRunner: посуду в точку и отпустить.
+func dish_drop_at(p: Vector2) -> bool:
+	if dish_game == null or not dish_game.ready_to_drop():
+		return false
+	dish_game.hold_at(p)
+	dish_game.drop()
+	return true
+
+
+## DevRunner: ведро к x, палец на дыру, палец убрать, спугнуть мышь.
+func leak_move(x: float) -> void:
+	_acted = true
+	_bucket_to = x
+	leak.start()
+
+
+func leak_press(id: String) -> void:
+	_acted = true
+	leak.press_hole(id)
+
+
+func leak_release() -> void:
+	leak.release()
+
+
+## DevRunner: спугнуть нарушителя (мышь на трубе или у дивана).
+func scare_intruder() -> void:
+	_acted = true
+	if leak:
+		leak.scare()
+	elif sew_game:
+		sew_game.scare()
+
+
+## DevRunner: «Сшей диван» — стежок в дырку или пружину спрятать.
+func sew_stitch(id: String) -> void:
+	_acted = true
+	sew_game.stitch(id)
+
+
+func sew_spring(id: String) -> void:
+	_acted = true
+	sew_game.push_spring(id)
+
+
+## DevRunner: сценарий ходов закончился — дальше без победы считается «застряли».
+func actions_done() -> void:
+	if _stuck_timer < 0.0:
+		_stuck_timer = 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -167,6 +946,41 @@ func _physics_process(delta: float) -> void:
 		for b in hits:
 			_on_zone_hit(b)
 	_process_cooling(delta)
+	_apply_rotation()
+	_run_source(delta)
+	if leak:
+		_step_leak(delta)
+	if mirror_game:
+		mirror_game.step(delta)
+	if sew_game:
+		sew_game.step_time(delta)
+	if plunger_game:
+		plunger_game.step(delta)
+		if plunger_game.started:
+			_acted = true
+	if dish_game:
+		# после поражения физика идёт дальше (посуда падает), после победы всё заморожено
+		dish_game.step(delta)
+	if dish_game and not finished:
+		# таракан убегает, когда посуда встала рядом
+		for e in enemies:
+			if e.alive:
+				for d: RigidBody2D in dish_game.dishes:
+					if d.position.distance_to(e.position) < 110.0:
+						_on_dish_enemy(e)
+						break
+		var placed: int = dish_game.placed_count()
+		if placed != pieces:
+			pieces = placed
+			gold_changed.emit(pieces, pieces_needed, pieces_total)
+	if not _hazard_hits.is_empty():
+		var hh := _hazard_hits
+		_hazard_hits = []
+		for h in hh:
+			_on_hazard(h[0], h[1])
+	_check_drowning(delta)
+	_count_fill()
+	_walk(delta)
 	_cull_fallen()
 	_update_outcome(delta)
 
@@ -179,12 +993,21 @@ func _process(delta: float) -> void:
 		elif camera.offset != Vector2.ZERO:
 			camera.offset = Vector2.ZERO
 	_scare_timer -= delta
+	_say_cooldown -= delta
+	if _danger_kind != "":
+		_danger_time += delta
 	if _scare_timer <= 0.0 and not finished:
 		_scare_timer = 0.25
-		hero.set_scared(_danger_near())
+		var kind := _danger_kind_near()
+		hero.set_scared(kind != "")
+		_react_to_danger(kind)
 
 
 # --- реакции ---------------------------------------------------------------
+
+func _add_reaction(k1: int, k2: int, handler: Callable) -> void:
+	_reactions[k1 * 16 + k2] = handler
+
 
 func _resolve_contact(other: Node, source: Node) -> void:
 	var enemy: Enemy = null
@@ -196,34 +1019,55 @@ func _resolve_contact(other: Node, source: Node) -> void:
 		enemy = other
 		item = source
 	if enemy:
-		if enemy.alive and _alive(item) and Substances.is_deadly(item.kind):
-			_kill_enemy(enemy)
+		if enemy.alive and _alive(item) and VULNERABLE.get(_enemy_kind(enemy), []).has(item.kind):
+			_kill_enemy(enemy, item)
+		elif enemy.alive and item.kind == Substances.Kind.WATER and enemy.get_meta(&"swell", false) and not finished:
+			# засор в унитазе от воды набухает — средство его уже не возьмёт
+			fx.burst(enemy.position, Color("8a6a45"), 16, 260.0, 6.0, 0.0, 0.6)
+			_lose("swelled")
 		return
 	if source is Item and other is Item and _alive(source) and _alive(other):
 		_react(source, other)
 
 
+## Ищет обработчик пары в любом порядке; первым аргументом идёт тело первого вида.
 func _react(a: Item, b: Item) -> void:
-	var water := Substances.Kind.WATER
-	var lava := Substances.Kind.LAVA
-	var acid := Substances.Kind.ACID
-	var stone := Substances.Kind.STONE
-	if _is_pair(a, b, water, lava):
-		# вода + лава = камень; от камня застывание волной идёт по соседней лаве
-		var w := a if a.kind == water else b
-		var l := b if w == a else a
-		_solidify(l)
-		_remove(w)
-	elif _is_pair(a, b, acid, stone):
-		# кислота растворяет камень
-		fx.burst(a.position, ACID_FIZZ, 6, 120.0, 4.0, -200.0)
-		_remove(a)
-		_remove(b)
-	elif _is_pair(a, b, acid, water):
-		# вода разбавляет кислоту
-		var ac := a if a.kind == acid else b
-		ac.set_kind(water)
-		fx.burst(ac.position, ACID_FIZZ, 3, 60.0, 3.0, -150.0)
+	var handler: Callable = _reactions.get(a.kind * 16 + b.kind, Callable())
+	if handler.is_valid():
+		handler.call(a, b)
+		return
+	handler = _reactions.get(b.kind * 16 + a.kind, Callable())
+	if handler.is_valid():
+		handler.call(b, a)
+
+
+# вода + лава = камень; от камня застывание волной идёт по соседней лаве
+func _water_lava(water: Item, lava: Item) -> void:
+	reaction.emit(&"steam", lava.position, {})
+	_solidify(lava)
+	_remove(water)
+
+
+# кислота растворяет камень
+func _acid_stone(acid: Item, stone: Item) -> void:
+	fx.burst(acid.position, ACID_FIZZ, 6, 120.0, 4.0, -200.0)
+	reaction.emit(&"acid_stone", stone.position, {})
+	_remove(acid)
+	_remove(stone)
+
+
+# вода разбавляет кислоту
+func _acid_water(acid: Item, _water: Item) -> void:
+	acid.set_kind(Substances.Kind.WATER)
+	fx.burst(acid.position, ACID_FIZZ, 3, 60.0, 3.0, -150.0)
+	reaction.emit(&"dilute", acid.position, {})
+
+
+# благородный металл: кислота золоту ничего не делает (секрет гримуара)
+func _acid_gold(_acid: Item, gold: Item) -> void:
+	if not _noble_seen:
+		_noble_seen = true
+		reaction.emit(&"noble_gold", gold.position, {})
 
 
 func _solidify(item: Item) -> void:
@@ -232,6 +1076,9 @@ func _solidify(item: Item) -> void:
 	item.set_kind(Substances.Kind.STONE)
 	item.sleeping = false
 	fx.burst(item.position, STEAM, 2, 90.0, 7.0, -260.0, 0.8)
+	_wave_n += 1
+	_wave_pos = item.position
+	reaction.emit(&"stone", item.position, {"n": _wave_n})
 	var r2 := CHAIN_RADIUS * CHAIN_RADIUS
 	for other in items:
 		if other.kind == Substances.Kind.LAVA and not other.cooling and not other.removed \
@@ -241,96 +1088,515 @@ func _solidify(item: Item) -> void:
 
 
 func _process_cooling(delta: float) -> void:
-	if _cooling.is_empty():
-		return
-	var due: Array[Item] = []
-	for i in range(_cooling.size() - 1, -1, -1):
-		_cooling[i][0] -= delta
-		if _cooling[i][0] <= 0.0:
-			due.append(_cooling[i][1])
-			_cooling.remove_at(i)
-	for item in due:
-		_solidify(item)
+	if not _cooling.is_empty():
+		var due: Array[Item] = []
+		for i in range(_cooling.size() - 1, -1, -1):
+			_cooling[i][0] -= delta
+			if _cooling[i][0] <= 0.0:
+				due.append(_cooling[i][1])
+				_cooling.remove_at(i)
+		for item in due:
+			_solidify(item)
+	if _cooling.is_empty() and _wave_n > 0:
+		reaction.emit(&"wave_end", _wave_pos, {"n": _wave_n})
+		_wave_n = 0
 
 
-func _kill_enemy(enemy: Enemy) -> void:
+func _kill_enemy(enemy: Enemy, killer: Item) -> void:
 	enemy.kill()
-	fx.burst(enemy.position, GOO, 22, 420.0, 7.0, 900.0, 0.7)
-	fx.ring(enemy.position, GOO, 70.0, 0.4)
+	# брызги по тому, что его прогнало: вода — голубые капли, средство — зелёная пена
+	var c: Color = GOO if _enemy_kind(enemy) == &"slime" else (Color("8ce6ff") if killer.kind == Substances.Kind.WATER else ACID_FIZZ)
+	fx.burst(enemy.position, c, 22, 420.0, 7.0, 900.0, 0.7)
+	fx.ring(enemy.position, c, 70.0, 0.4)
 	_shake = 7.0
+	reaction.emit(&"slime_pop", enemy.position,
+		{"enemy": _enemy_kind(enemy), "killer": StringName(Substances.name_of(killer.kind))})
 
 
 # --- зона героя и исход -----------------------------------------------------
 
 func _on_zone_hit(body: Node) -> void:
+	# после победы или поражения счёт замирает: итог уже посчитан
+	if finished:
+		return
 	if body is Enemy:
-		if body.alive and not finished:
+		# в «дыре» (mode fill) нарушитель и так сидит внутри: проигрыш — если его замуровали (стоп)
+		if body.alive and not _fill_mode:
 			_lose("enemy")
 		return
 	if not (body is Item) or not _alive(body):
 		return
 	var item: Item = body
-	match item.kind:
-		Substances.Kind.GOLD:
+	if leak and item.kind == Substances.Kind.WATER:
+		_catch_drop(item)
+		return
+	if _goal_kind >= 0:
+		if item.kind == _goal_kind and not _fill_mode:
 			_collect(item)
-		Substances.Kind.LAVA:
-			if not finished:
-				_lose("lava")
-		Substances.Kind.ACID:
-			if not finished:
-				_lose("acid")
+		elif _bad_kinds.has(item.kind):
+			_lose(Substances.name_of(item.kind))
+		return
+	if Substances.is_piece(item.kind):
+		_collect(item)
+	elif Substances.is_deadly(item.kind):
+		_lose(Substances.name_of(item.kind))
 
 
 func _collect(item: Item) -> void:
-	gold_collected += 1
-	fx.burst(item.position, SPARK, 6, 220.0, 3.5, 0.0, 0.45)
+	var gem := item.kind == Substances.Kind.GEM
+	pieces += 1
+	if gem:
+		gems += 1
+	elif item.kind == Substances.Kind.GOLD:
+		coins_pieces += 1
+	_since_collect = 0.0
+	var pos := item.position
+	fx.burst(pos, Color("8ce6ff") if item.kind == Substances.Kind.WATER else SPARK, 6, 220.0, 3.5, 0.0, 0.45)
 	_remove(item)
 	hero.bounce()
-	gold_changed.emit(gold_collected, gold_needed, gold_total)
+	if pieces == 1:
+		say("coins", ["Монетки!", "Ой, денежка!"])
+	collected.emit(&"gem" if gem else (&"coin" if item.kind == Substances.Kind.GOLD else StringName(Substances.name_of(item.kind))), pos)
+	gold_changed.emit(pieces, pieces_needed, pieces_total)
 
 
 func _update_outcome(delta: float) -> void:
 	if finished:
 		return
-	if _win_timer >= 0.0:
-		_win_timer -= delta
-		if _win_timer <= 0.0:
+	_since_collect += delta
+	# до первого хода уровень не решается, даже если собирать нечего
+	if not _acted:
+		return
+	if door:
+		# уровень с дверью выигрывается только у двери (_walk); здесь — «застряли»,
+		# но только когда всё успокоилось: вода может долго бежать по длинному ходу
+		if _stuck_timer >= 0.0:
+			_stuck_timer = 0.0 if _anything_moving() else _stuck_timer + delta
+			if _stuck_timer > STUCK_TIMEOUT:
+				_lose("blocked")
+		return
+	if pieces >= pieces_needed and _alive_enemies() == 0 and _family_safe() and _leak_calm() \
+			and (dish_game == null or dish_game.calm()):
+		# окно победы: ждём, пока докатятся монеты, но не бесконечно. Тишина считается
+		# не раньше, чем цель выполнена: лава, убившая последнего врага, ещё может
+		# долететь до героини, и поражение должно успеть сработать.
+		_goal_time = maxf(_goal_time, 0.0) + delta
+		if _goal_time >= WIN_CAP or minf(_since_collect, _goal_time) >= WIN_QUIET:
 			_win()
 		return
-	if gold_collected >= gold_needed and _alive_enemies() == 0:
-		_win_timer = WIN_DELAY
-		return
-	if _stuck_timer >= 0.0:
-		_stuck_timer += delta
-		if _stuck_timer > STUCK_TIMEOUT:
+	if _stuck_timer >= 0.0 and leak == null and dish_game == null and plunger_game == null and mirror_game == null \
+			and sew_game == null:
+		# где копают или вода течёт из трубы, она может долго бежать: «застряли» — когда всё успокоилось,
+		# но не позже STUCK_HARD после последнего хода (капля может кататься без конца)
+		_stuck_total += delta
+		_stuck_timer = 0.0 if (dirt or not _source.is_empty() or not _rot.is_empty()) and _anything_moving() \
+			else _stuck_timer + delta
+		if _stuck_timer > STUCK_TIMEOUT or _stuck_total > STUCK_HARD:
 			_lose("stuck")
 
 
+## Семья идёт к двери, пока впереди безопасно; у ямы, стены или опасности — ждёт.
+func _walk(delta: float) -> void:
+	if door == null or finished:
+		return
+	_walk_time += delta
+	var fam := hero as FamilyHero
+	var dir := signf(door.position.x - hero.position.x)
+	if absf(door.position.x - hero.position.x) < 10.0:
+		if fam:
+			fam.walking = false
+		door.open()
+		_win()
+		# семья входит в дверной проём и исчезает в свете
+		var tw := create_tween()
+		tw.tween_interval(0.5)
+		tw.tween_property(hero, "modulate:a", 0.0, 0.6)
+		return
+	var moved := false
+	if _walk_time >= WALK_DELAY and not _hazard_ahead(dir):
+		var nx := hero.position.x + dir * WALK_SPEED * delta
+		var ground := _ground_y(nx + dir * 14.0, hero.position.y)
+		var dy := ground - hero.position.y
+		if dy > -STEP_UP and dy < STEP_DOWN and not _wall_ahead(dir):
+			hero.position = Vector2(nx, move_toward(hero.position.y, ground, 260.0 * delta + maxf(0.0, -dy) * 0.5))
+			moved = true
+	elif _walk_time >= WALK_DELAY:
+		hero.set_scared(true)
+	if fam:
+		fam.walking = moved
+	if moved:
+		_zone.position = hero.position - _zone_origin
+		if _stuck_timer > 0.0:
+			_stuck_timer = 0.0
+
+
+## Верх твёрдой опоры под x: стены, земля, засовы, камни. Жидкости и монеты не держат.
+func _ground_y(x: float, y: float) -> float:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(Vector2(x, y - 60.0), Vector2(x, y + 400.0),
+		Substances.LAYER_WORLD | Substances.LAYER_ITEMS)
+	var skip: Array[RID] = []
+	for i in 8:
+		q.exclude = skip
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return INF
+		var col: Object = hit["collider"]
+		if col is Item and (Substances.is_fluid(col.kind) or Substances.is_piece(col.kind)):
+			skip.append(hit["rid"])
+			continue
+		return hit["position"].y
+	return INF
+
+
+func _wall_ahead(dir: float) -> bool:
+	var space := get_world_2d().direct_space_state
+	for h in [40.0, 100.0]:
+		var from := hero.position + Vector2(0, -h)
+		var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(dir * 34.0, 0), Substances.LAYER_WORLD)
+		if not space.intersect_ray(q).is_empty():
+			return true
+	return false
+
+
+func _hazard_ahead(dir: float) -> bool:
+	for item in items:
+		if Substances.is_deadly(item.kind) and not item.removed:
+			var dx := (item.position.x - hero.position.x) * dir
+			var dy := item.position.y - hero.position.y
+			if dx > -30.0 and dx < 130.0 and dy > -200.0 and dy < 30.0:
+				return true
+	for e in enemies:
+		if e.alive:
+			var dx := (e.position.x - hero.position.x) * dir
+			if dx > -30.0 and dx < 170.0 and absf(e.position.y - hero.position.y) < 200.0:
+				return true
+	return false
+
+
+## Вода стоит в зоне семьи и заполняет больше половины её — семья тонет (только семейные уровни).
+## Пролетающий над головами поток не считается: капли должны почти стоять.
+func _check_drowning(delta: float) -> void:
+	if finished or not data.get("family", false):
+		return
+	var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size)
+	var capacity := zr.get_area() / DROWN_CELL
+	var n := 0
+	for item in items:
+		if item.kind == Substances.Kind.WATER and not item.removed and zr.has_point(item.position) \
+				and item.linear_velocity.length() < DROWN_SPEED:
+			n += 1
+	_drown_time = _drown_time + delta if n >= capacity * DROWN_FILL else 0.0
+	if _drown_time >= DROWN_TIME:
+		_lose("water")
+
+
+## Сокровище или цель приёмника: то, что идёт в счёт.
+func _is_goal(kind: int) -> bool:
+	return kind == _goal_kind if _goal_kind >= 0 else Substances.is_piece(kind)
+
+
+## Приёмник-«дыра»: сколько целевых тел лежит внутри прямо сейчас (камни, заделавшие дыру).
+func _count_fill() -> void:
+	if not _fill_mode or finished:
+		return
+	_fill_tick += 1
+	if _fill_tick % 6 != 0:
+		return
+	var zr := _zone_rect
+	var n := 0
+	for item in items:
+		if item.kind == _goal_kind and not item.removed and zr.has_point(item.position):
+			n += 1
+	if n != pieces:
+		if n > pieces:
+			_since_collect = 0.0
+			hero.bounce()
+		pieces = n
+		gold_changed.emit(pieces, pieces_needed, pieces_total)
+	# дыру заделали, а нарушитель остался внутри — замуровали: он прогрызёт всё снова
+	if pieces >= pieces_needed:
+		for e in enemies:
+			if e.alive and zr.grow(60.0).has_point(e.position):
+				_lose("walled")
+				return
+
+
+func _family_safe() -> bool:
+	if _goal_kind >= 0:
+		# приёмник: пока к нему летит то, что его испортит, победу не объявляем
+		# опасно только то, что летит к приёмнику (или уже рядом); уползающее прочь — не мешает
+		var zc := _zone_rect.get_center()
+		for item in items:
+			if _alive(item) and _bad_kinds.has(item.kind) and item.linear_velocity.length() > 12.0:
+				var to_zone := zc - item.position
+				if to_zone.length() < 200.0 or item.linear_velocity.dot(to_zone) > 0.0:
+					_goal_time = -1.0
+					return false
+		return true
+	if not data.get("family", false):
+		return true
+	# Не все засовы обязательны: хватает собранного золота и отсутствия летящей опасности.
+	var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size).grow(40.0)
+	for item in items:
+		if not _alive(item):
+			continue
+		if Substances.is_deadly(item.kind) and item.linear_velocity.length() > 12.0:
+			_goal_time = -1.0
+			return false
+		# вода ещё льётся на семью: сначала посмотрим, не затопит ли
+		if item.kind == Substances.Kind.WATER and item.linear_velocity.length() > DROWN_SPEED \
+				and zr.has_point(item.position):
+			_goal_time = -1.0
+			return false
+	return true
+
+
 func _win() -> void:
-	finished = true
+	_finish(true, "")
+	if dish_game:
+		dish_game.settle_all()
 	hero.celebrate()
+	if _goal_kind >= 0:
+		_walls.repair()
+		for c in get_children():
+			if c is HomePuzzleBackdrop:
+				c.repair()
+	say("win", ["Ура, выход!", "Мы дома!"] if door else ["Получилось!", "Ура, мама!", "Мы спасены!"], true)
 	var c := hero.position + Vector2(0, -80)
 	for col in [SPARK, Color("39d6ff"), Color("ff4fd8")]:
 		fx.burst(c, col, 14, 520.0, 5.0, 700.0, 1.1)
 	fx.ring(c, SPARK, 120.0, 0.5)
-	var ratio := float(gold_collected) / maxf(1.0, gold_total)
-	var stars := 3 if ratio >= 0.95 else (2 if ratio >= (1.0 + float(gold_needed) / gold_total) * 0.5 else 1)
-	get_tree().create_timer(RESULT_DELAY).timeout.connect(func() -> void: won.emit(stars))
+	won.emit(int(_result["stars"]))
 
 
 func _lose(reason: String) -> void:
-	finished = true
-	hero.die()
+	_finish(false, reason)
+	if hero.has_method(&"oops"):
+		hero.call(&"oops", reason)
+	else:
+		hero.die()
 	_shake = 12.0
-	get_tree().create_timer(RESULT_DELAY).timeout.connect(func() -> void: lost.emit(reason))
+	lost.emit(reason)
+
+
+func _finish(win: bool, reason: String) -> void:
+	finished = true
+	_result = _snapshot(win, reason)
+	set_hint_pin("")
+
+
+func _snapshot(win: bool, reason: String) -> Dictionary:
+	return {
+		"won": win, "stars": _timed_stars() if win else 0,
+		"pieces": pieces, "pieces_total": pieces_total, "needed": pieces_needed,
+		"coins_pieces": coins_pieces, "gems": gems, "relic": relic, "reason": reason,
+	}
+
+
+## Цель: доля {"gold": 0.7} или число {"pieces": 16, "three_star": 26}.
+func _setup_goal() -> void:
+	var goal: Dictionary = data.get("goal", {})
+	if goal.has("pieces"):
+		pieces_needed = int(goal["pieces"])
+		_three_needed = int(goal.get("three_star", pieces_needed))
+	elif pieces_total > 0:
+		var share := float(goal.get("gold", 0.7))
+		pieces_needed = maxi(1, ceili(pieces_total * share - 0.0001))
+		_three_needed = (pieces_total * THREE_STAR_PERCENT + 99) / 100
+	_three_needed = maxi(_three_needed, pieces_needed)
+	_two_needed = ceili((pieces_needed + _three_needed) * 0.5)
+
+
+## 3 звезды — порог трёх звёзд, 2 — середина между целью и им, 1 — цель.
+## На уровне без сокровищ всегда 3.
+func _stars_for(n: int) -> int:
+	if _three_needed <= 0 or n >= _three_needed:
+		return 3
+	return 2 if n >= _two_needed else 1
 
 
 func _on_pin_out(_pin: Pin) -> void:
 	_wake_all()
+	# где можно копать, игрок ещё не исчерпал ходы: «застряли» не объявляем
+	if dirt or door:
+		return
 	for pin in pins:
 		if not pin.pulled:
 			return
 	_stuck_timer = 0.0
+
+
+# --- вода из трубы и опасности -----------------------------------------------
+
+## Вода уже бежит: через delay секунд источник выпускает count капель со скоростью rate в секунду.
+func _run_source(delta: float) -> void:
+	if _source_left <= 0 or finished:
+		return
+	_source_time += delta
+	if _source_time < float(_source.get("delay", 1.0)):
+		return
+	_acted = true
+	_source_acc += delta * float(_source.get("rate", 12.0))
+	var kind := Substances.from_name(str(_source.get("kind", "water")))
+	var at := _vec(_source["pos"])
+	var x1 := float(_source.get("x1", at.x))
+	while _source_acc >= 1.0 and _source_left > 0:
+		_source_acc -= 1.0
+		_source_left -= 1
+		var off := Vector2(float(_source_left % 5 - 2) * 4.0, 0.0)
+		if x1 > at.x:
+			# дождь: капли по всей ширине, ровно и без случайностей (одинаково при проверке)
+			off = Vector2(fmod(_source_left * 0.6180339, 1.0) * (x1 - at.x), 0.0)
+		var item := _spawn_item(kind, at + off)
+		item.linear_velocity = Vector2(0, 140)
+	if _source_left == 0 and _stuck_timer < 0.0:
+		_stuck_timer = 0.0
+
+
+## Опасное место: розетка. Вода в ней — искры и поражение.
+func _add_hazard(r: Rect2, kind: String, limit := 0) -> void:
+	_hazard_limits[kind] = limit
+	var area := Area2D.new()
+	area.collision_layer = 0
+	area.collision_mask = Substances.LAYER_ITEMS
+	area.monitorable = false
+	var shape := RectangleShape2D.new()
+	shape.size = r.size
+	var cs := CollisionShape2D.new()
+	cs.shape = shape
+	cs.position = r.get_center()
+	area.add_child(cs)
+	area.body_entered.connect(func(b: Node2D) -> void: _hazard_hits.append([b, kind]))
+	add_child(area)
+	var art := HazardArt.new()
+	art.rect = r
+	art.kind = kind
+	add_child(art)
+	_hazard_arts.append(art)
+
+
+func _on_hazard(body: Node, kind: String) -> void:
+	if finished or not (body is Item) or not _alive(body):
+		return
+	var item: Item = body
+	if not Substances.is_fluid(item.kind):
+		return
+	_hazard_count[kind] = int(_hazard_count.get(kind, 0)) + 1
+	if leak and kind == "leak":
+		leak.misses = _hazard_count[kind]
+		Sfx.play(&"fizz")
+		_remove(item)
+	for art in _hazard_arts:
+		if art.rect.grow(20).has_point(item.position):
+			art.hits += 1
+			art.spark()
+			if kind == "socket" or kind == "wire":
+				fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
+	if _hazard_count[kind] > int(_hazard_limits.get(kind, 0)):
+		_lose(kind)
+
+
+## Розетка на стене: белая пластина, два отверстия; при беде — искры.
+class HazardArt extends Node2D:
+	const WIRE_ART := "res://art/act1/levels/wire_box.png"
+	var rect := Rect2()
+	var _tex: Texture2D = null
+	var kind := "socket"
+	var hits := 0
+	var _flash := 0.0
+
+	## Картинку грузим сразу, а не во время рисования: иначе первый кадр — белый прямоугольник.
+	func _ready() -> void:
+		if kind == "wire" and ResourceLoader.exists(WIRE_ART):
+			_tex = load(WIRE_ART)
+		queue_redraw()
+
+	func spark() -> void:
+		_flash = 1.0
+		create_tween().tween_property(self, "_flash", 0.0, 0.8)
+
+	func _process(_delta: float) -> void:
+		if _flash > 0.0:
+			queue_redraw()
+
+	func _draw() -> void:
+		if kind == "wire":
+			_draw_wire()
+			return
+		if kind == "mold":
+			_draw_mold()
+			return
+		if kind != "socket":
+			# подоконник и пол нарисованы на фоне: только тревожная вспышка при каждой капле
+			if _flash > 0.0:
+				draw_rect(rect, Color(1.0, 0.5, 0.3, 0.25 * _flash))
+			return
+		var c := rect.get_center()
+		var r := Rect2(c - Vector2(34, 34), Vector2(68, 68))
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("f4f1ea")
+		box.border_color = Color("8a8078")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(12)
+		draw_style_box(box, r)
+		draw_circle(c, 22.0, Color("e2ddd3"))
+		for sx in [-9.0, 9.0]:
+			draw_circle(c + Vector2(sx, 0), 4.5, Color("3a3230"))
+		# предупреждающая молния
+		var z := c + Vector2(0, -52)
+		draw_colored_polygon(PackedVector2Array([z + Vector2(-4, -14), z + Vector2(6, -14), z + Vector2(0, -2),
+			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
+		if _flash > 0.0:
+			_draw_sparks(c)
+
+	## Проводка под полом: кабель через весь участок и распаечная коробка с молнией
+	## (или картинка художника art/act1/levels/wire_box.png).
+	func _draw_wire() -> void:
+		var c := rect.get_center()
+		if _tex:
+			draw_texture_rect(_tex, rect, false)
+			if _flash > 0.0:
+				_draw_sparks(c)
+			return
+		var pts := PackedVector2Array()
+		for i in 13:
+			var t := i / 12.0
+			pts.append(Vector2(lerpf(rect.position.x, rect.end.x, t), c.y + sin(t * TAU * 1.5) * rect.size.y * 0.18))
+		draw_polyline(pts, Color("2b2522"), 12.0, true)
+		draw_polyline(pts, Color("c0392b"), 7.0, true)
+		var r := Rect2(c - Vector2(30, 24), Vector2(60, 48))
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("9aa3a8")
+		box.border_color = Color("4d5559")
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(8)
+		draw_style_box(box, r)
+		for p in [r.position + Vector2(9, 9), r.end - Vector2(9, 9)]:
+			draw_circle(p, 3.5, Color("4d5559"))
+		var z := c
+		draw_colored_polygon(PackedVector2Array([z + Vector2(-4, -14), z + Vector2(6, -14), z + Vector2(0, -2),
+			z + Vector2(7, -2), z + Vector2(-5, 16), z + Vector2(-1, 3), z + Vector2(-7, 3)]), Color("f2c14e"))
+		if _flash > 0.0:
+			_draw_sparks(c)
+
+	## Плесень на стене: пятна растут с каждой каплей воды.
+	func _draw_mold() -> void:
+		var c := rect.get_center()
+		var grow := 1.0 + hits * 0.18
+		var spots := [Vector2(-0.3, 0.1), Vector2(0.05, -0.15), Vector2(0.3, 0.12), Vector2(-0.05, 0.25), Vector2(0.18, -0.3)]
+		for i in spots.size():
+			var p: Vector2 = c + spots[i] * rect.size
+			var r := minf(rect.size.x, rect.size.y) * (0.22 + 0.05 * (i % 3)) * grow
+			draw_circle(p, r, Color(0.28, 0.4, 0.25, 0.75))
+			draw_circle(p + Vector2(r * 0.2, -r * 0.2), r * 0.5, Color(0.42, 0.55, 0.33, 0.8))
+		if _flash > 0.0:
+			draw_circle(c, rect.size.x * 0.6 * grow, Color(0.4, 0.7, 0.3, 0.25 * _flash))
+
+	func _draw_sparks(c: Vector2) -> void:
+		for i in 8:
+			var a := i * TAU / 8.0
+			draw_line(c, c + Vector2(cos(a), sin(a)) * (30.0 + 40.0 * _flash), Color(1.0, 0.9, 0.3, _flash), 4.0)
 
 
 # --- служебное --------------------------------------------------------------
@@ -343,14 +1609,23 @@ func _spawn_fill(kind: int, rect: Rect2, count: int) -> int:
 		var cx := i % cols
 		var cy := int(i / float(cols))
 		var shift := step * 0.25 if cy % 2 == 1 else 0.0
-		var pos := Vector2(rect.position.x + step * 0.5 + cx * step + shift, rect.end.y - step * 0.5 - cy * step)
-		var item := Item.new()
-		item.setup(kind, pos, _rng.randi())
-		if item.contact_monitor:
-			item.body_entered.connect(report_contact.bind(item))
-		_bodies.add_child(item)
-		items.append(item)
+		_spawn_item(kind, Vector2(rect.position.x + step * 0.5 + cx * step + shift, rect.end.y - step * 0.5 - cy * step))
 	return count
+
+
+func _spawn_item(kind: int, pos: Vector2) -> Item:
+	var item := Item.new()
+	item.setup(kind, _jittered(pos), _rng.randi())
+	item.body_entered.connect(report_contact.bind(item))
+	_bodies.add_child(item)
+	items.append(item)
+	return item
+
+
+func _jittered(pos: Vector2) -> Vector2:
+	if _jitter == null:
+		return pos
+	return pos + Vector2(_jitter.randf_range(-1.0, 1.0), _jitter.randf_range(-1.0, 1.0))
 
 
 func _remove(item: Item) -> void:
@@ -375,6 +1650,47 @@ func _wake_all() -> void:
 			e.sleeping = false
 
 
+## Реплика семьи; одна и та же — не чаще раза за попытку, между любыми — пауза.
+func say(key: String, lines: Array, force := false) -> void:
+	if not hero.has_method(&"say") or lines.is_empty():
+		return
+	if not force and (_said.has(key) or _say_cooldown > 0.0):
+		return
+	_said[key] = true
+	_say_cooldown = 2.2
+	hero.call(&"say", str(lines[_rng.randi() % lines.size()]))
+
+
+func _react_to_danger(kind: String) -> void:
+	if kind != "" and _danger_kind == "":
+		say("danger_" + kind, LINES_DANGER.get(kind, []))
+		_danger_time = 0.0
+	elif kind == "" and _danger_kind != "" and _danger_time > 0.6:
+		say("relief", LINES_RELIEF)
+	_danger_kind = kind
+
+
+## Что грозит семье рядом: lava, acid, enemy, water (вода поднялась до пояса) или "".
+func _danger_kind_near() -> String:
+	var head := hero.position + Vector2(0, -60)
+	var d2 := SCARE_DISTANCE * SCARE_DISTANCE
+	for e in enemies:
+		if e.alive and e.position.distance_squared_to(head) < d2:
+			return "enemy"
+	for item in items:
+		if Substances.is_deadly(item.kind) and not item.removed and item.position.distance_squared_to(head) < d2:
+			return Substances.name_of(item.kind)
+	if data.get("family", false) and _zone:
+		var zr := Rect2(_zone_rect.position + _zone.position, _zone_rect.size)
+		var n := 0
+		for item in items:
+			if item.kind == Substances.Kind.WATER and not item.removed and zr.has_point(item.position):
+				n += 1
+		if n >= zr.get_area() / DROWN_CELL * 0.22:
+			return "water"
+	return ""
+
+
 func _danger_near() -> bool:
 	var head := hero.position + Vector2(0, -60)
 	var d2 := SCARE_DISTANCE * SCARE_DISTANCE
@@ -387,6 +1703,13 @@ func _danger_near() -> bool:
 	return false
 
 
+func _anything_moving() -> bool:
+	for item in items:
+		if not item.removed and not item.sleeping and item.linear_velocity.length() > 25.0:
+			return true
+	return false
+
+
 func _alive_enemies() -> int:
 	var n := 0
 	for e in enemies:
@@ -395,12 +1718,16 @@ func _alive_enemies() -> int:
 	return n
 
 
+## Вид врага из JSON ("slime"); когда у Enemy появится своё поле kind, берём его.
+static func _enemy_kind(enemy: Enemy) -> StringName:
+	var k: Variant = enemy.get(&"kind")
+	if k == null:
+		k = enemy.get_meta(&"kind", &"slime")
+	return StringName(str(k))
+
+
 static func _alive(item: Item) -> bool:
 	return item != null and is_instance_valid(item) and not item.removed
-
-
-static func _is_pair(a: Item, b: Item, k1: int, k2: int) -> bool:
-	return (a.kind == k1 and b.kind == k2) or (a.kind == k2 and b.kind == k1)
 
 
 static func _vec(v: Array) -> Vector2:

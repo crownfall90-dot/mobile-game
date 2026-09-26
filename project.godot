@@ -10,18 +10,32 @@ config_version=5
 
 [application]
 
-config/name="Алхимическая башня"
-config/description="Головоломка «вытащи штырь»: спаси ученицу алхимика из башни зелий."
-config/version="0.1.0"
+config/name="Vita"
+config/name_localized={
+"en": "Vita",
+"ru": "Vita"
+}
+config/description="Головоломка «тяни засов»: помоги маме и дочке обрести уютный дом."
+config/version="0.9.0"
 run/main_scene="res://scenes/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.5", "GL Compatibility")
-boot_splash/bg_color=Color(0.07, 0.05, 0.14, 1)
+run/max_fps=60
+boot_splash/bg_color=Color(0.07058824, 0.047058824, 0.14117648, 1)
 boot_splash/show_image=false
 config/icon="res://icon.svg"
 
 [autoload]
 
-Game="*res://scripts/game.gd"
+Reports="*res://scripts/core/reports.gd"
+Loc="*res://scripts/core/loc.gd"
+Profile="*res://scripts/core/profile.gd"
+Assets="*res://scripts/core/assets.gd"
+Game="*res://scripts/core/game.gd"
+Economy="*res://scripts/core/economy.gd"
+Sfx="*res://scripts/audio/sfx.gd"
+Monetization="*res://scripts/core/monetization.gd"
+Router="*res://scripts/core/router.gd"
 
 [display]
 
@@ -48,4 +62,15 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/canvas_textures/default_texture_filter=1
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.07, 0.05, 0.14, 1)
+environment/defaults/default_clear_color=Color(0.07058824, 0.047058824, 0.14117648, 1)
+
+[debug]
+
+file_logging/enable_file_logging=true
+
+[importer_defaults]
+
+texture={
+"compress/mode": 2,
+"mipmaps/generate": false
+}
