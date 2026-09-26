@@ -473,3 +473,17 @@ APK 0.7.0 для владельца; ждать отзыва владельца 
 4. Новый контент: акт 2 «Подъезд и соседи» по ROADMAP — первая локация (подъезд), 5 ремонтов на
    существующих и 1–2 новых механиках, соседи-персонажи, сценки-новеллы; ТЗ ChatGPT.
 5. APK 0.7.0 для телефона после пунктов 1–2.
+
+## APK 0.7.0 и правило сборок (26.09, 09:20 UTC)
+
+APK 0.7.0 (versionCode 11): https://github.com/crownfall90-dot/mobile-game/blob/apk-builds/Vita-0.7.0.apk
+SHA-256 `3ade2fbf001f13143d53b7da3df13ae19a070c44c532777e0336bd0950554a24`, тот же облачный ключ —
+ставится поверх 0.6.0. В ветке `apk-builds` лежит только последняя версия (старые — в истории).
+На телефоне не проверено.
+
+Правило владельца: расходовать лимит медленно, но с толком, и в каждом 5-часовом окне до конца
+лимита выкладывать новый APK. Порядок сборки: поднять `version/code` и `version/name` в обоих
+пресетах; временно `package/signed=false` в строке 46; `godot --headless --export-release
+"Android" build/vita_unsigned.apk` (без подмены XDG_DATA_HOME); вернуть пресет; подписать
+`uber-apk-signer.jar` ключом `scratchpad/apk/vita-cloud.jks` (алиас `vita`, пароль в
+`ks_pass.txt`); в `scratchpad/apkrepo` (ветка apk-builds) заменить APK и README, push.
