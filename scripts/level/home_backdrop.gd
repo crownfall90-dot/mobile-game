@@ -199,32 +199,78 @@ func _box(rect: Rect2, c: Color, w: float) -> void:
 # --- интерьеры вещей ------------------------------------------------------------
 
 ## Картинка художника 1440×3120 (2x): рисуется в натуральную величину сцены (×0.5), её поле
-## PIC_FIELD ложится центром на поле головоломки. За краями картинки (очень высокие или широкие
-## экраны) крайние ряды пикселей тянутся до края, чтобы не было пустых полос и увеличения.
+## PIC_FIELD ложится центром на поле головоломки. За краями картинки (сдвинутое поле, очень высокие
+## или широкие экраны) — её зеркальное продолжение с тенью, без пустых полос и увеличения.
 func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> void:
 	draw_rect(full, Color(str(sk.get("outer", "e6dfce"))))
 	# ширина картинки = 720 px сцены при любом её размере в пикселях
 	var sz := pic.get_size() * (720.0 / pic.get_width())
 	var field_c := PIC_FIELD.get_center() * (sz.x / 1440.0)
 	var d := Rect2(r.get_center() - field_c, sz)
-	var ts := pic.get_size()
-	var strip := 2.0
-	# верх, низ, лево, право — продолжение краёв картинки
-	if d.position.y > full.position.y:
-		draw_texture_rect_region(pic, Rect2(d.position.x, full.position.y, d.size.x, d.position.y - full.position.y),
-			Rect2(0, 0, ts.x, strip))
-	if d.end.y < full.end.y:
-		draw_texture_rect_region(pic, Rect2(d.position.x, d.end.y, d.size.x, full.end.y - d.end.y),
-			Rect2(0, ts.y - strip, ts.x, strip))
-	if d.position.x > full.position.x:
-		draw_texture_rect_region(pic, Rect2(full.position.x, d.position.y, d.position.x - full.position.x, d.size.y),
-			Rect2(0, 0, strip, ts.y))
-	if d.end.x < full.end.x:
-		draw_texture_rect_region(pic, Rect2(d.end.x, d.position.y, full.end.x - d.end.x, d.size.y),
-			Rect2(ts.x - strip, 0, strip, ts.y))
 	draw_texture_rect(pic, d, false)
+	# поле уровня сдвинуто или экран длиннее картинки: пустые края — приглушённое зеркальное
+	# продолжение картинки (растянутая полоска края давала вертикальные полосы)
+	if d.position.y > full.position.y:
+		_mirror_edge(pic, d, Vector2.UP, d.position.y - full.position.y)
+	if d.end.y < full.end.y:
+		_mirror_edge(pic, d, Vector2.DOWN, full.end.y - d.end.y)
+	if d.position.x > full.position.x:
+		_mirror_edge(pic, d, Vector2.LEFT, d.position.x - full.position.x)
+	if d.end.x < full.end.x:
+		_mirror_edge(pic, d, Vector2.RIGHT, full.end.x - d.end.x)
 	if fixed > 0.0:
 		_repair_sparkles(r)
+
+
+## Полоса шириной gap за краем картинки d (сторона side) — приглушённое отражение края картинки,
+## к внешней стороне темнеет. Отражаем масштабом -1: отрицательный прямоугольник Godot рисует со сдвигом.
+func _mirror_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
+	var ts := pic.get_size()
+	var vertical := side.y != 0.0
+	gap = minf(gap, d.size.y if vertical else d.size.x)
+	var k := ts.x / d.size.x
+	var src: Rect2
+	var dst: Rect2
+	var edge: float
+	if vertical:
+		edge = d.position.y if side.y < 0.0 else d.end.y
+		src = Rect2(0, 0, ts.x, gap * k) if side.y < 0.0 else Rect2(0, ts.y - gap * k, ts.x, gap * k)
+		dst = Rect2(d.position.x, 0.0 if side.y < 0.0 else -gap, d.size.x, gap)
+		draw_set_transform(Vector2(0, edge), 0.0, Vector2(1, -1))
+	else:
+		edge = d.position.x if side.x < 0.0 else d.end.x
+		src = Rect2(0, 0, gap * k, ts.y) if side.x < 0.0 else Rect2(ts.x - gap * k, 0, gap * k, ts.y)
+		dst = Rect2(0.0 if side.x < 0.0 else -gap, d.position.y, gap, d.size.y)
+		draw_set_transform(Vector2(edge, 0), 0.0, Vector2(-1, 1))
+	draw_texture_rect_region(pic, dst, src)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# тень: отражение приглушено (не читается как второй предмет), к краю экрана — темнее
+	var clear := Color(0.07, 0.05, 0.04, 0.5)
+	var dark := Color(0.07, 0.05, 0.04, 0.88)
+	var a: Vector2
+	var b: Vector2
+	var far := edge + (gap * (side.y if vertical else side.x))
+	# у шва — мягкая тень на картинку и светлая кромка: край читается как полка, а не обрыв
+	var none := Color(clear, 0.0)
+	var soft := Color(clear, 0.35)
+	var inner := edge - 26.0 * (side.y if vertical else side.x)
+	var rim := Color(1, 0.94, 0.8, 0.22)
+	if vertical:
+		a = Vector2(d.position.x, edge)
+		b = Vector2(d.end.x, far)
+		draw_polygon(PackedVector2Array([a, Vector2(b.x, a.y), b, Vector2(a.x, b.y)]),
+			PackedColorArray([clear, clear, dark, dark]))
+		draw_polygon(PackedVector2Array([a, Vector2(b.x, a.y), Vector2(b.x, inner), Vector2(a.x, inner)]),
+			PackedColorArray([soft, soft, none, none]))
+		draw_line(a, Vector2(b.x, a.y), rim, 3.0)
+	else:
+		a = Vector2(edge, d.position.y)
+		b = Vector2(far, d.end.y)
+		draw_polygon(PackedVector2Array([a, Vector2(b.x, a.y), b, Vector2(a.x, b.y)]),
+			PackedColorArray([clear, dark, dark, clear]))
+		draw_polygon(PackedVector2Array([a, Vector2(inner, a.y), Vector2(inner, b.y), Vector2(a.x, b.y)]),
+			PackedColorArray([soft, none, none, soft]))
+		draw_line(a, Vector2(a.x, b.y), rim, 3.0)
 
 
 ## Комната вокруг вещи-головоломки: стена с узором и пол ниже поля; мягкое затемнение по краям,
