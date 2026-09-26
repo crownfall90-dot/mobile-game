@@ -183,7 +183,10 @@ func _play(order: PackedStringArray) -> void:
 ## Ход сценария: засов по id или мазок пальцем из "strokes" уровня.
 func _act(id: String) -> void:
 	var strokes: Dictionary = _level.data.get("strokes", {})
-	if _level.pin_by_id(id) == null and strokes.has(id):
+	if _level.pin_by_id(id) == null and strokes.has(id) and _level.putty != null:
+		print("putty ", id)
+		_level.putty_line(strokes[id])
+	elif _level.pin_by_id(id) == null and strokes.has(id):
 		await _stroke(strokes[id])
 	elif (id == "cw" or id == "ccw") and _level.can_rotate():
 		print("rotate ", id)
@@ -452,7 +455,9 @@ func _smoke_level(router: Node, errors: ErrorCounter, win: bool) -> bool:
 			await _wait(INTERVAL)
 		if not got.is_empty() or not is_instance_valid(level):
 			break
-		level.pull_pin(level.pin_by_id(order[i]))
+		# любой ход уровня: засов, мазок, колено трубы, поворот, замазка
+		_level = level
+		await _act(order[i])
 	var limit := _ticks + _secs(AFTER_LAST)
 	while got.is_empty() and _ticks < limit:
 		await get_tree().physics_frame

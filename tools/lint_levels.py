@@ -45,7 +45,7 @@ ENEMY_KINDS = {"slime", "magma", "grime", "mold", "cockroach", "rat", "mouse", "
 WALL_TYPES = {"solid", "sieve"}
 TOP_KEYS = {"family", "format", "id", "floor", "title", "hint", "tutorial", "intro", "hard", "tower",
             "walls", "grates", "circles", "pins", "fills", "enemies", "hero", "goal", "theme",
-            "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate",
+            "dirt", "holes", "strokes", "exit", "receiver", "pipes", "source", "hazards", "rotate", "putty",
             "solution", "fails", "verify"}
 
 
@@ -359,8 +359,8 @@ def _lint(d, path, index, rep):
         if not isinstance(pts, list) or not pts or not all(is_point(q) for q in pts):
             rep.err(f"stroke '{name}' must be a list of [x, y] points")
         pin_ids.append(name)
-    if strokes and "dirt" not in d:
-        rep.err("strokes need dirt to dig")
+    if strokes and "dirt" not in d and "putty" not in d:
+        rep.err("strokes need dirt to dig or putty to draw")
     # «живые трубы»: колено поворачивается тапом — тоже ход
     for i, pp in enumerate(_list(d, "pipes", rep)):
         where = f"pipes[{i}]"
@@ -384,10 +384,10 @@ def _lint(d, path, index, rep):
                 or not isinstance(src.get("count"), int) or src["count"] < 1:
             rep.err("source needs pos [x, y], a fluid kind and count >= 1")
         else:
-            _unknown(src, {"pos", "kind", "count", "rate", "delay"}, "source", rep)
+            _unknown(src, {"pos", "kind", "count", "rate", "delay", "x1"}, "source", rep)
     for i, hz in enumerate(_list(d, "hazards", rep)):
-        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket",):
-            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket")
+        if not isinstance(hz, dict) or not is_rect(hz.get("rect")) or hz.get("kind") not in ("socket", "sill"):
+            rep.err(f"hazards[{i}]: needs rect [x, y, w, h] and kind socket or sill")
     for key in ("dirt", "holes"):
         for i, sh in enumerate(d.get(key, [])):
             if not isinstance(sh, dict) or not (is_rect(sh.get("rect")) or "poly" in sh or "circle" in sh):
@@ -491,7 +491,7 @@ def _lint(d, path, index, rep):
         sol = None
     else:
         _lint_order(sol, "solution", pin_ids, rep)
-        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d:
+        if pin_ids and sorted(sol) != sorted(pin_ids) and "rotate" not in d and "putty" not in d:
             rep.warn("solution does not pull every pin once, so it is not one of the searched orders")
     fails = d.get("fails", [])
     if not isinstance(fails, list) or not all(isinstance(o, list) and o and all(isinstance(x, str) for x in o)
@@ -512,7 +512,7 @@ def _lint(d, path, index, rep):
     if not isinstance(v, dict):
         rep.err("verify must be an object")
         v = {}
-    _unknown(v, {"max_win_share", "daily", "live"}, "verify", rep)
+    _unknown(v, {"max_win_share", "daily", "live", "draw"}, "verify", rep)
     share = v.get("max_win_share")
     if share is not None:
         if not is_num(share) or not 0 < share <= 1:

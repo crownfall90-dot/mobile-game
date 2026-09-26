@@ -3,6 +3,7 @@ extends Node2D
 const HOME_BACKDROP := preload("res://scripts/level/home_backdrop.gd")
 const RECEIVER := preload("res://scripts/level/receiver.gd")   # не зависит от кэша class_name
 const PIPE_SWITCH := preload("res://scripts/level/pipe_switch.gd")
+const PUTTY := preload("res://scripts/level/putty.gd")
 ## Собирает уровень из JSON и ведёт его правила: реакции, победу, поражение.
 ## Формат данных описан в docs/LEVEL_FORMAT.md.
 ##
@@ -73,6 +74,7 @@ var items: Array[Item] = []
 var enemies: Array[Enemy] = []
 var pins: Array[Pin] = []
 var pipes: Array = []            # «живые трубы»: PipeSwitch
+var putty: Node2D = null         # «замазка»: игрок рисует стенки пальцем
 var hero: Hero
 var fx: Fx
 var camera: Camera2D   # для тряски экрана; задаёт GameScreen (null — без тряски)
@@ -137,6 +139,8 @@ var _source_acc := 0.0
 var _source_time := 0.0
 var _hazard_hits: Array = []     # [тело, вид опасности]
 var _hazard_arts: Array = []
+var _hazard_limits := {}         # вид -> сколько капель ещё можно (подоконник терпит несколько)
+var _hazard_count := {}
 var _rot: Dictionary = {}        # «Поверни»: {time} — вещь поворачивается на 90° кнопками
 var _angle := 0.0                # насколько повёрнута вещь (по часовой — плюс)
 var _angle_to := 0.0
@@ -253,7 +257,11 @@ func build(level_data: Dictionary) -> void:
 		add_child(ps)
 		pipes.append(ps)
 	for hz in data.get("hazards", []):
-		_add_hazard(_rect(hz["rect"]), str(hz.get("kind", "socket")))
+		_add_hazard(_rect(hz["rect"]), str(hz.get("kind", "socket")), int(hz.get("limit", 0)))
+	if data.has("putty"):
+		putty = PUTTY.new()
+		putty.setup(float(data["putty"].get("ink", 900.0)), float(data["putty"].get("width", 18.0)))
+		add_child(putty)
 
 	fx = Fx.new()
 	add_child(fx)
@@ -372,6 +380,19 @@ func _exit_tree() -> void:
 			view_camera.rotation = 0.0
 
 
+## «Замазка» для DevRunner: линия по точкам сразу застывает.
+func putty_line(points: Array) -> void:
+	if putty == null or finished:
+		return
+	var line := PackedVector2Array()
+	for q in points:
+		line.append(Vector2(q[0], q[1]))
+	if putty.add_line(line):
+		_acted = true
+		_wake_all()
+		switched.emit("putty")
+
+
 func pipe_by_id(pipe_id: String) -> Node:
 	for pp in pipes:
 		if pp.id == pipe_id:
@@ -463,9 +484,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			_dig_from = q
 			get_viewport().set_input_as_handled()
 			return
+	if putty:
+		if event is InputEventScreenTouch and not event.pressed and putty.is_drawing():
+			if putty.finish():
+				_acted = true
+				_wake_all()
+				switched.emit("putty")
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventScreenDrag and putty.is_drawing():
+			putty.extend(make_input_local(event).position)
+			get_viewport().set_input_as_handled()
+			return
 	if not (event is InputEventScreenTouch and event.pressed):
 		return
 	var p: Vector2 = make_input_local(event).position
+	if putty:
+		var on_pin := false
+		for pin in pins:
+			on_pin = on_pin or (not pin.pulled and pin.distance_to_point(p) < Pin.HIT_RADIUS)
+		if not on_pin:
+			putty.begin(p)
+			get_viewport().set_input_as_handled()
+			return
 	for pp in pipes:
 		if pp.hit(p):
 			flip_pipe(pp.id)
@@ -975,17 +1016,23 @@ func _run_source(delta: float) -> void:
 	_source_acc += delta * float(_source.get("rate", 12.0))
 	var kind := Substances.from_name(str(_source.get("kind", "water")))
 	var at := _vec(_source["pos"])
+	var x1 := float(_source.get("x1", at.x))
 	while _source_acc >= 1.0 and _source_left > 0:
 		_source_acc -= 1.0
 		_source_left -= 1
-		var item := _spawn_item(kind, at + Vector2(float(_source_left % 5 - 2) * 4.0, 0.0))
+		var off := Vector2(float(_source_left % 5 - 2) * 4.0, 0.0)
+		if x1 > at.x:
+			# дождь: капли по всей ширине, ровно и без случайностей (одинаково при проверке)
+			off = Vector2(fmod(_source_left * 0.6180339, 1.0) * (x1 - at.x), 0.0)
+		var item := _spawn_item(kind, at + off)
 		item.linear_velocity = Vector2(0, 140)
 	if _source_left == 0 and _stuck_timer < 0.0:
 		_stuck_timer = 0.0
 
 
 ## Опасное место: розетка. Вода в ней — искры и поражение.
-func _add_hazard(r: Rect2, kind: String) -> void:
+func _add_hazard(r: Rect2, kind: String, limit := 0) -> void:
+	_hazard_limits[kind] = limit
 	var area := Area2D.new()
 	area.collision_layer = 0
 	area.collision_mask = Substances.LAYER_ITEMS
@@ -1011,11 +1058,14 @@ func _on_hazard(body: Node, kind: String) -> void:
 	var item: Item = body
 	if not Substances.is_fluid(item.kind):
 		return
+	_hazard_count[kind] = int(_hazard_count.get(kind, 0)) + 1
 	for art in _hazard_arts:
 		if art.rect.grow(20).has_point(item.position):
 			art.spark()
-			fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
-	_lose(kind)
+			if kind == "socket":
+				fx.burst(art.rect.get_center(), SPARK, 30, 520.0, 6.0, 600.0, 0.8)
+	if _hazard_count[kind] > int(_hazard_limits.get(kind, 0)):
+		_lose(kind)
 
 
 ## Розетка на стене: белая пластина, два отверстия; при беде — искры.
@@ -1033,6 +1083,11 @@ class HazardArt extends Node2D:
 			queue_redraw()
 
 	func _draw() -> void:
+		if kind != "socket":
+			# подоконник и пол нарисованы на фоне: только тревожная вспышка при каждой капле
+			if _flash > 0.0:
+				draw_rect(rect, Color(1.0, 0.5, 0.3, 0.25 * _flash))
+			return
 		var c := rect.get_center()
 		var r := Rect2(c - Vector2(34, 34), Vector2(68, 68))
 		var box := StyleBoxFlat.new()
