@@ -1416,10 +1416,18 @@ func _on_hazard(body: Node, kind: String) -> void:
 
 ## Розетка на стене: белая пластина, два отверстия; при беде — искры.
 class HazardArt extends Node2D:
+	const WIRE_ART := "res://art/act1/levels/wire_box.png"
 	var rect := Rect2()
+	var _tex: Texture2D = null
 	var kind := "socket"
 	var hits := 0
 	var _flash := 0.0
+
+	## Картинку грузим сразу, а не во время рисования: иначе первый кадр — белый прямоугольник.
+	func _ready() -> void:
+		if kind == "wire" and ResourceLoader.exists(WIRE_ART):
+			_tex = load(WIRE_ART)
+		queue_redraw()
 
 	func spark() -> void:
 		_flash = 1.0
@@ -1459,9 +1467,15 @@ class HazardArt extends Node2D:
 		if _flash > 0.0:
 			_draw_sparks(c)
 
-	## Проводка под полом: кабель через весь участок и распаечная коробка с молнией.
+	## Проводка под полом: кабель через весь участок и распаечная коробка с молнией
+	## (или картинка художника art/act1/levels/wire_box.png).
 	func _draw_wire() -> void:
 		var c := rect.get_center()
+		if _tex:
+			draw_texture_rect(_tex, rect, false)
+			if _flash > 0.0:
+				_draw_sparks(c)
+			return
 		var pts := PackedVector2Array()
 		for i in 13:
 			var t := i / 12.0
