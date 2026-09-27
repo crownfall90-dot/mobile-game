@@ -32,6 +32,8 @@ const WEAR_SPEED := 0.5           # за сколько секунд комна�
 
 var loc: Dictionary = {}
 var size := Vector2(720, 1560)
+var _rot := 0.0                   # поворот текущего слоя из редактора (радианы) и его рамка
+var _rot_box := Rect2()           # центр и размер картинки, не границы
 var show_targets := true          # мягкая пульсация вокруг несделанных целей
 
 var _edge_colors := PackedColorArray()
@@ -421,9 +423,13 @@ func _draw_layer(t: Dictionary) -> void:
 	if t.has("shadow"):
 		_draw_shadow(t["shadow"])
 	_flip = bool(t.get("flip", false))
+	_rot = float(t.get("rot", 0.0))
+	var dr: Array = t.get("draw", [])
+	_rot_box = Rect2(dr[0], dr[1], dr[2], dr[3]) if dr.size() == 4 else Rect2()
 	if t.has("id"):
 		_draw_target(t)
 		_flip = false
+		_rot = 0.0
 		return
 	var tex: Texture2D = _tex.get("prop_" + str(t["img"]))
 	var r := _rect(t)
@@ -435,6 +441,7 @@ func _draw_layer(t: Dictionary) -> void:
 	else:
 		_canvas.draw_rect(r, Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
 	_flip = false
+	_rot = 0.0
 
 
 ## Мягкая тень вещи на полу: "shadow" — след её основания на полу (многоугольник из
@@ -523,6 +530,12 @@ func _extend() -> void:
 
 ## Рисует картинку в прямоугольник без растяжения по одной оси: вписывает и центрирует.
 func _fit(tex: Texture2D, r: Rect2, mod := Color.WHITE) -> void:
+	if _rot != 0.0 and _rot_box.size.x > 0.0:
+		# повёрнутый в редакторе предмет: картинка вокруг своего центра, rect — лишь его границы
+		_canvas.draw_set_transform(_rot_box.position, _rot, Vector2(-1, 1) if _flip else Vector2.ONE)
+		_canvas.draw_texture_rect(tex, Rect2(-_rot_box.size * 0.5, _rot_box.size), false, mod)
+		_canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	var ts := tex.get_size()
 	var k := minf(r.size.x / ts.x, r.size.y / ts.y)
 	var s := ts * k

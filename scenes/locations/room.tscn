@@ -1,0 +1,113 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Texture2D" path="res://art/act1/room/background.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_window_broken.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_bed_broken.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_floor_broken.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_wall_broken.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_rug.png" id="6"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_curtains.png" id="7"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_nightstand.png" id="8"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_toybox.png" id="9"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_chest.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/act1/family/family_mood0.png" id="11"]
+
+[node name="room" type="Node2D"]
+metadata/location = "room"
+
+[node name="Фон" type="Sprite2D" parent="."]
+z_index = -1000
+position = Vector2(360, 780)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1")
+metadata/_edit_lock_ = true
+
+[node name="room_window" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(107, 389)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2")
+metadata/kind = "target"
+metadata/key = "room_window"
+
+[node name="room_bed" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(553, 682)
+scale = Vector2(0.5129, 0.5129)
+texture = ExtResource("3")
+metadata/kind = "target"
+metadata/key = "room_bed"
+
+[node name="room_floor" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(140, 1310)
+scale = Vector2(0.5263, 0.5263)
+texture = ExtResource("4")
+metadata/kind = "target"
+metadata/key = "room_floor"
+
+[node name="room_wall" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(545, 450)
+scale = Vector2(0.4545, 0.4545)
+texture = ExtResource("5")
+metadata/kind = "target"
+metadata/key = "room_wall"
+
+[node name="room__room_rug" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(405, 1282)
+scale = Vector2(0.7692, 0.7692)
+texture = ExtResource("6")
+metadata/kind = "prop"
+metadata/key = "room/room_rug"
+
+[node name="room__room_curtains" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(107, 389)
+scale = Vector2(0.4944, 0.4944)
+texture = ExtResource("7")
+metadata/kind = "prop"
+metadata/key = "room/room_curtains"
+
+[node name="room__room_nightstand" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(410, 726.5)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("8")
+metadata/kind = "prop"
+metadata/key = "room/room_nightstand"
+
+[node name="room__room_toybox" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(600, 902.5)
+scale = Vector2(0.4167, 0.4167)
+texture = ExtResource("9")
+metadata/kind = "prop"
+metadata/key = "room/room_toybox"
+
+[node name="room__room_chest" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(127.5, 767)
+scale = Vector2(0.4857, 0.4857)
+texture = ExtResource("10")
+metadata/kind = "prop"
+metadata/key = "room/room_chest"
+
+[node name="семья" type="Sprite2D" parent="."]
+z_index = 150
+position = Vector2(405, 980)
+scale = Vector2(0.5804, 0.5804)
+texture = ExtResource("11")
+metadata/kind = "family"
+metadata/key = "family"
+
+[node name="Видно на телефоне" type="ReferenceRect" parent="."]
+offset_left = 20.0
+offset_top = 140.0
+offset_right = 680.0
+offset_bottom = 1280.0
+mouse_filter = 2
+border_color = Color(1, 0, 0.6, 1)
+border_width = 3.0
+metadata/_edit_lock_ = true

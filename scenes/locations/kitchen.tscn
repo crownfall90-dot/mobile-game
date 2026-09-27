@@ -1,0 +1,149 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/background.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_sink_broken.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_stove_broken.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_fridge_broken.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_cabinets_broken.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_ceiling_broken.png" id="6"]
+[ext_resource type="Texture2D" path="res://art/act1/family/mother_kitchen.png" id="7"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_chair.png" id="8"]
+[ext_resource type="Texture2D" path="res://art/act1/family/daughter_kitchen_seated.png" id="9"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_table.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_rug.png" id="11"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_jars.png" id="12"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_clock.png" id="13"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_kettle.png" id="14"]
+[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_breadbox.png" id="15"]
+
+[node name="kitchen" type="Node2D"]
+metadata/location = "kitchen"
+
+[node name="Фон" type="Sprite2D" parent="."]
+z_index = -1000
+position = Vector2(360, 780)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1")
+metadata/_edit_lock_ = true
+
+[node name="kitchen_sink" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(607.5, 891)
+scale = Vector2(0.44, 0.44)
+texture = ExtResource("2")
+metadata/kind = "target"
+metadata/key = "kitchen_sink"
+
+[node name="kitchen_stove" type="Sprite2D" parent="."]
+z_index = 200
+position = Vector2(411, 835)
+scale = Vector2(0.4212, 0.4212)
+texture = ExtResource("3")
+metadata/kind = "target"
+metadata/key = "kitchen_stove"
+
+[node name="kitchen_fridge" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(222.5, 707)
+scale = Vector2(0.6206, 0.6206)
+texture = ExtResource("4")
+metadata/kind = "target"
+metadata/key = "kitchen_fridge"
+
+[node name="kitchen_cabinets" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(607.5, 550)
+scale = Vector2(0.2727, 0.2727)
+texture = ExtResource("5")
+metadata/kind = "target"
+metadata/key = "kitchen_cabinets"
+
+[node name="kitchen_ceiling" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(380, 202.5)
+scale = Vector2(0.4348, 0.4348)
+texture = ExtResource("6")
+metadata/kind = "target"
+metadata/key = "kitchen_ceiling"
+
+[node name="family__mother_kitchen" type="Sprite2D" parent="."]
+z_index = 300
+position = Vector2(115, 964)
+scale = Vector2(0.6167, 0.6167)
+texture = ExtResource("7")
+metadata/kind = "prop"
+metadata/key = "family/mother_kitchen"
+
+[node name="kitchen__kitchen_chair" type="Sprite2D" parent="."]
+z_index = 300
+position = Vector2(590, 1222.5)
+scale = Vector2(0.6564, 0.6564)
+texture = ExtResource("8")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_chair"
+
+[node name="family__daughter_kitchen_seated" type="Sprite2D" parent="."]
+z_index = 400
+position = Vector2(590, 1127.5)
+scale = Vector2(0.54, 0.54)
+texture = ExtResource("9")
+metadata/kind = "prop"
+metadata/key = "family/daughter_kitchen_seated"
+
+[node name="kitchen__kitchen_table" type="Sprite2D" parent="."]
+z_index = 500
+position = Vector2(374.5, 1186.5)
+scale = Vector2(0.802, 0.802)
+texture = ExtResource("10")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_table"
+
+[node name="kitchen__kitchen_rug" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(412.5, 1430)
+scale = Vector2(0.75, 0.75)
+texture = ExtResource("11")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_rug"
+
+[node name="kitchen__kitchen_jars" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(400, 548)
+scale = Vector2(0.475, 0.475)
+texture = ExtResource("12")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_jars"
+
+[node name="kitchen__kitchen_clock" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(374, 379)
+scale = Vector2(0.6286, 0.6286)
+texture = ExtResource("13")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_clock"
+
+[node name="kitchen__kitchen_kettle" type="Sprite2D" parent="."]
+z_index = 200
+position = Vector2(390.5, 721)
+scale = Vector2(0.5667, 0.5667)
+texture = ExtResource("14")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_kettle"
+
+[node name="kitchen__kitchen_breadbox" type="Sprite2D" parent="."]
+z_index = 600
+position = Vector2(387.5, 1040)
+scale = Vector2(0.5833, 0.5833)
+texture = ExtResource("15")
+metadata/kind = "prop"
+metadata/key = "kitchen/kitchen_breadbox"
+
+[node name="Видно на телефоне" type="ReferenceRect" parent="."]
+offset_left = 20.0
+offset_top = 140.0
+offset_right = 680.0
+offset_bottom = 1280.0
+mouse_filter = 2
+border_color = Color(1, 0, 0.6, 1)
+border_width = 3.0
+metadata/_edit_lock_ = true

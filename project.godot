@@ -74,3 +74,7 @@ texture={
 "compress/mode": 2,
 "mipmaps/generate": false
 }
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/vita_layout/plugin.cfg")

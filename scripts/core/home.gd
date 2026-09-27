@@ -19,11 +19,32 @@ const SHOP := [
 ]
 
 
+## Расстановка, сохранённая из сцены комнаты в редакторе (scenes/locations/<id>.tscn → Ctrl+S
+## → data/layout/<id>.json): rect, z, отражение и поворот предметов и место семьи поверх act1.json.
+static func _apply_layout(loc: Dictionary) -> void:
+	var path := "res://data/layout/%s.json" % loc["id"]
+	if not FileAccess.file_exists(path):
+		return
+	var lay: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not lay is Dictionary:
+		return
+	for t: Dictionary in loc.get("targets", []):
+		var o: Dictionary = lay.get("targets", {}).get(str(t["id"]), {})
+		if not o.is_empty():
+			t.merge(o, true)
+			t.erase("more")
+	for pr: Dictionary in loc.get("props", []):
+		pr.merge(lay.get("props", {}).get(str(pr["img"]), {}), true)
+	if lay.has("family") and loc.has("family"):
+		loc["family"] = lay["family"]
+
+
 static func data() -> Dictionary:
 	if _data.is_empty():
 		var f := FileAccess.open(DATA_PATH, FileAccess.READ)
 		_data = JSON.parse_string(f.get_as_text()) if f else {}
 		for loc in _data.get("locations", []):
+			_apply_layout(loc)
 			for t in loc["targets"]:
 				t["loc"] = loc["id"]
 				_tasks.append(t)
