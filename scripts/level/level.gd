@@ -186,6 +186,21 @@ func build(level_data: Dictionary) -> void:
 	if backdrop is HomePuzzleBackdrop:
 		backdrop.theme = str(data.get("theme", ""))
 		backdrop.item_mode = not recv.is_empty()
+	# вещь с рамкой на картинке: поле — её проём, свои стенки по краям поля не рисуем
+	var wall_list: Array = data.get("walls", [])
+	var framed: bool = backdrop is HomePuzzleBackdrop and not LevelSkin.frame(str(data.get("theme", ""))).is_empty() \
+		and LevelSkin.backdrop_texture(str(data.get("theme", ""))) != null
+	if framed:
+		var tower := _rect(data["tower"]["rect"])
+		var floor_y := tower.end.y
+		wall_list = wall_list.duplicate(true)
+		for w: Dictionary in wall_list:
+			var side := _outer_side(w, tower)
+			if side != "":
+				w["hidden"] = true
+			if side == "B":
+				floor_y = minf(floor_y if floor_y != tower.end.y else INF, _poly_box(w).position.y)
+		backdrop.frame_box = Rect2(tower.position, Vector2(tower.size.x, floor_y - tower.position.y))
 	backdrop.setup(_rect(data["tower"]["rect"]))
 	add_child(backdrop)
 
@@ -225,7 +240,7 @@ func build(level_data: Dictionary) -> void:
 			walls.pattern = skin[3]
 	if not recv.is_empty():
 		walls.wear = 1.0
-	walls.setup(data.get("walls", []))
+	walls.setup(wall_list)
 	add_child(walls)
 	_walls = walls
 	if recv.get("look", "") == "art" or str(recv.get("mode", "collect")) == "fill":
@@ -469,6 +484,28 @@ func build(level_data: Dictionary) -> void:
 		leak.miss_limit = int(_hazard_limits["leak"])
 	fluid.setup(self, DESIGN_SIZE, fluid_count)
 	gold_changed.emit.call_deferred(pieces, pieces_needed, pieces_total)
+
+
+## Стенка по краю поля (снаружи прямоугольника tower): "L", "R", "B" (дно) или "".
+static func _outer_side(w: Dictionary, tower: Rect2) -> String:
+	if not w.has("poly"):
+		return ""
+	var b := _poly_box(w)
+	if b.end.x <= tower.position.x + 1.0:
+		return "L"
+	if b.position.x >= tower.end.x - 1.0:
+		return "R"
+	if b.position.y >= tower.end.y - 1.0:
+		return "B"
+	return ""
+
+
+static func _poly_box(w: Dictionary) -> Rect2:
+	var pts: Array = w.get("poly", [])
+	var b := Rect2(Vector2(pts[0][0], pts[0][1]), Vector2.ZERO)
+	for p: Array in pts:
+		b = b.expand(Vector2(p[0], p[1]))
+	return b
 
 
 func pin_by_id(pin_id: String) -> Pin:

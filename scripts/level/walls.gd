@@ -48,6 +48,9 @@ func setup(list: Array) -> void:
 			_sieves.append(pts)
 			continue
 		body.add_child(cp)
+		if bool(entry.get("hidden", false)):
+			# край поля там, где рамка вещи на картинке: стенка держит воду, но не рисуется
+			continue
 		_polys.append(pts)
 		var top := INF
 		var bottom := -INF
