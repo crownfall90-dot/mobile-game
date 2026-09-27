@@ -160,7 +160,7 @@
   "kind": "water",
   "count": 50,
   "rate": 10,
-  "delay": 2.2
+  "delay": 3.5
  },
  "hazards": [
   {
@@ -171,7 +171,7 @@
     100
    ],
    "kind": "sill",
-   "limit": 4
+   "limit": 6
   }
  ]
 }
