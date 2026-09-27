@@ -505,7 +505,8 @@ func rotate_world(dir: int) -> bool:
 	var id := "cw" if dir > 0 else "ccw"
 	_pulled.append(id)
 	_acted = true
-	var tw := create_tween()
+	# по физическим кадрам: наклон мира одинаков при любой частоте экрана (60, 90, 120 Гц)
+	var tw := create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	tw.tween_property(self, "_angle", _angle_to, float(_rot.get("time", 0.9))).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_callback(func() -> void:
 		_rot_busy = false
