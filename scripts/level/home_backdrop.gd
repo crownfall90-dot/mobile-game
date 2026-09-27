@@ -45,6 +45,10 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## Поле по проёму вещи (Level: стенки по краям скрыты), пусто — картинка по PIC_FIELD.
+var frame_box := Rect2()
+
+
 func setup(rect: Rect2) -> void:
 	bounds = rect
 	# картинку грузим заранее: загрузка внутри _draw даёт белый кадр
@@ -209,6 +213,11 @@ func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> voi
 	var sz := pic.get_size() * (720.0 / pic.get_width())
 	var field_c := PIC_FIELD.get_center() * (sz.x / 1440.0)
 	var d := Rect2(r.get_center() - field_c, sz)
+	var fr := LevelSkin.frame(theme)
+	if not fr.is_empty() and frame_box.size.x > 0.0:
+		# проём вещи на картинке (LevelSkin.FRAMES) — ровно на поле: кромки рамки там, где стенки поля
+		var k := frame_box.size.x / (float(fr[1]) - float(fr[0]))
+		d = Rect2(Vector2(frame_box.position.x - float(fr[0]) * k, frame_box.end.y - float(fr[2]) * k), sz * k)
 	draw_texture_rect(pic, d, false)
 	# поле уровня сдвинуто или экран длиннее картинки: пустые края — спокойная подложка цветов края
 	# (растянутая полоска края давала полосы, зеркало — копию предмета)
