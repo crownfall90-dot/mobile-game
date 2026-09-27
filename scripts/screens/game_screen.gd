@@ -277,7 +277,7 @@ static func lose_key(res: Dictionary) -> String:
 ## Почему не вышло починить вещь: что испортило приёмник или чего не хватило.
 ## Нарушитель в тексте поражения: [кто, что сделал с %s-местом].
 const ENEMY_TEXT := {
-	"slime": ["Слизень", "забил %s"], "grime": ["Засор", "ушёл в %s и всё забил"],
+	"slime": ["Грязь", "забила %s"], "grime": ["Засор", "ушёл в %s и всё забил"],
 	"mold": ["Плесень", "проросла в %s"], "cockroach": ["Таракан", "залез в %s"],
 	"rat": ["Крыса", "пролезла в %s"], "mouse": ["Мышь", "пролезла в %s"],
 	"spider": ["Паук", "затянул %s паутиной"], "moth": ["Моль", "залетела в %s"],
@@ -310,11 +310,11 @@ func _item_lose_text(res: Dictionary) -> String:
 		"shelf":
 			return "Полку перекосило — винт не выдержал"
 		"splash":
-			return "Вода выплеснулась на пол — качай в ритм"
+			return "Вода выплеснулась на пол — жми в ритм"
 		"overflow":
 			return "Раковина переполнилась"
 		"battery":
-			return "Батарейка села — лампа не загорелась"
+			return "Батарейка села, а свет так и не загорелся"
 		"mold":
 			return "Плесень разрослась от воды"
 		"spill":
@@ -326,7 +326,7 @@ func _item_lose_text(res: Dictionary) -> String:
 		"enemy":
 			return "%s %s" % [who[0], who[1] % where]
 		"walled":
-			return "Заделали, а %s внутри! Сначала прогони" % str(who[0]).to_lower()
+			return "Дыру заделали, а %s ещё внутри. Сначала прогони!" % str(who[0]).to_lower()
 		"stuck":
 			if int(res.get("pieces", 0)) >= int(res.get("needed", 0)):
 				return "%s ещё мешает" % who[0]
