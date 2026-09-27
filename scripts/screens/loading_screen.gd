@@ -1,8 +1,11 @@
 extends Control
-## Загрузка: уютная комната (фон локации или своя картинка art/act1/ui/loading_bg.png), тёплый
-## вечерний свет из окна и пылинки в луче, по центру радостные мама и Вита, сверху название
-## с лентой, снизу полоса с бликом и сердечком и сменяющиеся подсказки. Над полосой висит серая
-## Хмурь; когда всё готово — она светлеет, искры, и первый запуск ведёт в пролог-новеллу.
+## Загрузка: сверху название с лентой, по центру радостные мама и Вита, снизу прогресс и
+## сменяющиеся подсказки, серая Хмурь; когда всё готово — она светлеет, искры, и первый запуск
+## ведёт в пролог-новеллу. Варианты оформления (VARIANT или args.variant):
+##   room  — уютная комната (фон локации или art/act1/ui/loading_bg.png), луч с пылинками, полоса;
+##   house — ночь, звёзды, домик: по ходу загрузки в окнах по одному зажигается свет;
+##   book  — страница сказки с узорной рамкой, семья в круглом медальоне, пять сердечек;
+##   sky   — утреннее небо с плывущими облаками, Хмурь светлеет по ходу загрузки, полоса.
 
 const GLOOM := preload("res://scripts/art/gloom.gd")
 const BG_OWN := "res://art/act1/ui/loading_bg.png"
@@ -10,6 +13,7 @@ const BG := "res://art/act1/room/background.png"
 const FAMILY := "res://art/act1/family/family_mood3.png"
 const TITLE_FONT = preload("res://art/fonts/Fredoka.ttf")
 const MIN_WAIT := 1.6          # не короче: название и первая подсказка успевают появиться
+const VARIANT := "room"
 const TIPS := [
 	"Золотая кнопка — сломанная вещь. Нажми и почини!",
 	"Бирюзовая кнопка — занятие: мама и Вита что-нибудь сделают вместе.",
@@ -18,6 +22,10 @@ const TIPS := [
 	"Собери кусочки старого фото прабабушки Веры.",
 ]
 
+var _variant := VARIANT
+var _art: Control              # фон варианта (house, book, sky), рисуется кодом
+var _hearts: HeartsBar
+var _medal: Panel
 var _canvas: Control
 var _bg: TextureRect
 var _light: Control
@@ -33,7 +41,8 @@ var _tip_i := 0
 var _tip_t := 0.0
 
 
-func open(_args: Dictionary) -> void:
+func open(args: Dictionary) -> void:
+	_variant = str(args.get("variant", VARIANT))
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var base := ColorRect.new()
 	base.color = Color("2b2233")
@@ -50,6 +59,12 @@ func open(_args: Dictionary) -> void:
 	_light = WarmLight.new()
 	_light.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_light)
+	if _variant != "room":
+		_bg.visible = false
+		_light.visible = false
+		_art = {"house": HouseNight, "book": StoryPage, "sky": MorningSky}.get(_variant, MorningSky).new()
+		_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(_art)
 	_canvas = Control.new()
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_canvas)
@@ -58,7 +73,20 @@ func open(_args: Dictionary) -> void:
 	_family.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_family.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_family.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.add_child(_family)
+	if _variant == "book":
+		# медальон: круг обрезает картинку семьи, золотое кольцо рисует StoryPage
+		_medal = Panel.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("f6e7c8")
+		sb.set_corner_radius_all(400)
+		sb.anti_aliasing = true
+		_medal.add_theme_stylebox_override("panel", sb)
+		_medal.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		_medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_canvas.add_child(_medal)
+		_medal.add_child(_family)
+	else:
+		_canvas.add_child(_family)
 	var title := UiKit.label("Vita", 132, Color("fff4d6"))
 	var title_font := FontVariation.new()
 	title_font.base_font = TITLE_FONT
@@ -85,6 +113,12 @@ func open(_args: Dictionary) -> void:
 	_bar = LoadBar.new()
 	_bar.size = Vector2(520, 34)
 	_canvas.add_child(_bar)
+	# у домика прогресс — свет в окнах, у сказки — сердечки
+	_bar.visible = _variant == "room" or _variant == "sky"
+	if _variant == "book":
+		_hearts = HeartsBar.new()
+		_hearts.size = Vector2(420, 70)
+		_canvas.add_child(_hearts)
 	_tip = UiKit.label(TIPS[0], 26, Color("fff4d6"))
 	_tip.name = "Tip"
 	# перенос — до размера: иначе метка растягивается по длине строки
@@ -134,11 +168,13 @@ func _process(delta: float) -> void:
 	var ready_audio := Sfx.prepare(4)
 	var k := minf(Assets.progress(), _elapsed / MIN_WAIT)
 	_bar.progress = maxf(_bar.progress, minf(0.97, k))
+	_show_progress(_bar.progress)
 	if ready_audio and _elapsed >= MIN_WAIT and Assets.idle():
 		_done = true
 		_bar.progress = 1.0
+		_show_progress(1.0)
 		# дом готов — Хмурь светлеет, над ней искры; первый запуск ведёт в пролог-новеллу
-		_gloom.call(&"set_amount", 0.0)
+		_gloom.call(&"befriend")
 		for col in [Color("ffe5a3"), Color("fff4d6"), Color("ffc660")]:
 			_fx.burst(_gloom.position, col, 12, 260.0, 5.0, 300.0, 0.9)
 		await get_tree().create_timer(0.9).timeout
@@ -146,6 +182,16 @@ func _process(delta: float) -> void:
 			Router.go(&"hub")
 		else:
 			Router.go(&"novel", {"scene": "prologue"})
+
+
+## Прогресс в оформлении варианта: окна домика, сердечки, светлеющая Хмурь утром.
+func _show_progress(v: float) -> void:
+	if _art:
+		_art.set(&"progress", v)
+	if _hearts:
+		_hearts.progress = v
+	if _variant == "sky":
+		_gloom.set(&"amount", maxf(0.25, 1.0 - v))
 
 
 func _layout() -> void:
@@ -166,11 +212,36 @@ func _layout() -> void:
 	var fh := minf(h * 0.5, 740.0)
 	_family.size = Vector2(fh * 0.625, fh)
 	_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh - 40)
-	_family.set_meta(&"y", _family.position.y)
 	_bar.position = Vector2(100, h * 0.82)
 	_tip.size = Vector2(620, 80)
 	_tip.position = Vector2(50, h * 0.82 + 50)
 	_gloom.position = Vector2(565, h * 0.33)
+	match _variant:
+		"house":
+			# семья у двери домика, Хмурь над крышей
+			fh = minf(h * 0.26, 380.0)
+			_family.size = Vector2(fh * 0.625, fh)
+			_family.position = Vector2(360 - _family.size.x * 0.5 - 150, h * 0.8 - fh)
+			_gloom.position = Vector2(470, h * 0.36)
+			_art.set(&"ground_y", h * 0.8)
+		"book":
+			# на светлой бумаге подсказка тёмная
+			var ls := _tip.label_settings.duplicate() as LabelSettings
+			ls.font_color = Color("5a3a24")
+			ls.outline_color = Color(1, 0.96, 0.88, 0.8)
+			_tip.label_settings = ls
+			var d := minf(h * 0.42, 470.0)
+			_medal.size = Vector2(d, d)
+			_medal.position = Vector2(360 - d * 0.5, h * 0.3)
+			_art.set(&"medal", Rect2(_medal.position, _medal.size))
+			_family.size = Vector2(d * 0.78 * 0.625, d * 0.78) * 1.25
+			_family.position = Vector2(d * 0.5 - _family.size.x * 0.5, d - _family.size.y * 0.9)
+			_hearts.position = Vector2(150, h * 0.3 + d + 30)
+			_tip.position = Vector2(50, h * 0.3 + d + 110)
+			_gloom.position = Vector2(590, h * 0.27)
+		"sky":
+			_gloom.position = Vector2(540, h * 0.3)
+	_family.set_meta(&"y", _family.position.y)
 
 
 ## Тёплый свет вечера: мягкий луч из окна сверху слева, пылинки медленно плывут в нём,
@@ -261,3 +332,183 @@ class LoadBar extends Control:
 			sb.set_border_width_all(2)
 		sb.anti_aliasing = true
 		draw_style_box(sb, r)
+
+
+## «Домик в ночи»: глубокое небо со звёздами и луной, на холме домик; progress зажигает окна
+## по одному (тёплый свет с ореолом), в самом конце — и фонарь у двери.
+class HouseNight extends Control:
+	var progress := 0.0
+	var ground_y := 1000.0
+	var _t := 0.0
+	var _stars: Array[Vector3] = []
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 5
+		for i in 60:
+			_stars.append(Vector3(rng.randf(), rng.randf() * 0.55, rng.randf() * TAU))
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(s.x, 0), s, Vector2(0, s.y)]),
+			PackedColorArray([Color("1b2350"), Color("2a2a66"), Color("5a3f6e"), Color("3a2f62")]))
+		for st in _stars:
+			var tw := 0.5 + 0.5 * sin(_t * 2.0 + st.z)
+			draw_circle(Vector2(st.x * s.x, st.y * s.y), (1.2 + tw * 1.3) * u, Color(1, 0.96, 0.85, 0.4 + 0.5 * tw), true, -1.0, true)
+		# луна
+		var m := Vector2(s.x * 0.84, s.y * 0.22)
+		draw_circle(m, 46 * u, Color(1, 0.95, 0.78, 0.18), true, -1.0, true)
+		draw_circle(m, 34 * u, Color("fff1c4"), true, -1.0, true)
+		draw_circle(m + Vector2(-12, -8) * u, 7 * u, Color(0.93, 0.85, 0.66), true, -1.0, true)
+		# холм
+		var gy := ground_y * u
+		draw_colored_polygon(PackedVector2Array([Vector2(0, gy + 30 * u), Vector2(s.x * 0.5, gy - 30 * u), Vector2(s.x, gy + 20 * u), s, Vector2(0, s.y)]), Color("2c4a3e"))
+		# домик
+		var cx := s.x * 0.5
+		var bw := 360.0 * u
+		var bh := 250.0 * u
+		var base := Rect2(cx - bw * 0.5, gy - 30 * u - bh, bw, bh)
+		draw_rect(Rect2(base.end.x - 90 * u, base.position.y - 150 * u, 44 * u, 100 * u), Color("7a4a3a"))
+		draw_colored_polygon(PackedVector2Array([base.position + Vector2(-30 * u, 0), Vector2(cx, base.position.y - 170 * u), Vector2(base.end.x + 30 * u, base.position.y)]), Color("a2503f"))
+		draw_rect(base, Color("e8c79a"))
+		draw_rect(Rect2(base.position.x, base.end.y - 12 * u, bw, 12 * u), Color("b8946a"))
+		# дверь
+		var door := Rect2(cx - 38 * u, base.end.y - 130 * u, 76 * u, 130 * u)
+		draw_rect(door, Color("7a4a3a"))
+		draw_circle(door.position + Vector2(62, 70) * u, 5 * u, Color("f2c14e"), true, -1.0, true)
+		# окна: 4 штуки, свет по прогрессу
+		var wins := [Rect2(base.position.x + 40 * u, base.position.y + 40 * u, 80 * u, 70 * u),
+			Rect2(base.end.x - 120 * u, base.position.y + 40 * u, 80 * u, 70 * u),
+			Rect2(base.position.x + 40 * u, base.position.y + 140 * u, 80 * u, 70 * u),
+			Rect2(base.end.x - 120 * u, base.position.y + 140 * u, 80 * u, 70 * u)]
+		for i in wins.size():
+			var on := clampf(progress * 4.2 - i, 0.0, 1.0)
+			var w: Rect2 = wins[i]
+			if on > 0.0:
+				draw_circle(w.get_center(), 70 * u, Color(1, 0.8, 0.4, 0.18 * on), true, -1.0, true)
+			draw_rect(w, Color("2d3563").lerp(Color("ffd27a"), on))
+			draw_line(Vector2(w.get_center().x, w.position.y), Vector2(w.get_center().x, w.end.y), Color("6b4a3a"), 4 * u)
+			draw_line(Vector2(w.position.x, w.get_center().y), Vector2(w.end.x, w.get_center().y), Color("6b4a3a"), 4 * u)
+			draw_rect(w, Color("6b4a3a"), false, 5 * u)
+		# фонарь у двери зажигается последним
+		var lamp := Vector2(door.end.x + 26 * u, door.position.y + 20 * u)
+		var l_on := clampf(progress * 4.2 - 4.0, 0.0, 1.0)
+		draw_circle(lamp, 40 * u, Color(1, 0.8, 0.4, 0.25 * l_on), true, -1.0, true)
+		draw_circle(lamp, 10 * u, Color("5a4a3a").lerp(Color("ffe08a"), l_on), true, -1.0, true)
+
+
+## «Сказка»: тёплая страница книги с узорной рамкой и золотым кольцом медальона.
+class StoryPage extends Control:
+	var progress := 0.0
+	var medal := Rect2()
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_rect(Rect2(Vector2.ZERO, s), Color("f3e3c3"))
+		# лёгкие пятна бумаги
+		for i in 9:
+			var p := Vector2(fposmod(i * 0.37, 1.0) * s.x, fposmod(i * 0.61, 1.0) * s.y)
+			draw_circle(p, (80 + i * 9) * u, Color(0.85, 0.72, 0.5, 0.06), true, -1.0, true)
+		# рамка страницы: двойная линия и завитки в углах
+		var r := Rect2(Vector2(26, 26) * u, s - Vector2(52, 52) * u)
+		draw_rect(r, Color("a0703f"), false, 4 * u)
+		draw_rect(r.grow(-12 * u), Color("c89a5c"), false, 2 * u)
+		for c in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
+			draw_arc(c, 34 * u, 0, TAU, 32, Color("a0703f"), 3 * u, true)
+			draw_circle(c, 8 * u, Color("c0564a"), true, -1.0, true)
+		# лучики за медальоном и золотое кольцо
+		if medal.size.x > 0.0:
+			var mc := medal.get_center() * u + Vector2((s.x - 720.0 * u) * 0.5, 0)
+			var mr := medal.size.x * 0.5 * u
+			for i in 16:
+				var a := TAU * i / 16.0 + _t * 0.08
+				var p1 := mc + Vector2.from_angle(a - 0.08) * (mr + 10 * u)
+				var p2 := mc + Vector2.from_angle(a + 0.08) * (mr + 10 * u)
+				var p3 := mc + Vector2.from_angle(a) * (mr + 90 * u)
+				draw_colored_polygon(PackedVector2Array([p1, p2, p3]), Color(1, 0.85, 0.45, 0.25))
+			draw_arc(mc, mr + 6 * u, 0, TAU, 96, Color("d9a441"), 12 * u, true)
+			draw_arc(mc, mr + 6 * u, 0, TAU, 96, Color(1, 0.95, 0.7, 0.6), 3 * u, true)
+
+
+## Прогресс сердечками: пять сердец наливаются по очереди, полное — с бликом.
+class HeartsBar extends Control:
+	var progress := 0.0:
+		set(v):
+			progress = clampf(v, 0.0, 1.0)
+			queue_redraw()
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var n := 5
+		for i in n:
+			var c := Vector2(size.x * (i + 0.5) / n, size.y * 0.5)
+			var fill := clampf(progress * n - i, 0.0, 1.0)
+			_heart(c, 26.0, Color(0.55, 0.35, 0.3, 0.35))
+			if fill > 0.0:
+				_heart(c, 26.0 * (0.4 + 0.6 * fill), Color("e8574a"))
+				if fill >= 1.0:
+					draw_circle(c + Vector2(-9, -8), 4.0, Color(1, 1, 1, 0.6), true, -1.0, true)
+
+	func _heart(c: Vector2, r: float, col: Color) -> void:
+		draw_circle(c + Vector2(-r * 0.45, -r * 0.25), r * 0.55, col, true, -1.0, true)
+		draw_circle(c + Vector2(r * 0.45, -r * 0.25), r * 0.55, col, true, -1.0, true)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.98, -r * 0.1), c + Vector2(r * 0.98, -r * 0.1),
+			c + Vector2(0, r * 0.95)]), col)
+
+
+## «Утро»: небо от персика к голубому, мягкие облака плывут, солнце с лучами за семьёй.
+class MorningSky extends Control:
+	var progress := 0.0
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(s.x, 0), s, Vector2(0, s.y)]),
+			PackedColorArray([Color("8cc6ec"), Color("a9d6f2"), Color("ffe0b8"), Color("ffd2a8")]))
+		# солнце с медленными лучами за семьёй
+		var sun := Vector2(s.x * 0.5, s.y * 0.55)
+		for i in 14:
+			var a := TAU * i / 14.0 + _t * 0.05
+			draw_colored_polygon(PackedVector2Array([sun + Vector2.from_angle(a - 0.07) * 140 * u,
+				sun + Vector2.from_angle(a + 0.07) * 140 * u, sun + Vector2.from_angle(a) * 620 * u]), Color(1, 0.93, 0.7, 0.22))
+		draw_circle(sun, 150 * u, Color(1, 0.94, 0.72, 0.5), true, -1.0, true)
+		# облака: три слоя, плывут с разной скоростью
+		for i in 7:
+			var sp := 8.0 + i * 3.0
+			var x := fposmod(i * 173.0 + _t * sp, 900.0) - 90.0
+			var y := 180.0 + (i % 4) * 150.0
+			_cloud(Vector2(x, y) * u + Vector2((s.x - 720.0 * u) * 0.5, 0), (0.7 + (i % 3) * 0.25) * u)
+		# лужайка у дома внизу
+		draw_colored_polygon(PackedVector2Array([Vector2(0, s.y * 0.8), Vector2(s.x * 0.5, s.y * 0.77), Vector2(s.x, s.y * 0.8), s, Vector2(0, s.y)]), Color("8cc27a"))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, s.y * 0.84), Vector2(s.x, s.y * 0.83), s, Vector2(0, s.y)]), Color("79b36a"))
+
+	func _cloud(c: Vector2, k: float) -> void:
+		var col := Color(1, 1, 1, 0.85)
+		for p in [Vector2(-50, 10), Vector2(0, -12), Vector2(50, 8), Vector2(-20, 18), Vector2(25, 20)]:
+			draw_circle(c + p * k, 38 * k, col, true, -1.0, true)
+
