@@ -12,7 +12,7 @@ const DATA := "res://data/novel.json"
 func open(_args: Dictionary) -> void:
 	set_title("Альбом")
 	var photo: Control = PHOTO.new()
-	photo.custom_minimum_size = Vector2(480, 370)
+	photo.custom_minimum_size = Vector2(420, 324)
 	photo.call(&"collect")
 	content.add_child(photo)
 	var n: int = photo.call(&"found")
@@ -34,17 +34,24 @@ func open(_args: Dictionary) -> void:
 		aim.custom_minimum_size.x = 500
 		aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		content.add_child(aim)
+	# сценки — в две колонки, чтобы альбом помещался и на экране 16:9
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	content.add_child(grid)
 	for entry: Array in _album():
 		var id := str(entry[0])
 		var open_ := available(id)
 		var fresh := open_ and not Profile.flag("seen.novel." + id)
 		var title := ("★ " if fresh else "") + str(entry[1])
 		var b := UiKit.button(title if open_ else "Ещё впереди", &"secondary" if open_ else &"disabled")
-		b.custom_minimum_size = Vector2(480, 80)
-		b.add_theme_font_size_override("font_size", 26)
+		b.custom_minimum_size = Vector2(250, 72)
+		b.add_theme_font_size_override("font_size", 22)
 		b.disabled = not open_
 		b.pressed.connect(func() -> void: close(id))
-		content.add_child(b)
+		grid.add_child(b)
 
 
 ## Прогресс главы: ремонты, звёзды (по 3 за ремонт), покупки магазина.
