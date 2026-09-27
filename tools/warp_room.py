@@ -128,33 +128,45 @@ def warp(room_name, src_path, out_path, d):
     left = xs < T["cx"]
     ceil_y = np.where(left, line_y(T["cc"], T["cl"], xs), line_y(T["cc"], T["cr"], xs))
     floor_y = np.where(left, line_y(T["fc"], T["fl"], xs), line_y(T["fc"], T["fr"], xs))
-    plane = np.where(ys < ceil_y, 3, np.where(ys > floor_y, 2, np.where(left, 0, 1)))
     src = np.array(img, dtype=float)
-    out = np.zeros_like(src)
-    for i, name in enumerate(["left", "right", "floor", "ceil"]):
-        m = plane == i
-        if not m.any():
-            continue
+    # цвет потолка черновика — строго над его линией стыка (30–90 px выше), по всей ширине
+    sx_all = np.arange(w, dtype=float)
+    s_ceil = np.where(sx_all < S["cx"], line_y(S["cc"], S["cl"], sx_all), line_y(S["cc"], S["cr"], sx_all))
+    near = np.mean([src[int(max(0, y - 90)):int(max(1, y - 30)), int(x)].mean(axis=0)
+                    for x, y in zip(sx_all[::8], s_ceil[::8])], axis=0)
+    far = src[:40].reshape(-1, 3).mean(axis=0)
+
+    def sample(name, m):
+        """Цвет плоскости name для пикселей маски m (обратное преобразование, билинейно)."""
         H = Hs[name]
         px, py = xs[m], ys[m]
+        if name == "ceil":
+            # потолок почти однотонный: плавный градиент от цвета у молдинга к цвету верха
+            t = np.clip((ceil_y[m] - py) / np.maximum(ceil_y[m], 1.0), 0.0, 1.0)[:, None]
+            return near * (1 - t) + far * t
         den = H[2, 0] * px + H[2, 1] * py + H[2, 2]
-        sx = (H[0, 0] * px + H[0, 1] * py + H[0, 2]) / den
-        sy = (H[1, 0] * px + H[1, 1] * py + H[1, 2]) / den
-        sx = np.clip(sx, 0, w - 1.001)
-        sy = np.clip(sy, 0, h - 1.001)
+        sx = np.clip((H[0, 0] * px + H[0, 1] * py + H[0, 2]) / den, 0, w - 1.001)
+        sy = np.clip((H[1, 0] * px + H[1, 1] * py + H[1, 2]) / den, 0, h - 1.001)
         x0 = np.floor(sx).astype(int)
         y0 = np.floor(sy).astype(int)
         fx = (sx - x0)[:, None]
         fy = (sy - y0)[:, None]
-        c = (src[y0, x0] * (1 - fx) * (1 - fy) + src[y0, x0 + 1] * fx * (1 - fy)
-             + src[y0 + 1, x0] * (1 - fx) * fy + src[y0 + 1, x0 + 1] * fx * fy)
-        if name == "ceil":
-            # потолок почти однотонный: плавный градиент от цвета у молдинга к цвету верха черновика
-            near = src[int(S["cc"][1]) - 70:int(S["cc"][1]) - 30, int(w * 0.3):int(w * 0.7)].reshape(-1, 3).mean(axis=0)
-            far = src[:40].reshape(-1, 3).mean(axis=0)
-            t = np.clip((ceil_y[m] - py) / np.maximum(ceil_y[m], 1.0), 0.0, 1.0)[:, None]
-            c = near * (1 - t) + far * t
-        out[m] = c
+        return (src[y0, x0] * (1 - fx) * (1 - fy) + src[y0, x0 + 1] * fx * (1 - fy)
+                + src[y0 + 1, x0] * (1 - fx) * fy + src[y0 + 1, x0 + 1] * fx * fy)
+
+    wall = np.where(left, "left", "right")
+    out = np.zeros_like(src)
+    # стены целиком (с полосой 2 px за линиями), затем пол и потолок поверх со сглаженным краем:
+    # доля покрытия пикселя — по расстоянию до линии стыка
+    for side in ("left", "right"):
+        m = (wall == side) & (ys >= ceil_y - 2.0) & (ys <= floor_y + 2.0)
+        out[m] = sample(side, m)
+    for name, edge, below in (("ceil", ceil_y, False), ("floor", floor_y, True)):
+        d = (ys - edge) if below else (edge - ys)
+        m = d > -1.0
+        cov = np.clip(d[m] + 0.5, 0.0, 1.0)[:, None]
+        c = sample(name, m)
+        out[m] = out[m] * (1 - cov) + c * cov
     Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(out_path)
     return T
 
