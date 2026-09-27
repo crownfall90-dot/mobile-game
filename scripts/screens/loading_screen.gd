@@ -158,18 +158,20 @@ func _layout() -> void:
 	var h := view.y / u
 	_canvas.scale = Vector2(u, u)
 	_canvas.position = Vector2((view.x - 720.0 * u) * 0.5, 0)
-	(_canvas.get_node(^"Title") as Control).position = Vector2(40, h * 0.06)
+	# вырез камеры сверху и скругление/жестовая полоса снизу не накрывают надпись и полосу
+	var inset := UiKit.safe_insets(get_viewport()) / u
+	(_canvas.get_node(^"Title") as Control).position = Vector2(40, h * 0.06 + inset.x)
 	var ribbon := _canvas.get_node(^"Ribbon") as Control
 	ribbon.size = ribbon.get_combined_minimum_size()
 	ribbon.scale = Vector2(0.85, 0.85)
-	ribbon.position = Vector2(360 - ribbon.size.x * 0.85 * 0.5, h * 0.06 + 150)
+	ribbon.position = Vector2(360 - ribbon.size.x * 0.85 * 0.5, h * 0.06 + 150 + inset.x)
 	var fh := minf(h * 0.5, 740.0)
 	_family.size = Vector2(fh * 0.625, fh)
 	_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh - 40)
 	_family.set_meta(&"y", _family.position.y)
-	_bar.position = Vector2(100, h * 0.82)
+	_bar.position = Vector2(100, h * 0.82 - inset.y)
 	_tip.size = Vector2(620, 80)
-	_tip.position = Vector2(50, h * 0.82 + 50)
+	_tip.position = Vector2(50, h * 0.82 + 50 - inset.y)
 	_gloom.position = Vector2(565, h * 0.33)
 
 
