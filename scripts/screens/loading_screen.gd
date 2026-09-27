@@ -5,7 +5,11 @@ extends Control
 ##   room  — уютная комната (фон локации или art/act1/ui/loading_bg.png), луч с пылинками, полоса;
 ##   house — ночь, звёзды, домик: по ходу загрузки в окнах по одному зажигается свет;
 ##   book  — страница сказки с узорной рамкой, семья в круглом медальоне, пять сердечек;
-##   sky   — утреннее небо с плывущими облаками, Хмурь светлеет по ходу загрузки, полоса.
+##   sky   — утреннее небо с плывущими облаками, Хмурь светлеет по ходу загрузки, полоса;
+##   rain  — большое окно, дождь стихает по ходу загрузки, в конце радуга;
+##   door  — дверь приоткрывается, из щели льётся тёплый свет;
+##   album — на деревянном столе по очереди появляются фотокарточки комнат;
+##   plan  — синий чертёж: по ходу загрузки белыми линиями рисуется домик.
 
 const GLOOM := preload("res://scripts/art/gloom.gd")
 const BG_OWN := "res://art/act1/ui/loading_bg.png"
@@ -62,7 +66,8 @@ func open(args: Dictionary) -> void:
 	if _variant != "room":
 		_bg.visible = false
 		_light.visible = false
-		_art = {"house": HouseNight, "book": StoryPage, "sky": MorningSky}.get(_variant, MorningSky).new()
+		_art = {"house": HouseNight, "book": StoryPage, "sky": MorningSky, "rain": RainWindow, "door": WarmDoor,
+			"album": PhotoAlbum, "plan": Blueprint}.get(_variant, MorningSky).new()
 		_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(_art)
 	_canvas = Control.new()
@@ -114,7 +119,7 @@ func open(args: Dictionary) -> void:
 	_bar.size = Vector2(520, 34)
 	_canvas.add_child(_bar)
 	# у домика прогресс — свет в окнах, у сказки — сердечки
-	_bar.visible = _variant == "room" or _variant == "sky"
+	_bar.visible = _variant in ["room", "sky", "rain"]
 	if _variant == "book":
 		_hearts = HeartsBar.new()
 		_hearts.size = Vector2(420, 70)
@@ -241,6 +246,16 @@ func _layout() -> void:
 			_gloom.position = Vector2(590, h * 0.27)
 		"sky":
 			_gloom.position = Vector2(540, h * 0.3)
+		"door", "plan":
+			fh = minf(h * 0.36, 520.0)
+			_family.size = Vector2(fh * 0.625, fh)
+			_family.position = Vector2(60, h * 0.8 - fh)
+			_gloom.position = Vector2(580, h * 0.3)
+		"album":
+			fh = minf(h * 0.3, 420.0)
+			_family.size = Vector2(fh * 0.625, fh)
+			_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh)
+			_gloom.position = Vector2(590, h * 0.25)
 	_family.set_meta(&"y", _family.position.y)
 
 
@@ -511,4 +526,175 @@ class MorningSky extends Control:
 		var col := Color(1, 1, 1, 0.85)
 		for p in [Vector2(-50, 10), Vector2(0, -12), Vector2(50, 8), Vector2(-20, 18), Vector2(25, 20)]:
 			draw_circle(c + p * k, 38 * k, col, true, -1.0, true)
+
+
+## «Дождь за окном»: большое окно, за стеклом дождь; по ходу загрузки капли редеют, небо
+## светлеет, в конце радуга.
+class RainWindow extends Control:
+	var progress := 0.0
+	var _t := 0.0
+	var _drops: Array[Vector3] = []
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 3
+		for i in 90:
+			_drops.append(Vector3(rng.randf(), rng.randf(), 0.6 + rng.randf() * 0.8))
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_rect(Rect2(Vector2.ZERO, s), Color("f1d9a8"))
+		draw_rect(Rect2(0, s.y * 0.72, s.x, s.y * 0.28), Color("c98e5a"))
+		var w := Rect2(s.x * 0.12, s.y * 0.2, s.x * 0.76, s.y * 0.46)
+		var sky := Color("4f6078").lerp(Color("8fc9f0"), progress)
+		draw_rect(w, sky)
+		if progress > 0.85:
+			var a := (progress - 0.85) / 0.15
+			var c := Vector2(w.get_center().x, w.end.y + 40 * u)
+			var cols := [Color("e8574a"), Color("f2a33a"), Color("f2d64e"), Color("6cc36a"), Color("4a90d9"), Color("8a6bd8")]
+			for i in cols.size():
+				draw_arc(c, (260 - i * 16) * u, PI, TAU, 64, Color(cols[i], 0.7 * a), 16 * u, true)
+		var rain := 1.0 - progress
+		for dp in _drops:
+			if dp.x > rain * 1.05:
+				continue
+			var y := fposmod(dp.y + _t * dp.z, 1.0)
+			var p := w.position + Vector2(fposmod(dp.x * 7.3, 1.0) * w.size.x, y * w.size.y)
+			draw_line(p, p + Vector2(-4, 22) * u, Color(0.85, 0.92, 1.0, 0.6), 2.0 * u)
+		draw_rect(w, Color("8a5a36"), false, 24 * u)
+		draw_line(Vector2(w.get_center().x, w.position.y), Vector2(w.get_center().x, w.end.y), Color("8a5a36"), 14 * u)
+		draw_line(Vector2(w.position.x, w.get_center().y), Vector2(w.end.x, w.get_center().y), Color("8a5a36"), 14 * u)
+		draw_rect(Rect2(w.position.x - 30 * u, w.end.y, w.size.x + 60 * u, 26 * u), Color("a8764a"))
+
+
+## «Ключ от дома»: тёплая стена и дверь, по ходу загрузки дверь приоткрывается внутрь и из
+## щели льётся свет.
+class WarmDoor extends Control:
+	var progress := 0.0
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(s.x, 0), s, Vector2(0, s.y)]),
+			PackedColorArray([Color("6a4a7a"), Color("7a4f6e"), Color("3c2a3e"), Color("3c2a3e")]))
+		draw_rect(Rect2(0, s.y * 0.8, s.x, s.y * 0.2), Color("4a3326"))
+		var d := Rect2(s.x * 0.52, s.y * 0.34, 250 * u, s.y * 0.46)
+		# свет из проёма
+		var open := progress
+		draw_rect(d, Color("ffe7a8").lerp(Color("fff4d6"), open))
+		var glow := Color(1, 0.85, 0.5, 0.35 * open)
+		draw_colored_polygon(PackedVector2Array([d.position, Vector2(d.end.x, d.position.y), Vector2(d.end.x + 200 * u, s.y), Vector2(d.position.x - 200 * u, s.y)]), glow)
+		# полотно двери поворачивается внутрь: сужается к левому косяку
+		var dw := d.size.x * (1.0 - 0.8 * open)
+		var leaf := PackedVector2Array([d.position, d.position + Vector2(dw, d.size.y * 0.04 * open),
+			d.position + Vector2(dw, d.size.y * (1.0 - 0.04 * open)), Vector2(d.position.x, d.end.y)])
+		draw_colored_polygon(leaf, Color("8a4f36"))
+		draw_polyline(leaf + PackedVector2Array([leaf[0]]), Color("5a321f"), 4 * u)
+		draw_circle(d.position + Vector2(dw - 22 * u, d.size.y * 0.52), 8 * u, Color("f2c14e"), true, -1.0, true)
+		draw_rect(d.grow(10 * u), Color("5a321f"), false, 16 * u)
+
+
+## «Альбом»: деревянный стол, на него по очереди ложатся фотокарточки комнат (их фоны).
+class PhotoAlbum extends Control:
+	var progress := 0.0
+	var _pics: Array[Texture2D] = []
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for loc in ["room", "kitchen", "bath", "living"]:
+			var p := "res://art/act1/%s/background.png" % loc
+			if ResourceLoader.exists(p):
+				_pics.append(load(p))
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_rect(Rect2(Vector2.ZERO, s), Color("a86f42"))
+		for i in 14:
+			var y := s.y * i / 14.0
+			draw_line(Vector2(0, y), Vector2(s.x, y + 6 * u), Color(0.45, 0.27, 0.15, 0.25), 3 * u)
+		var spots := [Vector2(0.3, 0.32), Vector2(0.7, 0.36), Vector2(0.32, 0.6), Vector2(0.7, 0.63)]
+		var tilt := [-0.12, 0.09, 0.07, -0.1]
+		for i in _pics.size():
+			var a := clampf(progress * 4.2 - i, 0.0, 1.0)
+			if a <= 0.0:
+				continue
+			var c := Vector2(spots[i].x * s.x, spots[i].y * s.y)
+			var sz := Vector2(230, 280) * u * (1.2 - 0.2 * a)
+			draw_set_transform(c, tilt[i], Vector2.ONE)
+			draw_rect(Rect2(-sz * 0.5 + Vector2(6, 8) * u, sz), Color(0, 0, 0, 0.25 * a))
+			draw_rect(Rect2(-sz * 0.5, sz), Color(1, 0.98, 0.93, a))
+			var ph := Rect2(-sz * 0.5 + Vector2(14, 14) * u, Vector2(sz.x - 28 * u, sz.y - 70 * u))
+			draw_texture_rect_region(_pics[i], ph, Rect2(Vector2(0, _pics[i].get_height() * 0.25), Vector2(_pics[i].get_width(), _pics[i].get_width() * ph.size.y / ph.size.x)), Color(1, 1, 1, a))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## «Чертёж»: синяя миллиметровка, по ходу загрузки белыми линиями рисуется план-фасад домика.
+class Blueprint extends Control:
+	var progress := 0.0
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_rect(Rect2(Vector2.ZERO, s), Color("2d5b9a"))
+		var step := 32.0 * u
+		var x := 0.0
+		while x < s.x:
+			draw_line(Vector2(x, 0), Vector2(x, s.y), Color(1, 1, 1, 0.08), 1.0)
+			x += step
+		var y := 0.0
+		while y < s.y:
+			draw_line(Vector2(0, y), Vector2(s.x, y), Color(1, 1, 1, 0.08), 1.0)
+			y += step
+		var cx := s.x * 0.62
+		var gy := s.y * 0.72
+		var W := 300.0 * u
+		var H := 220.0 * u
+		var segs := [
+			[Vector2(cx - W / 2, gy), Vector2(cx + W / 2, gy)], [Vector2(cx - W / 2, gy), Vector2(cx - W / 2, gy - H)],
+			[Vector2(cx + W / 2, gy), Vector2(cx + W / 2, gy - H)], [Vector2(cx - W / 2 - 20 * u, gy - H), Vector2(cx, gy - H - 160 * u)],
+			[Vector2(cx, gy - H - 160 * u), Vector2(cx + W / 2 + 20 * u, gy - H)], [Vector2(cx - W / 2 - 20 * u, gy - H), Vector2(cx + W / 2 + 20 * u, gy - H)],
+			[Vector2(cx - 30 * u, gy), Vector2(cx - 30 * u, gy - 110 * u)], [Vector2(cx - 30 * u, gy - 110 * u), Vector2(cx + 30 * u, gy - 110 * u)],
+			[Vector2(cx + 30 * u, gy - 110 * u), Vector2(cx + 30 * u, gy)],
+			[Vector2(cx - 120 * u, gy - 170 * u), Vector2(cx - 60 * u, gy - 170 * u)], [Vector2(cx - 120 * u, gy - 120 * u), Vector2(cx - 60 * u, gy - 120 * u)],
+			[Vector2(cx + 60 * u, gy - 170 * u), Vector2(cx + 120 * u, gy - 170 * u)], [Vector2(cx + 60 * u, gy - 120 * u), Vector2(cx + 120 * u, gy - 120 * u)],
+		]
+		var n := segs.size()
+		for i in n:
+			var k := clampf(progress * n - i, 0.0, 1.0)
+			if k <= 0.0:
+				continue
+			var a: Vector2 = segs[i][0]
+			var b: Vector2 = segs[i][1]
+			draw_line(a, a.lerp(b, k), Color(1, 1, 1, 0.92), 4 * u, true)
+		# карандаш на конце текущей линии
+		var cur := clampi(int(progress * n), 0, n - 1)
+		var tip: Vector2 = segs[cur][0].lerp(segs[cur][1], clampf(progress * n - cur, 0.0, 1.0))
+		draw_line(tip, tip + Vector2(40, -60) * u, Color("f2c14e"), 10 * u)
+		draw_circle(tip, 5 * u, Color(1, 1, 1, 0.9), true, -1.0, true)
 
