@@ -9,6 +9,7 @@ L0..L1 × R0..R1 × H0..H1 (метры); настенный — тонкая к�
   python3 tools/room_planner.py            # таблицы для docs/LAYOUT_PLAN.md
   python3 tools/room_planner.py --guides   # + каркасные эскизы art/act1/reviews/layout/<room>.png
   python3 tools/room_planner.py --apply room [--out копия.json]   # rect, z по глубине и тени в act1.json
+  python3 tools/room_planner.py --item-guides room   # каркас каждого предмета в размер PNG
 
 Экранный прямоугольник предмета — рамка его 8 проекций; PNG для ChatGPT — вдвое крупнее (2x).
 """
@@ -35,9 +36,16 @@ ROOMS = {
             {"act": "prop:room/room_curtains", "id": "curtains", "kind": "wall", "wall": "L", "at": [0.08, 1.12], "h": [0.75, 2.3], "note": "шторы по краям окна"},
             {"act": "prop:room/room_chest", "id": "chest", "kind": "floor", "L": [0.22, 0.98], "R": [0.0, 0.42], "h": [0.0, 0.8], "note": "комод под окном (низ за Витой — доступ кнопкой)"},
             {"act": "prop:room/room_nightstand", "id": "nightstand", "kind": "floor", "L": [0.0, 0.4], "R": [0.0, 0.3], "h": [0.0, 0.55], "note": "тумбочка с лампой в углу у изголовья"},
-            {"act": "target:room_bed", "id": "bed", "kind": "floor", "L": [0.0, 0.9], "R": [0.32, 2.0], "h": [0.0, 0.5], "note": "цель room_bed: кровать 1,7 м вдоль правой стены, изголовье к углу, матрас 0,5, спинки 0,9"},
+            {"act": "target:room_bed", "id": "bed", "kind": "floor", "L": [0.0, 0.9], "R": [0.32, 2.0], "h": [0.0, 0.5],
+             "parts": [{"L": [0.0, 0.9], "R": [0.32, 0.36], "h": [0.0, 0.95]}, {"L": [0.0, 0.9], "R": [1.96, 2.0], "h": [0.0, 0.8]}], "note": "цель room_bed: кровать 1,7 м вдоль правой стены, изголовье к углу, матрас 0,5, спинки 0,9"},
             {"act": "target:room_wall", "id": "wall_patch", "kind": "wall", "wall": "R", "at": [1.0, 1.5], "h": [1.05, 1.55], "note": "цель room_wall: порванные обои над кроватью"},
             {"act": "prop:room/room_toybox", "id": "toybox", "kind": "floor", "L": [1.0, 1.42], "R": [1.62, 1.95], "h": [0.0, 0.35], "note": "ящик с игрушками у изножья"},
+            {"id": "table_lamp", "fill": True, "kind": "floor", "L": [0.08, 0.3], "R": [0.05, 0.25], "h": [0.55, 0.95], "note": "НОВОЕ: настольная лампа на тумбочке, тёплый абажур"},
+            {"id": "shelf_books", "fill": True, "kind": "wall", "wall": "R", "at": [1.45, 1.95], "h": [1.45, 1.75], "depth": 0.2, "note": "НОВОЕ: полка над изножьем — книжки и плюшевый зайчик"},
+            {"id": "drawings", "fill": True, "kind": "wall", "wall": "R", "at": [0.45, 0.85], "h": [1.2, 1.55], "note": "НОВОЕ: рисунки Виты на скотче над изголовьем"},
+            {"id": "slippers", "fill": True, "kind": "floor", "L": [0.95, 1.2], "R": [1.0, 1.3], "h": [0.0, 0.08], "note": "НОВОЕ: тапочки у кровати"},
+            {"id": "blocks", "fill": True, "kind": "floor", "L": [1.28, 1.58], "R": [1.55, 1.85], "h": [0.0, 0.1], "note": "НОВОЕ: кубики у коврика"},
+            {"id": "suitcase", "fill": True, "kind": "floor", "L": [0.95, 1.4], "R": [2.0, 2.28], "h": [0.0, 0.45], "note": "НОВОЕ: чемодан — только переехали"},
             {"act": "prop:room/room_rug", "id": "rug", "kind": "floor", "L": [1.2, 2.15], "R": [0.9, 1.85], "h": [0.0, 0.01], "note": "круглый коврик ~1 м"},
             {"act": "target:room_floor", "id": "floor_holes", "kind": "floor", "L": [1.12, 1.52], "R": [1.08, 1.42], "h": [0.0, 0.01], "note": "цель room_floor (одна из дыр; остальные — такие же пятна по полу)"},
             {"act": "family", "id": "family_pair", "kind": "person", "L": 2.07, "R": 1.33, "size": [0.9, 1.65], "note": "мама и Вита держатся за руки на коврике — картинки настроения family_mood0..3 (в первой комнате — «приехали»)"},
@@ -56,6 +64,11 @@ ROOMS = {
             {"id": "clock", "kind": "wall", "wall": "L", "at": [0.3, 0.6], "h": [1.75, 2.05], "note": "часы между углом и окном"},
             {"id": "table", "kind": "floor", "L": [0.95, 1.85], "R": [0.1, 0.8], "h": [0.0, 0.75], "note": "обеденный стол под окном"},
             {"id": "breadbox", "kind": "floor", "L": [1.15, 1.45], "R": [0.2, 0.42], "h": [0.75, 0.92], "note": "хлебница на столе"},
+            {"id": "plates", "fill": True, "kind": "floor", "L": [1.4, 1.75], "R": [0.25, 0.65], "h": [0.75, 0.82], "note": "НОВОЕ: две тарелки и чашки на столе"},
+            {"id": "fruit_bowl", "fill": True, "kind": "floor", "L": [1.02, 1.2], "R": [0.5, 0.7], "h": [0.75, 0.88], "note": "НОВОЕ: миска с яблоками на столе"},
+            {"id": "window_plant", "fill": True, "kind": "wall", "wall": "L", "at": [1.25, 1.55], "h": [0.9, 1.25], "depth": 0.15, "note": "НОВОЕ: цветок в горшке на подоконнике"},
+            {"id": "towel", "fill": True, "kind": "wall", "wall": "R", "at": [1.44, 1.5], "h": [0.95, 1.35], "note": "НОВОЕ: полотенце на крючке между мойкой и плитой"},
+            {"id": "stool", "fill": True, "kind": "floor", "L": [1.65, 1.95], "R": [0.95, 1.25], "h": [0.0, 0.45], "note": "НОВОЕ: табурет"},
             {"id": "chair", "kind": "floor", "L": [1.2, 1.6], "R": [0.9, 1.3], "h": [0.0, 0.85], "note": "стул Виты у стола, сиденье 0,45"},
             {"id": "rug", "kind": "floor", "L": [0.7, 1.2], "R": [0.8, 2.0], "h": [0.0, 0.01], "note": "половик вдоль мойки и плиты"},
             {"id": "ceiling_hole", "kind": "hang", "L": [0.9, 1.5], "R": [0.9, 1.5], "h": [2.6, 2.6], "note": "цель kitchen_ceiling: дыра в потолке"},
@@ -75,6 +88,8 @@ ROOMS = {
             {"id": "tiles_hole", "kind": "wall", "wall": "R", "at": [1.1, 1.5], "h": [0.7, 1.05], "note": "цель bath_tiles: отбитая плитка над ванной"},
             {"id": "shelf", "kind": "wall", "wall": "R", "at": [0.6, 1.1], "h": [1.5, 1.62], "depth": 0.15, "note": "полочка над ванной"},
             {"id": "duck", "kind": "floor", "L": [0.55, 0.7], "R": [1.6, 1.75], "h": [0.58, 0.68], "note": "уточка на бортике"},
+            {"id": "toothbrushes", "fill": True, "kind": "floor", "L": [0.45, 0.56], "R": [0.04, 0.14], "h": [0.85, 0.99], "note": "НОВОЕ: стакан с двумя щётками на раковине"},
+            {"id": "robe", "fill": True, "kind": "wall", "wall": "L", "at": [1.85, 2.1], "h": [0.9, 1.6], "note": "НОВОЕ: халат на крючке"},
             {"id": "light", "kind": "hang", "L": [0.95, 1.35], "R": [0.95, 1.35], "h": [2.45, 2.6], "note": "цель bath_light: плафон"},
             {"id": "mat", "kind": "floor", "L": [0.8, 1.25], "R": [0.8, 1.6], "h": [0.0, 0.01], "note": "коврик перед ванной"},
             {"id": "stool_basin", "kind": "floor", "L": [1.55, 1.95], "R": [1.6, 2.0], "h": [0.0, 0.55], "note": "табурет с тазом (стирка)"},
@@ -93,6 +108,8 @@ ROOMS = {
             {"id": "window", "kind": "wall", "wall": "R", "at": [0.35, 1.3], "h": [0.85, 2.15], "note": "НОВОЕ окно на правой стене"},
             {"id": "tv", "kind": "floor", "L": [0.0, 0.55], "R": [1.4, 1.98], "h": [0.0, 1.05], "note": "цель living_tv: тумба 0,5 + телевизор, повёрнут к дивану (экран смотрит по диагонали на зрителя)"},
             {"id": "coffee_table", "kind": "floor", "L": [1.05, 1.6], "R": [1.05, 1.5], "h": [0.0, 0.45], "note": "столик перед диваном (цветок — покупка)"},
+            {"id": "carpet", "fill": True, "kind": "floor", "L": [0.95, 1.95], "R": [0.95, 1.75], "h": [0.0, 0.01], "note": "НОВОЕ: ковёр под столиком"},
+            {"id": "plant", "fill": True, "kind": "floor", "L": [0.05, 0.35], "R": [0.45, 0.72], "h": [0.0, 0.95], "note": "НОВОЕ: растение в кадке под окном"},
             {"id": "lamp", "kind": "hang", "L": [1.05, 1.55], "R": [1.05, 1.55], "h": [2.2, 2.6], "note": "цель living_lamp: люстра"},
             {"id": "floor_patch", "kind": "floor", "L": [1.6, 2.1], "R": [1.4, 1.85], "h": [0.0, 0.01], "note": "цель living_floor: вздувшийся паркет"},
             {"id": "mother", "kind": "person", "L": 1.6, "R": 0.45, "size": [0.55, 1.25], "note": "мама сидит на диване у торшера с книгой (сидя 1,25)"},
@@ -234,7 +251,7 @@ def footprint(room, it):
             u, v = math.cos(t) * w, math.sin(t) * 0.2
             pts.append(project(room, it["L"] + (u + v) / S2, it["R"] + (v - u) / S2, 0.0)[0])
         return pts
-    if it["kind"] != "floor" or it["h"][1] <= 0.02:
+    if it["kind"] != "floor" or it["h"][1] <= 0.02 or it["h"][0] > 0.02:
         return []
     (L0, L1), (R0, R1) = it["L"], it["R"]
     return [project(room, L, R, 0.0)[0] for L, R in ((L0, R0), (L1, R0), (L1, R1), (L0, R1))]
@@ -296,7 +313,44 @@ def apply(name, path="data/act1.json"):
     print("applied %s: %d items" % (name, len(items)))
 
 
+def item_guides(name, out_dir):
+    """Каркас каждого предмета ровно в размер его PNG (2x rect): рёбра коробки (и частей — спинки
+    кровати), след на полу, точки ножек, линии стен. Рисовать поверх — и предмет встанет на место."""
+    from PIL import Image, ImageDraw
+    room = ROOMS[name]
+    os.makedirs(out_dir, exist_ok=True)
+    for it in room["items"]:
+        if it["kind"] == "person":
+            continue
+        r = rect(room, it)
+        img = Image.new("RGBA", (max(2, r[2] * 2), max(2, r[3] * 2)), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+
+        def Q(L, R, h):
+            x, y = project(room, L, R, h)[0]
+            return ((x - r[0]) * 2, (y - r[1]) * 2)
+        boxes = [it] + [dict(p, kind="floor") for p in it.get("parts", [])]
+        for bx in boxes:
+            pts = box_points(bx)
+            pp = [Q(*p) for p in pts]
+            for i in range(len(pts)):
+                for j in range(i + 1, len(pts)):
+                    if sum(1 for k in range(3) if abs(pts[i][k] - pts[j][k]) > 1e-9) == 1:
+                        d.line([pp[i], pp[j]], fill=(255, 0, 150, 255), width=3)
+        fp = footprint(room, it)
+        if fp:
+            d.polygon([((x - r[0]) * 2, (y - r[1]) * 2) for x, y in fp], fill=(0, 120, 255, 60))
+            for x, y in fp:
+                q = ((x - r[0]) * 2, (y - r[1]) * 2)
+                d.ellipse([q[0] - 6, q[1] - 6, q[0] + 6, q[1] + 6], fill=(0, 90, 255, 255))
+        img.save(os.path.join(out_dir, "%s.png" % it["id"]))
+
+
 def main():
+    if "--item-guides" in sys.argv:
+        name = sys.argv[sys.argv.index("--item-guides") + 1]
+        item_guides(name, "art/act1/reviews/layout/%s_items" % name)
+        return
     if "--apply" in sys.argv:
         i = sys.argv.index("--apply")
         out = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "data/act1.json"
