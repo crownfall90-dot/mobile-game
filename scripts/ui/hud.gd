@@ -35,6 +35,8 @@ var _res_button: Button
 var _won := false
 var _res_home: Button
 var _goal_icon: Control
+var _star_bar: StarBar
+var _goal_max := 0            # на счётчике «n / порог трёх звёзд»; 0 — как раньше, до цели
 
 
 func _ready() -> void:
@@ -173,9 +175,27 @@ func set_goal_kind(kind: String) -> void:
 		_goal_icon.queue_redraw()
 
 
+## Звёзды уровня на счётчике. marks — пороги [★, ★★, ★★★] для сбора: счётчик идёт до порога
+## трёх звёзд, звёзды стоят на полосе там, где их дадут. stake — ловкость: три звезды горят сразу
+## и гаснут за ошибки. Без порогов полосы нет.
+func set_star_marks(marks: Array, stake: bool) -> void:
+	_goal_max = 0 if stake or marks.is_empty() else int(marks[2])
+	_star_bar.setup(marks, stake)
+
+
+## Звёзд сейчас (Level.stars_changed): новая звезда вспыхивает, потерянная падает.
+func set_live_stars(n: int) -> void:
+	_star_bar.set_stars(n)
+
+
 func set_gold(collected: int, needed: int, total: int) -> void:
-	# до цели показываем прогресс к ней, после — сколько собрано из всего золота
-	_gold.text = "%d / %d" % [collected, needed if collected < needed else total]
+	if _goal_max > 0:
+		# весь путь до трёх звёзд сразу: 0 / 42, на полосе ★ на 30, ★★ на 36, ★★★ на 42
+		_gold.text = "%d / %d" % [mini(collected, _goal_max), _goal_max]
+		_star_bar.set_progress(float(collected) / _goal_max)
+	else:
+		# до цели показываем прогресс к ней, после — сколько собрано из всего золота
+		_gold.text = "%d / %d" % [collected, needed if collected < needed else total]
 	_gold.label_settings.font_color = ACCENT if collected >= needed else Color.WHITE
 	if collected > 0:
 		var tw := create_tween()
@@ -256,6 +276,9 @@ func _build_top_bar() -> void:
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_title.label_settings = _label_settings(32, Color.WHITE, 8)
+	# длинное «Починить: Светильник» — в две строки, счётчик не уезжает за край
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title.custom_minimum_size = Vector2(120, 0)
 	_bar.add_child(_title)
 
 	var pill := PanelContainer.new()
@@ -267,11 +290,19 @@ func _build_top_bar() -> void:
 	pill.add_child(row)
 	_goal_icon = CoinIcon.new()
 	row.add_child(_goal_icon)
+	# счётчик, а под ним полоса со звёздами на порогах
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(col)
 	_gold = Label.new()
 	_gold.label_settings = _label_settings(30, Color.WHITE, 0)
 	_gold.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_gold.custom_minimum_size = Vector2(88, 0)
-	row.add_child(_gold)
+	col.add_child(_gold)
+	_star_bar = StarBar.new()
+	col.add_child(_star_bar)
 	_bar.add_child(pill)
 
 
@@ -536,6 +567,108 @@ class CoinIcon extends Control:
 		draw_circle(c + Vector2(0, -1.5), 15.0, Color("ffc933"), true, -1.0, true)
 		draw_circle(c + Vector2(0, -1.5), 10.0, Color("ffdf6b"), false, 2.0, true)
 		draw_circle(c + Vector2(-6, -7), 3.5, Color(1, 1, 1, 0.8), true, -1.0, true)
+
+
+## Полоса под счётчиком: заполняется к трём звёздам, звёзды на порогах. Новая звезда вспыхивает
+## (увеличивается и искрит), в режиме stake потерянная звезда вздрагивает, падает и гаснет.
+class StarBar extends Control:
+	const GAP := 30.0
+	var _marks: Array = []
+	var _stake := false
+	var _progress := 0.0
+	var _shown := -1
+	var _pop: Array[float] = [0.0, 0.0, 0.0]    # 0..1 вспышка новой звезды
+	var _drop: Array[float] = [0.0, 0.0, 0.0]   # 0..1 падение потерянной
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(180, 36)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func setup(marks: Array, stake: bool) -> void:
+		_marks = marks
+		_stake = stake
+		_progress = 0.0
+		_shown = -1
+		for i in 3:
+			_pop[i] = 0.0
+			_drop[i] = 0.0
+		visible = stake or (not marks.is_empty() and int(marks[2]) > 0)
+		queue_redraw()
+
+	func set_progress(v: float) -> void:
+		_progress = clampf(v, 0.0, 1.0)
+		queue_redraw()
+
+	func set_stars(n: int) -> void:
+		var was := _shown
+		_shown = n
+		if was < 0:
+			queue_redraw()
+			return
+		var tw := create_tween().set_parallel()
+		for i in 3:
+			if i >= was and i < n:
+				_pop[i] = 0.0
+				tw.tween_method(_set_pop.bind(i), 0.0, 1.0, 0.6).set_delay((i - was) * 0.18)
+			elif i >= n and i < was:
+				_drop[i] = 0.0
+				tw.tween_method(_set_drop.bind(i), 0.0, 1.0, 0.7)
+
+	func _set_pop(v: float, i: int) -> void:
+		_pop[i] = v
+		queue_redraw()
+
+	func _set_drop(v: float, i: int) -> void:
+		_drop[i] = v
+		queue_redraw()
+
+	## Центры звёзд: у сбора — по порогам на полосе (не теснее GAP), у stake — рядом справа.
+	func _centers() -> Array[float]:
+		var x0 := 14.0
+		var x1 := size.x - 16.0
+		var xs: Array[float] = [x1 - GAP * 2.0, x1 - GAP, x1]
+		if not _stake and int(_marks[2]) > 0:
+			for i in 3:
+				xs[i] = lerpf(x0, x1, float(_marks[i]) / float(_marks[2]))
+			for i in [1, 0]:
+				xs[i] = minf(xs[i], xs[i + 1] - GAP)
+		return xs
+
+	func _draw() -> void:
+		if not visible:
+			return
+		var y := size.y * 0.5
+		var xs := _centers()
+		if not _stake:
+			var r := Rect2(4.0, y - 4.0, size.x - 12.0, 8.0)
+			draw_rect(r, Color(1, 1, 1, 0.16), true)
+			if _progress > 0.0:
+				draw_rect(Rect2(r.position, Vector2(r.size.x * _progress, r.size.y)), Hud.ACCENT, true)
+		for i in 3:
+			var c := Vector2(xs[i], y)
+			var lit := i < _shown
+			if _drop[i] > 0.0 and _drop[i] < 1.0 and not lit:
+				# потеряна: вздрогнула, упала вниз и погасла
+				var d := _drop[i]
+				c += Vector2(sin(d * 40.0) * 4.0 * (1.0 - d), d * d * 30.0)
+				_star(c, 14.0, Color(Hud.ACCENT, 1.0 - d))
+				continue
+			var k := 1.0
+			if lit and _pop[i] > 0.0 and _pop[i] < 1.0:
+				k = 1.0 + sin(_pop[i] * PI) * 0.8
+				# искры вокруг новой звезды
+				for a in 6:
+					var dir := Vector2.from_angle(TAU * a / 6.0 + 0.3)
+					draw_circle(c + dir * (14.0 + _pop[i] * 24.0), 3.0 * (1.0 - _pop[i]), Color(1, 0.95, 0.6, 1.0 - _pop[i]))
+			_star(c, 16.5 * k, Color(0.1, 0.06, 0.12, 0.55))
+			_star(c, 14.0 * k, Hud.ACCENT if lit else Color(1, 1, 1, 0.3))
+
+	func _star(c: Vector2, r: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for k in 10:
+			var rr := r if k % 2 == 0 else r * 0.48
+			pts.append(c + Vector2.from_angle(-PI / 2.0 + PI * k / 5.0) * rr)
+		draw_colored_polygon(pts, col)
 
 
 ## Три звезды на экране победы, появляются по очереди.

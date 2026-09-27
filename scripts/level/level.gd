@@ -18,6 +18,8 @@ const SEW := preload("res://scripts/level/sew.gd")
 signal won(stars: int)
 signal lost(reason: String)
 signal gold_changed(collected: int, needed: int, total: int)
+## Звёзды «сейчас»: у сбора — уже заработанные, у ловкости — ещё не потерянные (live_stars).
+signal stars_changed(stars: int)
 signal pin_pulled(pin: Pin)
 ## steam {}, stone {n}, wave_end {n}, slime_pop {enemy, killer}, acid_stone, dilute, noble_gold
 signal reaction(id: StringName, pos: Vector2, info: Dictionary)
@@ -107,6 +109,7 @@ var finished := false
 
 var _three_needed := 0
 var _two_needed := 0
+var _live_stars := -1
 var _result: Dictionary = {}
 var _reactions: Dictionary = {}   # вид_a * 16 + вид_b -> Callable(a, b)
 var _pulled := PackedStringArray()
@@ -871,6 +874,24 @@ func _timed_stars() -> int:
 	return _stars_for(pieces)
 
 
+## Звёзды, если закончить прямо сейчас. Сбор: 0 до цели, дальше по порогам star_marks().
+## Ловкость (stake_stars): сначала три, каждая ошибка отнимает одну (не меньше одной).
+func live_stars() -> int:
+	if stake_stars():
+		return _timed_stars()
+	return 0 if pieces < pieces_needed else _stars_for(pieces)
+
+
+func stake_stars() -> bool:
+	return leak != null or plunger_game != null or sew_game != null or mirror_game != null
+
+
+## Пороги ★, ★★, ★★★ для полосы на счётчике.
+func star_marks() -> Array:
+	var three := maxi(_three_needed, pieces_needed)
+	return [pieces_needed, clampi(_two_needed, pieces_needed, three), three]
+
+
 ## DevRunner: повернуть зеркальце.
 func mirror_tap(id: String) -> void:
 	_acted = true
@@ -983,6 +1004,11 @@ func _physics_process(delta: float) -> void:
 	_walk(delta)
 	_cull_fallen()
 	_update_outcome(delta)
+	# после проигрыша звёзды не меняются: итог уже «не вышло»
+	var s := live_stars()
+	if s != _live_stars and not (finished and not bool(_result.get("won", false))):
+		_live_stars = s
+		stars_changed.emit(s)
 
 
 func _process(delta: float) -> void:
