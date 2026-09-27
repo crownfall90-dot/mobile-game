@@ -44,7 +44,7 @@ func level_reward(level_id: String, result: Dictionary, _mods: Dictionary = {}) 
 
 ## Счётчик неудач (Profile.add_fail) ведёт GameScreen; здесь только статистика.
 ## Из чего складывается награда за ремонт: первая победа 50, каждая новая звезда 10 (с нарядами
-## «Семейное обновление» — 20), картина «Наши счастливые дни» +30 за новый ремонт, цветок +10 к
+## «Тёплые кофты» — 20), картина «Наши счастливые дни» +30 за новый ремонт, цветок +10 к
 ## любой награде.
 static func reward_lines(first_clear: bool, new_stars: int) -> Array:
 	var lines: Array = []
