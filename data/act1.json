@@ -716,6 +716,66 @@
    },
    "props": [
     {
+     "img": "bath/bath_mirror",
+     "rect": [
+      235,
+      560,
+      150,
+      191
+     ],
+     "z": 0
+    },
+    {
+     "img": "bath/bath_towel",
+     "rect": [
+      118,
+      630,
+      84,
+      156
+     ],
+     "z": 1
+    },
+    {
+     "img": "bath/bath_shelf",
+     "rect": [
+      488,
+      491,
+      200,
+      93
+     ],
+     "z": 1
+    },
+    {
+     "img": "bath/bath_duck",
+     "rect": [
+      623,
+      859,
+      45,
+      40
+     ],
+     "z": 2
+    },
+    {
+     "img": "bath/bath_mat",
+     "rect": [
+      474,
+      1050,
+      220,
+      83
+     ],
+     "z": 0
+    },
+    {
+     "img": "bath/bath_basket",
+     "rect": [
+      35,
+      1135,
+      140,
+      154
+     ],
+     "z": 2
+    },
+    {
      "img": "family/mother_bath",
      "rect": [
       140,
