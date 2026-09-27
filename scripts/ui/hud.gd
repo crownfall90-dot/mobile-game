@@ -16,6 +16,8 @@ const PANEL := Color("33261f")
 const MUTED := Color(1, 1, 1, 0.7)
 
 var _bar: HBoxContainer
+var _bottom_row: HBoxContainer
+var _safe_bottom := 0.0
 var _title: Label
 var _gold: Label
 var _hint: Label
@@ -52,8 +54,8 @@ func show_rotate(on: bool) -> void:
 	if on and _rotate_row == null:
 		_rotate_row = HBoxContainer.new()
 		_rotate_row.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		_rotate_row.offset_top = -250
-		_rotate_row.offset_bottom = -124
+		_rotate_row.offset_top = -250 - _safe_bottom
+		_rotate_row.offset_bottom = -124 - _safe_bottom
 		_rotate_row.offset_left = 20
 		_rotate_row.offset_right = -20
 		_rotate_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -101,9 +103,16 @@ func hint_rotate(dir: int) -> void:
 		_rotate_buttons[d].hinted = d == dir
 
 
-func set_safe_top(px: float) -> void:
-	_bar.offset_top = 20.0 + px
+## Отступы от выреза камеры сверху и от жестовой полосы / скругления снизу (единицы экрана).
+func set_safe(top: float, bottom := 0.0) -> void:
+	_bar.offset_top = 20.0 + top
 	_bar.offset_bottom = _bar.offset_top + 88.0
+	_safe_bottom = bottom
+	_bottom_row.offset_top = -104.0 - bottom
+	_bottom_row.offset_bottom = -12.0 - bottom
+	if _rotate_row:
+		_rotate_row.offset_top = -250.0 - bottom
+		_rotate_row.offset_bottom = -124.0 - bottom
 
 
 ## Подсказка — в свободной полосе между верхней панелью и полем головоломки (field_top —
@@ -239,6 +248,7 @@ func show_result(won: bool, stars: int, text: String, title := "", coins := "") 
 
 func _build_top_bar() -> void:
 	var bottom := HBoxContainer.new()
+	_bottom_row = bottom
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom.offset_top = -104
 	bottom.offset_bottom = -12
@@ -265,7 +275,7 @@ func _build_top_bar() -> void:
 	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bar.add_theme_constant_override("separation", 16)
 	add_child(_bar)
-	set_safe_top(0.0)
+	set_safe(0.0)
 
 	var restart := IconButton.new()
 	restart.pressed.connect(func() -> void: restart_requested.emit())

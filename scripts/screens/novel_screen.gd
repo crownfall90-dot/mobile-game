@@ -32,6 +32,7 @@ const PAPER := Color("fffaf0")
 const INK := Color("4a3226")
 const EDGE := Color("6b4a33")
 const BOX_H := 270.0
+const BOX_MAX_W := 900.0      # предел ширины окна диалога на широком экране
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
 const TINTS := {"dim": Color(0.04, 0.04, 0.1, 0.42), "night": Color(0.03, 0.06, 0.18, 0.55),
 	"warm": Color(1.0, 0.78, 0.45, 0.1), "": Color(0, 0, 0, 0.16)}
@@ -187,8 +188,10 @@ func _layout() -> void:
 	_fit_bg()
 	var bottom := _safe_bottom(view) / _u
 	var top := _safe_top(view) / _u
-	_box.position = Vector2(16, _h - BOX_H - 24 - bottom)
-	_box.size = Vector2(w - 32, BOX_H)
+	# на планшете и раскрытом складном окно диалога не шире удобной для чтения колонки
+	var box_w := minf(w - 32, BOX_MAX_W)
+	_box.position = Vector2((w - box_w) * 0.5, _h - BOX_H - 24 - bottom)
+	_box.size = Vector2(box_w, BOX_H)
 	_text.position = Vector2(30, 34)
 	_text.size = Vector2(_box.size.x - 60, BOX_H - 60)
 	_more.position = Vector2(_box.size.x - 52, BOX_H - 46)
@@ -217,18 +220,12 @@ func _layout() -> void:
 		_card.position = Vector2((w - _card.size.x) * 0.5, maxf(top + 110, _box.position.y - 60 - _card.size.y))
 
 
-func _safe_top(view: Vector2) -> float:
-	var safe := DisplayServer.get_display_safe_area()
-	var window := DisplayServer.window_get_size()
-	return maxf(0, safe.position.y) * view.y / maxf(1, window.y)
+func _safe_top(_view: Vector2) -> float:
+	return UiKit.safe_insets(get_viewport()).x
 
 
-func _safe_bottom(view: Vector2) -> float:
-	var safe := DisplayServer.get_display_safe_area()
-	var window := DisplayServer.window_get_size()
-	if safe.size.y <= 0:
-		return 0.0
-	return maxf(0, window.y - safe.end.y) * view.y / maxf(1, window.y)
+func _safe_bottom(_view: Vector2) -> float:
+	return UiKit.safe_insets(get_viewport()).y
 
 
 # --- ход сцены ---------------------------------------------------------------

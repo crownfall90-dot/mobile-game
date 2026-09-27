@@ -629,18 +629,12 @@ func _layout() -> void:
 	_rebuild_marks()
 
 
-func _safe_top(view: Vector2) -> float:
-	var safe := DisplayServer.get_display_safe_area()
-	var window := DisplayServer.window_get_size()
-	return maxf(0, safe.position.y) * view.y / maxf(1, window.y)
+func _safe_top(_view: Vector2) -> float:
+	return UiKit.safe_insets(get_viewport()).x
 
 
-func _safe_bottom(view: Vector2) -> float:
-	var safe := DisplayServer.get_display_safe_area()
-	var window := DisplayServer.window_get_size()
-	if safe.size.y <= 0:
-		return 0.0
-	return maxf(0, window.y - safe.end.y) * view.y / maxf(1, window.y)
+func _safe_bottom(_view: Vector2) -> float:
+	return UiKit.safe_insets(get_viewport()).y
 
 
 func _loc_index() -> int:
