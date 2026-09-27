@@ -160,7 +160,8 @@ func set_level(title: String, hint: String) -> void:
 		_hint_tween.kill()
 	if _hint.visible:
 		_hint_tween = create_tween().set_loops()
-		_hint_tween.tween_property(_hint, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
+		# мягкое «дыхание», но не бледнее 80%: на светлых фонах подсказка должна читаться
+		_hint_tween.tween_property(_hint, "modulate:a", 0.8, 0.9).set_trans(Tween.TRANS_SINE)
 		_hint_tween.tween_property(_hint, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 	_overlay.visible = false
 
@@ -289,6 +290,10 @@ func _build_hint() -> void:
 	_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.label_settings = _label_settings(26, Color.WHITE, 8)
+	# тень под буквами — контраст на светлых фонах (раковина, плита, потолок)
+	_hint.label_settings.shadow_color = Color(0.05, 0.03, 0.08, 0.7)
+	_hint.label_settings.shadow_size = 10
+	_hint.label_settings.shadow_offset = Vector2(0, 2)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hint)
 
