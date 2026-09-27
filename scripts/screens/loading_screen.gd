@@ -1,11 +1,11 @@
 extends Control
 ## Загрузка: сверху название с лентой, по центру радостные мама и Вита, снизу прогресс и
-## сменяющиеся подсказки, серая Хмурь; когда всё готово — она светлеет, искры, и первый запуск
+## сменяющиеся подсказки (без ленты и без Хмури — решение владельца); когда всё готово — искры, и первый запуск
 ## ведёт в пролог-новеллу. Варианты оформления (VARIANT или args.variant):
 ##   room  — уютная комната (фон локации или art/act1/ui/loading_bg.png), луч с пылинками, полоса;
 ##   house — ночь, звёзды, домик: по ходу загрузки в окнах по одному зажигается свет;
 ##   book  — страница сказки с узорной рамкой, семья в круглом медальоне, пять сердечек;
-##   sky   — утреннее небо с плывущими облаками, Хмурь светлеет по ходу загрузки, полоса;
+##   sky   — утреннее небо с плывущими облаками, полоса;
 ##   rain  — большое окно, дождь стихает по ходу загрузки, в конце радуга;
 ##   door  — дверь приоткрывается, из щели льётся тёплый свет;
 ##   album — на деревянном столе по очереди появляются фотокарточки комнат;
@@ -31,7 +31,6 @@ const TIPS := [
 	"Золотая кнопка — сломанная вещь. Нажми и почини!",
 	"Бирюзовая кнопка — занятие: мама и Вита что-нибудь сделают вместе.",
 	"Три звезды — больше монет на уют для дома.",
-	"Хмурь грустит, пока дом холодный. Почини — и он подобреет.",
 	"Собери кусочки старого фото прабабушки Веры.",
 ]
 
@@ -118,14 +117,9 @@ func open(args: Dictionary) -> void:
 	title.pivot_offset = title.size * 0.5
 	title.scale = Vector2(0.8, 0.8)
 	_canvas.add_child(title)
-	var ribbon := UiKit.ribbon("Починим дом вместе", &"secondary")
-	ribbon.name = "Ribbon"
-	ribbon.modulate.a = 0.0
-	_canvas.add_child(ribbon)
 	var tw := create_tween().set_parallel()
 	tw.tween_property(title, "modulate:a", 1.0, 0.5)
 	tw.tween_property(title, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(ribbon, "modulate:a", 1.0, 0.5).set_delay(0.35)
 	_bar = LoadBar.new()
 	_bar.size = Vector2(520, 34)
 	_canvas.add_child(_bar)
@@ -147,6 +141,9 @@ func open(args: Dictionary) -> void:
 	_canvas.add_child(_tip)
 	_gloom = GLOOM.new()
 	_gloom.setup(Vector2.ZERO, 0.8, false)
+	# по решению владельца на загрузке Хмури нет: узел остаётся для кода, но скрыт
+	_gloom.visible = false
+	_gloom.process_mode = Node.PROCESS_MODE_DISABLED
 	_canvas.add_child(_gloom)
 	_fx = Fx.new()
 	_canvas.add_child(_fx)
@@ -189,10 +186,9 @@ func _process(delta: float) -> void:
 		_done = true
 		_bar.progress = 1.0
 		_show_progress(1.0)
-		# дом готов — Хмурь светлеет, над ней искры; первый запуск ведёт в пролог-новеллу
-		_gloom.call(&"befriend")
+		# дом готов — искры над полосой; первый запуск ведёт в пролог-новеллу
 		for col in [Color("ffe5a3"), Color("fff4d6"), Color("ffc660")]:
-			_fx.burst(_gloom.position, col, 12, 260.0, 5.0, 300.0, 0.9)
+			_fx.burst(_bar.position + Vector2(_bar.size.x, _bar.size.y * 0.5), col, 12, 260.0, 5.0, 300.0, 0.9)
 		await get_tree().create_timer(0.9).timeout
 		if Profile.flag("seen.prologue"):
 			Router.go(&"hub")
@@ -221,10 +217,6 @@ func _layout() -> void:
 	_canvas.scale = Vector2(u, u)
 	_canvas.position = Vector2((view.x - 720.0 * u) * 0.5, 0)
 	(_canvas.get_node(^"Title") as Control).position = Vector2(40, h * 0.06)
-	var ribbon := _canvas.get_node(^"Ribbon") as Control
-	ribbon.size = ribbon.get_combined_minimum_size()
-	ribbon.scale = Vector2(0.85, 0.85)
-	ribbon.position = Vector2(360 - ribbon.size.x * 0.85 * 0.5, h * 0.06 + 150)
 	var fh := minf(h * 0.5, 740.0)
 	_family.size = Vector2(fh * 0.625, fh)
 	_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh - 40)
