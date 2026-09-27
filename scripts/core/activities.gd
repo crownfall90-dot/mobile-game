@@ -38,6 +38,19 @@ static func available(key: String) -> Array:
 	return out
 
 
+## Почему занятий пока нет: «Сначала почини: плита» / «Нужна покупка: цветок». Пусто — всё открыто
+## или у ключа нет занятий.
+static func locked_reason(key: String) -> String:
+	for a: Dictionary in all().get(key, {}).get("acts", []):
+		if a.has("after") and not Home.is_done(str(a["after"])):
+			return "Сначала почини: %s" % str(Home.task(str(a["after"])).get("name", "вещь")).to_lower()
+		if a.has("need") and not Profile.owns(str(a["need"])):
+			for it: Dictionary in Home.SHOP:
+				if str(it["id"]) == str(a["need"]):
+					return "Нужна покупка: %s" % str(it["name"]).to_lower()
+	return ""
+
+
 static func title(key: String, fallback := "") -> String:
 	return str(all().get(key, {}).get("name", fallback))
 

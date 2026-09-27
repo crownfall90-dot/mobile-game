@@ -9,6 +9,7 @@ const GLOOM := preload("res://scripts/art/gloom.gd")
 const SIGN := preload("res://scripts/ui/sign_board.gd")
 const ALBUM := preload("res://scripts/popups/album_popup.gd")
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
+const MARK := preload("res://scripts/ui/hub_mark.gd")
 const IDLE_AFTER := 6.0      # столько секунд без нажатий — и Вита подсказывает, куда нажать
 const IDLE_AGAIN := 14.0     # следующая подсказка — через столько
 
@@ -17,6 +18,8 @@ var _view: LocationView
 var _k := 1.0
 var _offset := Vector2.ZERO
 var _ui: Control
+var _marks: Control
+var _acts: Button
 var _title: Control           # табличка с названием главы
 var _settings: Button
 var _shop: Button
@@ -99,6 +102,12 @@ func _exit_tree() -> void:
 
 
 func _build_ui() -> void:
+	# круглые кнопки у вещей — под верхними кнопками и переходами
+	_marks = Control.new()
+	_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marks.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_marks)
+	_view.show_targets = false
 	_ui = Control.new()
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -133,13 +142,18 @@ func _build_ui() -> void:
 			if scene is String and scene != "":
 				Router.go(&"novel", {"scene": scene, "next": {"screen": "hub", "args": {"location": _loc_id}}})))
 	_ui.add_child(_album)
+	# «Занятия»: список всего, чем можно заняться в комнате, — и мелкие или закрытые вещи доступны
+	_acts = UiKit.icon_button(&"play", "", &"glass")
+	_acts.tooltip_text = "Занятия"
+	_acts.pressed.connect(_offer_list)
+	_ui.add_child(_acts)
 	# Переход между открытыми локациями.
 	var locs := Home.locations()
 	var i := _loc_index()
 	if i > 0:
-		_prev = _nav_button("‹ " + _loc_title(str(locs[i - 1]["id"])), str(locs[i - 1]["id"]))
+		_prev = _nav_button("‹ " + _loc_short(str(locs[i - 1]["id"])), str(locs[i - 1]["id"]))
 	if i + 1 < Home.unlocked_count():
-		_next = _nav_button(_loc_title(str(locs[i + 1]["id"])) + " ›", str(locs[i + 1]["id"]))
+		_next = _nav_button(_loc_short(str(locs[i + 1]["id"])) + " ›", str(locs[i + 1]["id"]))
 	# Первая подсказка: что делать, пока ничего не починено.
 	if Home.completed() == 0:
 		_tip = UiKit.label("Нажми на сломанную вещь, чтобы её починить", 26, Color("fff0ce"))
@@ -198,6 +212,11 @@ func _gui_input(event: InputEvent) -> void:
 				_offer_actions(key, "", "")
 		return
 	accept_event()
+	_open_repair(t)
+
+
+## Сломанная вещь: в головоломку ремонта.
+func _open_repair(t: Dictionary) -> void:
 	if not Game.has_level(str(t["level"])):
 		Router.toast("%s — головоломка скоро появится" % t["name"])
 		return
@@ -206,8 +225,112 @@ func _gui_input(event: InputEvent) -> void:
 		Router.go(&"game", {"id": t["level"]})
 
 
+## Круглые кнопки у всего, что можно нажать: сломанное (ремонт), занятия у вещей, предметов и
+## семьи, замок — занятие откроется позже. Кнопки не наезжают друг на друга и на края.
+func _rebuild_marks() -> void:
+	if _marks == null:
+		return
+	for c in _marks.get_children():
+		c.queue_free()
+	var view := get_viewport_rect().size
+	var ui_k := minf(view.x / 720.0, view.y / 1280.0)
+	var area := Rect2(0, _safe_top(view) + 116 * ui_k, view.x,
+		view.y - _safe_top(view) - _safe_bottom(view) - 210 * ui_k).grow(-34 * ui_k)
+	var placed: Array[Vector2] = []
+	for m: Dictionary in _mark_list():
+		var p := _free_spot(_to_screen(m["at"]), placed, area, 62.0 * ui_k)
+		placed.append(p)
+		var b: Control = MARK.new(str(m["kind"]))
+		_marks.add_child(b)
+		b.scale = Vector2(ui_k, ui_k)
+		b.position = p - b.size * 0.5
+		b.tapped.connect(m["do"])
+
+
+func _mark_list() -> Array:
+	var out := []
+	var later := []
+	var loc := Home.location(_loc_id)
+	for t: Dictionary in loc.get("targets", []):
+		var id := str(t["id"])
+		var level := str(t.get("level", ""))
+		var at := _view.target_rect(id).get_center()
+		if not Home.is_done(id):
+			out.append({"kind": "repair", "at": at, "do": _open_repair.bind(t)})
+		elif not ACTIVITIES.available(id).is_empty() or Game.has_level(level):
+			later.append({"kind": "act", "at": at, "do": _offer_actions.bind(id, str(t["name"]), level)})
+	for pr: Dictionary in loc.get("props", []):
+		var img := str(pr.get("img", ""))
+		var key := ACTIVITIES.prop_key(_loc_id, img)
+		if img.begins_with("family/") or not ACTIVITIES.all().has(key):
+			continue
+		var v: Array = pr["rect"]
+		later.append(_act_mark(key, Rect2(v[0], v[1], v[2], v[3]).get_center()))
+	var fam := ACTIVITIES.prop_key(_loc_id, "family")
+	if ACTIVITIES.all().has(fam) and _view.family_mark() != Vector2.ZERO:
+		later.append(_act_mark(fam, _view.family_mark()))
+	out.append_array(later)
+	return out
+
+
+## Список «Занятия»: починенные вещи, предметы и семья, у которых сейчас есть занятие.
+func _offer_list() -> void:
+	if _busy or Router.is_busy():
+		return
+	var items := []
+	for t: Dictionary in Home.location(_loc_id).get("targets", []):
+		var id := str(t["id"])
+		if Home.is_done(id) and not ACTIVITIES.available(id).is_empty():
+			items.append([id, str(t["name"]), str(t.get("level", ""))])
+	for pr: Dictionary in Home.location(_loc_id).get("props", []):
+		var key := ACTIVITIES.prop_key(_loc_id, str(pr.get("img", "")))
+		if not str(pr.get("img", "")).begins_with("family/") and not ACTIVITIES.available(key).is_empty():
+			items.append([key, ACTIVITIES.title(key), ""])
+	var fam := ACTIVITIES.prop_key(_loc_id, "family")
+	if not ACTIVITIES.available(fam).is_empty():
+		items.append([fam, ACTIVITIES.title(fam), ""])
+	if items.is_empty():
+		Router.toast("Почини что-нибудь — и появятся занятия")
+		return
+	var acts := []
+	for i in items.size():
+		acts.append([i, items[i][1]])
+	Sfx.play(&"ui_tap")
+	var popup := Router.popup(&"activity", {"title": "Занятия", "acts": acts})
+	if popup:
+		popup.closed.connect(func(choice: Variant) -> void:
+			if choice is int:
+				var it: Array = items[choice]
+				_offer_actions.call_deferred(it[0], it[1], it[2]))
+
+
+func _act_mark(key: String, at: Vector2) -> Dictionary:
+	if ACTIVITIES.available(key).is_empty():
+		return {"kind": "lock", "at": at, "do": func() -> void: Router.toast(ACTIVITIES.locked_reason(key))}
+	return {"kind": "act", "at": at, "do": _offer_actions.bind(key, "", "")}
+
+
+## Ближайшее к p место, где кнопка не наезжает на уже поставленные (не ближе gap) и не выходит
+## за area: пробуем сдвиги вокруг, иначе остаёмся на месте.
+static func _free_spot(p: Vector2, placed: Array[Vector2], area: Rect2, gap: float) -> Vector2:
+	var tries: Array[Vector2] = [Vector2.ZERO]
+	for ring in [1.0, 1.7]:
+		for a in 8:
+			tries.append(Vector2.from_angle(PI * 0.5 + TAU * a / 8.0) * gap * ring)
+	for d: Vector2 in tries:
+		var q := (p + d).clamp(area.position, area.end)
+		var ok := true
+		for o: Vector2 in placed:
+			ok = ok and o.distance_to(q) >= gap
+		if ok:
+			return q
+	return p.clamp(area.position, area.end)
+
+
 func _play_repair() -> void:
 	_busy = true
+	# пока вещь чинится — без кнопок поверх анимации
+	_marks.visible = false
 	_delay.start(0.5)
 	await _delay.timeout
 	if _leaving:
@@ -231,6 +354,8 @@ func _play_repair() -> void:
 	if _leaving:
 		return
 	_busy = false
+	_marks.visible = true
+	_rebuild_marks()
 	if Home.location_done(_loc_id):
 		# итог локации рассказывает сценка-новелла (data/novel.json, <локация>_done)
 		_celebrate()
@@ -374,7 +499,13 @@ func _offer_actions(key: String, item_name: String, level: String) -> void:
 					"next": {"screen": "hub", "args": {"location": _loc_id}}}))
 
 
-## Название главы локации для таблички и кнопок перехода (нет — название комнаты).
+## Короткое название комнаты для переходов внизу: «Кухня», «Санузел».
+func _loc_short(loc_id: String) -> String:
+	var loc := Home.location(loc_id)
+	return str(loc.get("short", loc.get("name", "")))
+
+
+## Название главы локации для таблички (нет — название комнаты).
 func _loc_title(loc_id: String) -> String:
 	var loc := Home.location(loc_id)
 	return str(loc.get("title", loc.get("name", "Vita")))
@@ -472,11 +603,13 @@ func _layout() -> void:
 	_settings.scale = Vector2(ui_k, ui_k)
 	_shop.scale = Vector2(ui_k, ui_k)
 	_album.scale = Vector2(ui_k, ui_k)
+	_acts.scale = Vector2(ui_k, ui_k)
 	_settings.position = Vector2(view.x - (22 + 88) * ui_k, top + 12 * ui_k)
 	_shop.position = Vector2(view.x - (22 + 88 * 2 + 12) * ui_k, top + 12 * ui_k)
 	_album.position = Vector2(view.x - (22 + 88 * 3 + 24) * ui_k, top + 12 * ui_k)
+	_acts.position = Vector2(view.x - (22 + 88 * 4 + 36) * ui_k, top + 12 * ui_k)
 	# длинное название локации не заезжает под кнопки: ужимается до свободного места
-	var room_w := _album.position.x - _title.position.x - 10 * ui_k
+	var room_w := _acts.position.x - _title.position.x - 10 * ui_k
 	var title_w := _title.get_combined_minimum_size().x * ui_k
 	if title_w > room_w:
 		_title.scale = Vector2(ui_k, ui_k) * (room_w / title_w)
@@ -493,6 +626,7 @@ func _layout() -> void:
 		_tip.scale = Vector2(ui_k, ui_k)
 		_tip.size = Vector2(620, 80)
 		_tip.position = Vector2(50 * ui_k, bottom - 100 * ui_k)
+	_rebuild_marks()
 
 
 func _safe_top(view: Vector2) -> float:

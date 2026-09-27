@@ -170,6 +170,17 @@ func family_at(p: Vector2) -> bool:
 	return false
 
 
+## Где у мамы с дочкой круглая кнопка: на уровне пояса мамы (не на лицах); нет семьи — ZERO.
+func family_mark() -> Vector2:
+	if _family.visible and _family.texture:
+		var r := Rect2(_family.position, _family.texture.get_size() * _family.scale)
+		return r.position + r.size * Vector2(0.4, 0.62)
+	for pr: Dictionary in loc.get("props", []):
+		if str(pr.get("img", "")).begins_with("family/mother"):
+			return _rect(pr).position + _rect(pr).size * Vector2(0.5, 0.6)
+	return Vector2.ZERO
+
+
 func _core(r: Rect2) -> Rect2:
 	return Rect2(r.position + r.size * Vector2(0.22, 0.06), r.size * Vector2(0.56, 0.88))
 
