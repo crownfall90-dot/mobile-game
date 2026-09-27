@@ -1,7 +1,8 @@
 extends RefCounted
 ## Каталог бытовых сценок (data/activities.json) согласован с квартирой: ключ — существующая
-## вещь или предмет своей локации, у каждого действия есть подпись и сценка с понятными шагами,
-## условия after/need ссылаются на настоящие вещи и покупки, новелла находит каждую сценку.
+## вещь, предмет своей локации или мама с дочкой («локация/family»), у каждого действия есть
+## подпись и сценка с понятными шагами, условия after/need ссылаются на настоящие вещи и покупки,
+## новелла находит каждую сценку.
 
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
 const SPEAKERS := ["mother", "daughter", "gloom"]
@@ -20,6 +21,7 @@ static func run() -> bool:
 			targets[str(t["id"])] = str(l["id"])
 		for pr: Dictionary in l.get("props", []):
 			props[ACTIVITIES.prop_key(str(l["id"]), str(pr["img"]))] = true
+		props[ACTIVITIES.prop_key(str(l["id"]), "family")] = true
 	var all := ACTIVITIES.all()
 	if all.is_empty():
 		errors.append("activities.json is empty or unreadable")

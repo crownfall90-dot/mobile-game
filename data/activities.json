@@ -1,5 +1,5 @@
 {
- "_about": "Бытовые сценки. Ключ — id починенной вещи (targets в act1.json) или «локация/картинка» предмета-наполнителя (props). acts: label — кнопка, after — нужна починенная вещь, need — нужна покупка, scene — шаги новеллы (как в novel.json). Фон — текущее состояние комнаты.",
+ "_about": "Бытовые сценки. Ключ — id починенной вещи (targets в act1.json) или «локация/картинка» предмета-наполнителя (props) или «локация/family» — мама с дочкой. acts: label — кнопка, after — нужна починенная вещь, need — нужна покупка, scene — шаги новеллы (как в novel.json). Фон — текущее состояние комнаты.",
  "room_window": {"name": "Окно", "acts": [
   {"label": "Смотреть на дождь", "scene": [
    {"bg": "room"}, {"show": ["family"]},
@@ -62,6 +62,18 @@
    {"say": "mother", "text": "Задёрнем шторы, и дождь останется снаружи.", "mood": "calm"},
    {"say": "daughter", "text": "А утром откроем и посмотрим на солнце!", "mood": "happy"}]}]},
 
+ "room/family": {"name": "Мама и Вита", "acts": [
+  {"label": "Обняться", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "Мама крепко обнимает Виту."},
+   {"say": "daughter", "text": "Мама, ты тёплая, как печка!", "mood": "smile"},
+   {"say": "mother", "text": "А ты — как маленькое солнышко.", "mood": "smile"}]},
+  {"label": "Поиграть в ладушки", "after": "room_floor", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Ладушки-ладушки, где были?", "mood": "happy"},
+   {"say": "mother", "text": "У бабушки Веры! Она пекла нам блинчики.", "mood": "smile"},
+   {"say": "daughter", "text": "Прабабушка пекла блинчики?", "mood": "surprised"},
+   {"say": "mother", "text": "Самые вкусные. Починим кухню — испечём такие же.", "mood": "happy"}]}]},
  "kitchen_sink": {"name": "Раковина", "acts": [
   {"label": "Помыть посуду", "scene": [
    {"bg": "kitchen"}, {"show": ["family"]},
@@ -123,6 +135,18 @@
    {"say": "daughter", "text": "Мама, я волчок!", "mood": "happy"},
    {"say": "mother", "text": "Осторожно, волчок, не закатись под стол.", "mood": "smile"}]}]},
 
+ "kitchen/family": {"name": "Мама и Вита", "acts": [
+  {"label": "Накрыть на стол", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "mother", "text": "Поможешь накрыть на стол? Нужно две ложки.", "mood": "smile"},
+   {"say": "daughter", "text": "Одна маме, одна мне. Две!", "mood": "happy"},
+   {"say": "mother", "text": "Вот ты какая помощница.", "mood": "smile"}]},
+  {"label": "Помешать суп", "after": "kitchen_stove", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, можно я помешаю?", "mood": "smile"},
+   {"say": "mother", "text": "Можно. Только по кругу и не торопясь.", "mood": "smile"},
+   {"say": "daughter", "text": "По кругу… Ой, морковка убегает!", "mood": "surprised"},
+   {"say": "mother", "text": "Догоним. Суп будет что надо!", "mood": "happy"}]}]},
  "bath_tub": {"name": "Ванна", "acts": [
   {"label": "Пускать кораблики", "scene": [
    {"bg": "bath"}, {"show": ["family"]},
@@ -152,6 +176,31 @@
    {"say": "mother", "text": "Потрёшь носочки?", "mood": "smile"},
    {"say": "daughter", "text": "Пены много-много! Смотри, какой пузырь!", "mood": "happy"}]}]},
 
+ "bath_toilet": {"name": "Туалет", "acts": [
+  {"label": "Нажать на слив", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, можно я нажму на кнопку?", "mood": "smile"},
+   {"text": "Вода шумит, как маленький водопад."},
+   {"say": "daughter", "text": "Работает! Больше никаких засоров!", "mood": "happy"},
+   {"say": "mother", "text": "И ничего лишнего туда не бросаем, договорились?", "mood": "smile"}]}]},
+ "bath/bath_laundry_stool": {"name": "Табуретка", "acts": [
+  {"label": "Дотянуться до крана", "after": "bath_sink", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Встану на табуретку — и достану до крана сама!", "mood": "happy"},
+   {"say": "mother", "text": "Держись за край. Вот так, молодец.", "mood": "smile"},
+   {"say": "daughter", "text": "Я уже большая. Почти как ты!", "mood": "happy"}]}]},
+ "bath/family": {"name": "Мама и Вита", "acts": [
+  {"label": "Заплести косички", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, заплети мне две косички!", "mood": "smile"},
+   {"say": "mother", "text": "Сиди смирно. Раз прядка, два прядка…", "mood": "calm"},
+   {"say": "daughter", "text": "Я теперь как принцесса?", "mood": "surprised"},
+   {"say": "mother", "text": "Точь-в-точь.", "mood": "happy"}]},
+  {"label": "Почистить зубы", "after": "bath_sink", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "mother", "text": "Зубки чистим сверху вниз, как будто метём.", "mood": "smile"},
+   {"say": "daughter", "text": "Смотри, я дракон! У меня пена изо рта!", "mood": "happy"},
+   {"say": "mother", "text": "Грозный дракон, сплюнь, пожалуйста.", "mood": "smile"}]}]},
  "living_sofa": {"name": "Диван", "acts": [
   {"label": "Почитать сказку", "scene": [
    {"bg": "living", "tint": "dim"}, {"show": ["family"]},
@@ -196,5 +245,18 @@
    {"bg": "living"}, {"show": ["family"]},
    {"say": "daughter", "text": "Это наш дом. Вот ты, вот я, а вот Хмурь.", "mood": "smile"},
    {"say": "mother", "text": "Повесим его на стену?", "mood": "smile"},
-   {"say": "daughter", "text": "На самое видное место!", "mood": "happy"}]}]}
+   {"say": "daughter", "text": "На самое видное место!", "mood": "happy"}]}]},
+ "living/family": {"name": "Мама и Вита", "acts": [
+  {"label": "Потанцевать", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, давай танцевать!", "mood": "happy"},
+   {"say": "mother", "text": "Без музыки?", "mood": "surprised"},
+   {"say": "daughter", "text": "Я буду петь! Ля-ля-ля!", "mood": "happy"},
+   {"text": "Они кружатся по комнате, пока не начинают смеяться."}]},
+  {"label": "Поговорить о бабушке", "after": "living_sofa", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, а прабабушка Вера любила эту комнату?", "mood": "calm"},
+   {"say": "mother", "text": "Очень. Она сидела тут в кресле, а я — у неё на коленях.", "mood": "smile"},
+   {"say": "daughter", "text": "Совсем как я у тебя!", "mood": "smile"},
+   {"say": "mother", "text": "Совсем как ты.", "mood": "happy"}]}]}
 }

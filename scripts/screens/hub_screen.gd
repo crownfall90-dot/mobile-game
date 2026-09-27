@@ -179,7 +179,12 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			_gloom_talk()
 			return
-		# починенная вещь или предмет в комнате: бытовые сценки (и повтор ремонта ради звёзд)
+		# мама с дочкой, починенная вещь или предмет в комнате: бытовые сценки (и повтор ремонта)
+		var fam := ACTIVITIES.prop_key(_loc_id, "family")
+		if _view.family_at(p) and not ACTIVITIES.available(fam).is_empty():
+			accept_event()
+			_offer_actions(fam, "", "")
+			return
 		var done := _view.target_at(p, true)
 		if not done.is_empty():
 			accept_event()

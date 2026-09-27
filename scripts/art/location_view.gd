@@ -152,6 +152,28 @@ func prop_at(p: Vector2) -> Dictionary:
 	return best
 
 
+## Мама или дочка под пальцем — для семейных сценок. Считается середина фигуры (поля картинки
+## прозрачные) и только если сверху не лежит предмет с большим z (стол перед Витой).
+func family_at(p: Vector2) -> bool:
+	if _family.visible and _family.texture:
+		if _core(Rect2(_family.position, _family.texture.get_size() * _family.scale)).has_point(p):
+			return true
+	for pr: Dictionary in loc.get("props", []):
+		if not str(pr.get("img", "")).begins_with("family/") or not _core(_rect(pr)).has_point(p):
+			continue
+		var covered := false
+		for other: Dictionary in loc.get("props", []):
+			if int(other.get("z", 0)) > int(pr.get("z", 0)) and _rect(other).has_point(p):
+				covered = true
+		if not covered:
+			return true
+	return false
+
+
+func _core(r: Rect2) -> Rect2:
+	return Rect2(r.position + r.size * Vector2(0.22, 0.06), r.size * Vector2(0.56, 0.88))
+
+
 func target_rect(id: String) -> Rect2:
 	return _rect(_target(id))
 
