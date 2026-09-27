@@ -39,6 +39,7 @@ var _result_tween: Tween
 var _pause: Node
 var _repair := ""
 var _result_recorded := false
+var _live_stars := -1
 
 
 func _init() -> void:
@@ -132,6 +133,9 @@ func restart() -> void:
 		_hud.hide_hint())
 	level.won.connect(_on_won)
 	level.lost.connect(_on_lost)
+	_hud.set_star_marks(level.star_marks(), level.stake_stars())
+	_live_stars = -1
+	level.stars_changed.connect(_on_stars_changed)
 	_hud.set_level(_title(), Loc.pick(_data.get("hint", "")))
 	_layout()
 	_hud.set_goal_kind("tape" if _data.has("leak") else ("plate" if _data.has("dishes") else ("clog" if _data.has("plunger") else ("lamp" if _data.has("mirrors") else ("thread" if _data.has("sew")
@@ -216,6 +220,18 @@ func _on_pin_pulled(_pin: Pin) -> void:
 		level.set_hint_pin("")
 
 
+## Звезда на счётчике: новая — звон по её номеру, потерянная за ошибку — глухой стук.
+func _on_stars_changed(n: int) -> void:
+	_hud.set_live_stars(n)
+	if _live_stars >= 0 and n > _live_stars:
+		Sfx.play(StringName("star%d" % clampi(n, 1, 3)))
+		Sfx.haptic(25)
+	elif _live_stars >= 0 and n < _live_stars:
+		Sfx.play(&"grate_hit")
+		Sfx.haptic(40)
+	_live_stars = n
+
+
 ## Копание: мягкий шорох (стук камешка) и лёгкая вибрация не чаще раза в 0,12 с.
 func _on_dug(_pos: Vector2) -> void:
 	_hud.hide_hint()
@@ -232,6 +248,9 @@ func _on_won(stars: int) -> void:
 	_result_recorded = true
 	var res := level.result()
 	res["first_try"] = _attempt == 1 and (not _tracks_progress() or Profile.fails(level_id) == 0)
+	var task := Home.task_for_level(level_id)
+	var again := not task.is_empty() and Home.is_done(task.id)
+	var best_before := Profile.best_stars(level_id)
 	if _tracks_progress():
 		res.merge(Profile.record_result(level_id, stars), true)
 		# разбивка награды пригодится окну итога
@@ -241,14 +260,20 @@ func _on_won(stars: int) -> void:
 	Sfx.play(&"win")
 	level_finished.emit(res)
 	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
-	if _data.has("receiver"):
-		var thing := str(Home.task_for_level(level_id).get("name", "")).to_lower()
+	if again:
+		# вещь уже была починена: итог — про звёзды
+		win_text = ("Новый рекорд: %s" % "★".repeat(stars)) if stars > best_before \
+			else ("Лучший результат остаётся: %s" % ("★".repeat(best_before) + "☆".repeat(3 - best_before)))
+		_hud.show_place("Готово!")
+	elif _data.has("receiver"):
+		var thing := str(task.get("name", "")).to_lower()
 		win_text = ("Ремонт: %s — готово!\nВернёмся домой и посмотрим." % thing) if thing != "" \
 			else "Вернёмся домой и посмотрим."
 		_hud.show_place("Починено!")
 	elif _data.get("family", false):
 		win_text = "Мама и дочка спасены!\nВернёмся домой и увидим результат."
-	_show_result_later(true, stars, win_text, Economy.reward_text(res["reward"]) if res.has("reward") else "")
+	_show_result_later(true, stars, win_text, Economy.reward_text(res["reward"]) if res.has("reward") else "",
+		"Готово!" if again else "")
 
 
 func _on_lost(reason: String) -> void:
@@ -335,10 +360,11 @@ func _item_lose_text(res: Dictionary) -> String:
 	return "Попробуй по-другому"
 
 
-func _show_result_later(won: bool, stars: int, text: String, coins := "") -> void:
+func _show_result_later(won: bool, stars: int, text: String, coins := "", title := "") -> void:
 	_result_tween = create_tween()
 	_result_tween.tween_interval(RESULT_DELAY)
-	var title := "Починено!" if won and _data.has("receiver") else ""
+	if title == "":
+		title = "Починено!" if won and _data.has("receiver") else ""
 	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title, coins))
 
 
@@ -362,7 +388,8 @@ func _go_next() -> void:
 func _title() -> String:
 	var task := Home.task_for_level(level_id)
 	if not task.is_empty():
-		return "Починить: " + task.name
+		# уже починено — играют снова ради звёзд
+		return ("%s — ещё раз" % task.name) if Home.is_done(task.id) else "Починить: " + task.name
 	var title := Loc.pick(_data.get("title", ""))
 	var label := Game.level_label(level_id)
 	if label == "":
