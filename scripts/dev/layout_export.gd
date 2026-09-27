@@ -33,6 +33,10 @@ static func export_scene(scene_path: String) -> String:
 			"z": sp.z_index / 100.0,
 			"flip": sp.flip_h != (sp.scale.x < 0.0),
 		}
+		# вид «спиной» (картинка *_back.png, подставлена в редакторе): игра берёт такие же для
+		# сломанного и починенного состояния
+		if sp.texture.resource_path.get_basename().ends_with("_back"):
+			entry["view"] = "back"
 		if absf(sp.rotation) > 0.001:
 			entry["rot"] = snappedf(sp.rotation, 0.001)
 			entry["draw"] = [roundi(sp.position.x), roundi(sp.position.y), roundi(sz.x), roundi(sz.y)]

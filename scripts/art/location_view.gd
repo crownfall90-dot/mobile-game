@@ -81,11 +81,17 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 		_edge_colors = PackedColorArray([sample.get_pixel(0, 0), sample.get_pixel(0, 1)])
 		_setup_wear()
 	for t in loc.get("targets", []):
-		_tex[t["id"] + "_broken"] = _load(t["id"] + "_broken")
-		_tex[t["id"] + "_fixed"] = _load(t["id"] + "_fixed")
+		# вид «спиной» из редактора: <id>_broken_back / <id>_fixed_back, если нарисованы
+		var back := "_back" if str(t.get("view", "")) == "back" else ""
+		_tex[t["id"] + "_broken"] = _load_view(t["id"] + "_broken", back)
+		_tex[t["id"] + "_fixed"] = _load_view(t["id"] + "_fixed", back)
 		_done[t["id"]] = Home.is_done(t["id"])
 	for pr: Dictionary in loc.get("props", []):
-		_tex["prop_" + str(pr["img"])] = _load_path(_with_teddy("%s%s.png" % [ART, pr["img"]]))
+		var pb := "%s%s_back.png" % [ART, pr["img"]]
+		if str(pr.get("view", "")) == "back" and ResourceLoader.exists(pb):
+			_tex["prop_" + str(pr["img"])] = _load_path(pb)
+		else:
+			_tex["prop_" + str(pr["img"])] = _load_path(_with_teddy("%s%s.png" % [ART, pr["img"]]))
 	# картинки декора — заранее, не во время рисования
 	for d: Dictionary in loc.get("decor", []):
 		_tex["decor_" + str(d["id"])] = _load(str(d["id"]))
@@ -747,6 +753,14 @@ func _target(id: String) -> Dictionary:
 static func _rect(t: Dictionary) -> Rect2:
 	var v: Array = t.get("rect", [0, 0, 0, 0])
 	return Rect2(v[0], v[1], v[2], v[3])
+
+
+func _load_view(name: String, suffix: String) -> Texture2D:
+	if suffix != "":
+		var t := _load(name + suffix)
+		if t:
+			return t
+	return _load(name)
 
 
 func _load(name: String) -> Texture2D:
