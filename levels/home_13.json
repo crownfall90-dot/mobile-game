@@ -151,7 +151,7 @@
   "kind": "water",
   "count": 45,
   "rate": 8,
-  "delay": 2.4
+  "delay": 3.5
  },
  "hazards": [
   {
@@ -162,7 +162,7 @@
     110
    ],
    "kind": "socket",
-   "limit": 2
+   "limit": 3
   },
   {
    "rect": [
