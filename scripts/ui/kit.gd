@@ -61,6 +61,36 @@ static var _boxes: Dictionary = {}     # "стиль|радиус" -> [StyleBoxF
 static var _empties: Dictionary = {}
 static var _fx: CanvasLayer
 static var _rng := RandomNumberGenerator.new()
+static var _safe_override := Vector2(-1, -1)   # --safe=верх,низ (px окна) для проверки на ПК
+
+
+## Отступы от выреза камеры, скруглённых углов и системных полос в единицах вьюпорта:
+## x — сверху, y — снизу. Считаются от окна игры (на складном и в режиме окна оно меньше экрана),
+## не больше 15% высоты — на случай мусорных значений. На ПК выреза нет: 0, если не задан --safe.
+static func safe_insets(vp: Viewport) -> Vector2:
+	var view := vp.get_visible_rect().size
+	var win := Vector2(DisplayServer.window_get_size())
+	if win.y <= 0.0:
+		return Vector2.ZERO
+	var px := _safe_px(win)
+	var cap := win.y * 0.15
+	return Vector2(clampf(px.x, 0.0, cap), clampf(px.y, 0.0, cap)) * (view.y / win.y)
+
+
+static func _safe_px(win: Vector2) -> Vector2:
+	if _safe_override.x < 0.0:
+		_safe_override = Vector2.ZERO
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--safe="):
+				var v := a.substr(7).split(",")
+				_safe_override = Vector2(v[0].to_float(), v[1].to_float() if v.size() > 1 else 0.0)
+	if _safe_override != Vector2.ZERO or not OS.has_feature("mobile"):
+		return _safe_override
+	var safe := DisplayServer.get_display_safe_area()
+	if safe.size.y <= 0:
+		return Vector2.ZERO
+	var pos := Vector2(DisplayServer.window_get_position())
+	return Vector2(safe.position.y - pos.y, pos.y + win.y - safe.end.y)
 
 
 ## Цвета стиля [лицо, губа, блик, обводка]; неизвестный стиль — как fallback.

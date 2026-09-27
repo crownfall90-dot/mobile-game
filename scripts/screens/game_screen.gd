@@ -426,11 +426,9 @@ func _layout() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	var s := minf(vs.x / Level.DESIGN_SIZE.x, vs.y / Level.DESIGN_SIZE.y)
 	_camera.zoom = Vector2(s, s)
-	# отступ под вырез камеры / статус-бар
-	var safe := DisplayServer.get_display_safe_area()
-	var win := DisplayServer.window_get_size()
-	if win.y > 0:
-		_hud.set_safe_top(maxf(0.0, safe.position.y) * vs.y / win.y)
+	# отступы под вырез камеры / статус-бар сверху и жестовую полосу / скругление снизу
+	var inset := UiKit.safe_insets(get_viewport())
+	_hud.set_safe(inset.x, inset.y)
 	if _data.has("tower"):
 		_hud.place_hint((_content_top() - _camera.position.y) * s + vs.y * 0.5, 0.5 if _data.has("leak") else 0.7)
 

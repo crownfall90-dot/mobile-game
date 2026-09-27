@@ -226,16 +226,18 @@ func _draw_picture(pic: Texture2D, r: Rect2, full: Rect2, sk: Dictionary) -> voi
 	if d.end.y < full.end.y:
 		_calm_edge(pic, d, Vector2.DOWN, full.end.y - d.end.y)
 	if d.position.x > full.position.x:
-		_calm_edge(pic, d, Vector2.LEFT, d.position.x - full.position.x)
+		_calm_edge(pic, d, Vector2.LEFT, d.position.x - full.position.x, full)
 	if d.end.x < full.end.x:
-		_calm_edge(pic, d, Vector2.RIGHT, full.end.x - d.end.x)
+		_calm_edge(pic, d, Vector2.RIGHT, full.end.x - d.end.x, full)
 	if fixed > 0.0:
 		_repair_sparkles(r)
 
 
 ## Полоса шириной gap за краем картинки d (сторона side) — спокойная подложка: цвета края картинки,
 ## усреднённые в несколько мягких пятен (без деталей предмета и без полос), к краю экрана темнее.
-func _calm_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
+## Боковые полосы (планшет, складной) продолжаются выше и ниже картинки цветом её крайних пятен —
+## иначе в углах экрана остаются плоские прямоугольники подложки.
+func _calm_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float, full := Rect2()) -> void:
 	var vertical := side.y != 0.0
 	var edge := d.position.y if side.y < 0.0 else d.end.y
 	if not vertical:
@@ -246,11 +248,19 @@ func _calm_edge(pic: Texture2D, d: Rect2, side: Vector2, gap: float) -> void:
 		else Rect2(minf(edge, far), d.position.y, gap, d.size.y)
 	if strip:
 		draw_texture_rect(strip, band, false)
+		if not vertical and full.size.y > 0.0:
+			var ends: PackedColorArray = _edges[str(side) + "_ends"]
+			if d.position.y > full.position.y:
+				draw_rect(Rect2(band.position.x, full.position.y, gap, d.position.y - full.position.y), ends[0])
+			if d.end.y < full.end.y:
+				draw_rect(Rect2(band.position.x, d.end.y, gap, full.end.y - d.end.y), ends[1])
 	# к краю экрана темнее; у шва — мягкая тень на картинку и светлая кромка (край — полка, не обрыв)
 	var clear := Color(0.07, 0.05, 0.04, 0.12)
 	var dark := Color(0.07, 0.05, 0.04, 0.6)
 	var none := Color(clear, 0.0)
 	var soft := Color(clear, 0.3)
+	if not vertical and full.size.y > 0.0:
+		d = Rect2(d.position.x, full.position.y, d.size.x, full.size.y)
 	var inner := edge - 26.0 * (side.y if vertical else side.x)
 	var rim := Color(1, 0.94, 0.8, 0.22)
 	var a: Vector2
@@ -304,6 +314,11 @@ func _edge_strip(pic: Texture2D, side: Vector2) -> Texture2D:
 			c.a = 1.0
 			out.set_pixel(i if vertical else 0, 0 if vertical else i, c)
 		tex = ImageTexture.create_from_image(out)
+		var last := EDGE_SPOTS - 1
+		_edges[key + "_ends"] = PackedColorArray([out.get_pixel(0, 0),
+			out.get_pixel(last if vertical else 0, 0 if vertical else last)])
+	else:
+		_edges[key + "_ends"] = PackedColorArray([Color.TRANSPARENT, Color.TRANSPARENT])
 	_edges[key] = tex
 	return tex
 

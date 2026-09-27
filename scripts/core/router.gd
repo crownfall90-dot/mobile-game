@@ -458,9 +458,4 @@ class Toasts extends CanvasLayer:
 		return _icons.call(&"tex", icon, 44) as Texture2D
 
 	func _safe_top() -> float:
-		var vs := get_viewport().get_visible_rect().size
-		var safe := DisplayServer.get_display_safe_area()
-		var win := DisplayServer.window_get_size()
-		if win.y <= 0:
-			return 0.0
-		return maxf(0.0, safe.position.y) * vs.y / win.y
+		return UiKit.safe_insets(get_viewport()).x

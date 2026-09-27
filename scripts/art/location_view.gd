@@ -23,6 +23,7 @@ const PLACE_BROKEN := Color(0.85, 0.35, 0.3)
 const PLACE_FIXED := Color(0.3, 0.7, 0.4)
 const GLOW := Color("ffe7a1")
 const EXTEND_PAD := 1200.0
+const SIDE_SPOTS := 16           # на сколько пятен по высоте делится край фона за сценой
 ## Мишка из магазина у Виты в руках. На картинке пары мама+дочка (family_mood*) — доли размера
 ## картинки: свободная рука дочки; в локациях с отдельными позами — "teddy": [x, y, w, h].
 const TEDDY := "res://art/home/teddy.png"
@@ -37,6 +38,7 @@ var _rot_box := Rect2()           # центр и размер картинки,
 var show_targets := true          # мягкая пульсация вокруг несделанных целей
 
 var _edge_colors := PackedColorArray()
+var _side_tex: Array[Texture2D] = []   # левый и правый край фона, усреднённые в пятна по высоте
 var _bg: Texture2D
 var _tex := {}                    # "<id>_broken" / "<id>_fixed" -> Texture2D или null
 var _done := {}                   # id -> true
@@ -74,6 +76,7 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 		var sample := _bg.get_image()
 		if sample.is_compressed():
 			sample.decompress()
+		_side_tex = [_side_strip(sample, true), _side_strip(sample, false)]
 		sample.resize(1, 2, Image.INTERPOLATE_LANCZOS)
 		_edge_colors = PackedColorArray([sample.get_pixel(0, 0), sample.get_pixel(0, 1)])
 		_setup_wear()
@@ -520,12 +523,43 @@ func _extend() -> void:
 	var top := _edge_colors[0] * dim
 	var bottom := _edge_colors[1] * dim
 	var pad := EXTEND_PAD
-	for x in [-pad, size.x]:
-		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + pad, 0),
-			Vector2(x + pad, size.y), Vector2(x, size.y)]),
-			PackedColorArray([top, top, bottom, bottom]))
+	# планшет и раскрытый складной: по бокам та же стена сверху и пол снизу (цвета края фона
+	# по высоте), к краю экрана темнее, у шва — мягкая тень
+	var shade := Color(0.07, 0.05, 0.04, 0.55)
+	var none := Color(shade, 0.0)
+	for i in 2:
+		var x: float = -pad if i == 0 else size.x
+		var band := Rect2(x, 0, pad, size.y)
+		if _side_tex.size() == 2 and _side_tex[i]:
+			draw_texture_rect(_side_tex[i], band, false, dim)
+		else:
+			draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + pad, 0),
+				Vector2(x + pad, size.y), Vector2(x, size.y)]),
+				PackedColorArray([top, top, bottom, bottom]))
+		var seam := size.x * i
+		var far := seam + (pad * 0.5 if i == 1 else -pad * 0.5)
+		draw_polygon(PackedVector2Array([Vector2(seam, 0), Vector2(far, 0), Vector2(far, size.y), Vector2(seam, size.y)]),
+			PackedColorArray([Color(shade, 0.12), shade, shade, Color(shade, 0.12)]))
+		var inner := seam + (-24.0 if i == 1 else 24.0)
+		draw_polygon(PackedVector2Array([Vector2(seam, 0), Vector2(inner, 0), Vector2(inner, size.y), Vector2(seam, size.y)]),
+			PackedColorArray([Color(shade, 0.18), none, none, Color(shade, 0.18)]))
 	draw_rect(Rect2(-pad, -pad, size.x + pad * 2, pad), top)
 	draw_rect(Rect2(-pad, size.y, size.x + pad * 2, pad), bottom)
+
+
+## Край фона (left — левый) в SIDE_SPOTS мягких пятен по высоте: текстура 1×N, линейный фильтр
+## растягивает её плавно — без полос и деталей мебели. Считается один раз при setup.
+func _side_strip(img: Image, left: bool) -> Texture2D:
+	var w := img.get_width()
+	var depth := mini(24, w)
+	var strip := img.get_region(Rect2i(0 if left else w - depth, 0, depth, img.get_height()))
+	strip.resize(1, SIDE_SPOTS, Image.INTERPOLATE_LANCZOS)
+	strip.convert(Image.FORMAT_RGBA8)
+	for y in SIDE_SPOTS:
+		var c := strip.get_pixel(0, y)
+		c.a = 1.0
+		strip.set_pixel(0, y, c)
+	return ImageTexture.create_from_image(strip)
 
 
 ## Рисует картинку в прямоугольник без растяжения по одной оси: вписывает и центрирует.
