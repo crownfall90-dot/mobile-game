@@ -1,0 +1,29 @@
+{
+ "room": {
+  "room/room_nightstand": {"rect":[300,640,145,189]},
+  "room/room_toybox": {"rect":[549,854,140,105]},
+  "vita_plant": {"rect":[105,605,62,96]}
+ },
+ "kitchen": {
+  "kitchen_fridge": {"rect":[122,422,199,609]},
+  "kitchen/kitchen_jars": {"rect":[329,547,165,66]},
+  "kitchen/kitchen_rug": {"rect":[241,1355,300,114]},
+  "kitchen/kitchen_breadbox": {"rect":[326,1040,110,74]}
+ },
+ "bath": {
+  "bath_tub": {"rect":[414,846,303,231]},
+  "bath_tiles": {"rect":[538,762,120,125]},
+  "bath/bath_duck": {"rect":[621,891,38,34]},
+  "bath/bath_shelf": {"rect":[480,670,185,86]},
+  "bath/bath_mat": {"rect":[491,1075,192,72]}
+ },
+ "living": {
+  "living_wall": {"rect":[327,414,103,210]},
+  "kitchen/kitchen_table": {"img":"living/living_table","rect":[314,972,230,154],"z":1},
+  "vita_plant": {"rect":[385,946,58,89]},
+  "add": [
+   {"img":"living/living_window","rect":[50,327,252,291],"z":0},
+   {"img":"living/living_floorlamp","rect":[345,637,112,324],"z":0}
+  ]
+ }
+}
