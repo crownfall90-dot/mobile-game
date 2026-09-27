@@ -8,6 +8,7 @@ L0..L1 × R0..R1 × H0..H1 (метры); настенный — тонкая к�
 
   python3 tools/room_planner.py            # таблицы для docs/LAYOUT_PLAN.md
   python3 tools/room_planner.py --guides   # + каркасные эскизы art/act1/reviews/layout/<room>.png
+  python3 tools/room_planner.py --apply room [--out копия.json]   # rect, z по глубине и тени в act1.json
 
 Экранный прямоугольник предмета — рамка его 8 проекций; PNG для ChatGPT — вдвое крупнее (2x).
 """
@@ -30,16 +31,16 @@ ROOMS = {
     "room": {
         "title": "Маленькая комната", "size": [3.0, 3.0],
         "items": [
-            {"id": "window", "kind": "wall", "wall": "L", "at": [0.2, 1.0], "h": [0.85, 2.1], "note": "цель room_window: рама, стекло, подоконник 0,85"},
-            {"id": "curtains", "kind": "wall", "wall": "L", "at": [0.08, 1.12], "h": [0.75, 2.3], "note": "шторы по краям окна"},
-            {"id": "chest", "kind": "floor", "L": [0.22, 0.98], "R": [0.0, 0.42], "h": [0.0, 0.8], "note": "комод под окном (низ за Витой — доступ кнопкой)"},
-            {"id": "nightstand", "kind": "floor", "L": [0.0, 0.4], "R": [0.0, 0.3], "h": [0.0, 0.55], "note": "тумбочка с лампой в углу у изголовья"},
-            {"id": "bed", "kind": "floor", "L": [0.0, 0.9], "R": [0.32, 2.0], "h": [0.0, 0.5], "note": "цель room_bed: кровать 1,7 м вдоль правой стены, изголовье к углу, матрас 0,5, спинки 0,9"},
-            {"id": "wall_patch", "kind": "wall", "wall": "R", "at": [1.0, 1.5], "h": [1.05, 1.55], "note": "цель room_wall: порванные обои над кроватью"},
-            {"id": "toybox", "kind": "floor", "L": [1.0, 1.42], "R": [1.62, 1.95], "h": [0.0, 0.35], "note": "ящик с игрушками у изножья"},
-            {"id": "rug", "kind": "floor", "L": [1.2, 2.15], "R": [0.9, 1.85], "h": [0.0, 0.01], "note": "круглый коврик ~1 м"},
-            {"id": "floor_holes", "kind": "floor", "L": [1.12, 1.52], "R": [1.08, 1.42], "h": [0.0, 0.01], "note": "цель room_floor (одна из дыр; остальные — такие же пятна по полу)"},
-            {"id": "family_pair", "kind": "person", "L": 2.07, "R": 1.33, "size": [0.9, 1.65], "note": "мама и Вита держатся за руки на коврике — картинки настроения family_mood0..3 (в первой комнате — «приехали»)"},
+            {"act": "target:room_window", "id": "window", "kind": "wall", "wall": "L", "at": [0.2, 1.0], "h": [0.85, 2.1], "note": "цель room_window: рама, стекло, подоконник 0,85"},
+            {"act": "prop:room/room_curtains", "id": "curtains", "kind": "wall", "wall": "L", "at": [0.08, 1.12], "h": [0.75, 2.3], "note": "шторы по краям окна"},
+            {"act": "prop:room/room_chest", "id": "chest", "kind": "floor", "L": [0.22, 0.98], "R": [0.0, 0.42], "h": [0.0, 0.8], "note": "комод под окном (низ за Витой — доступ кнопкой)"},
+            {"act": "prop:room/room_nightstand", "id": "nightstand", "kind": "floor", "L": [0.0, 0.4], "R": [0.0, 0.3], "h": [0.0, 0.55], "note": "тумбочка с лампой в углу у изголовья"},
+            {"act": "target:room_bed", "id": "bed", "kind": "floor", "L": [0.0, 0.9], "R": [0.32, 2.0], "h": [0.0, 0.5], "note": "цель room_bed: кровать 1,7 м вдоль правой стены, изголовье к углу, матрас 0,5, спинки 0,9"},
+            {"act": "target:room_wall", "id": "wall_patch", "kind": "wall", "wall": "R", "at": [1.0, 1.5], "h": [1.05, 1.55], "note": "цель room_wall: порванные обои над кроватью"},
+            {"act": "prop:room/room_toybox", "id": "toybox", "kind": "floor", "L": [1.0, 1.42], "R": [1.62, 1.95], "h": [0.0, 0.35], "note": "ящик с игрушками у изножья"},
+            {"act": "prop:room/room_rug", "id": "rug", "kind": "floor", "L": [1.2, 2.15], "R": [0.9, 1.85], "h": [0.0, 0.01], "note": "круглый коврик ~1 м"},
+            {"act": "target:room_floor", "id": "floor_holes", "kind": "floor", "L": [1.12, 1.52], "R": [1.08, 1.42], "h": [0.0, 0.01], "note": "цель room_floor (одна из дыр; остальные — такие же пятна по полу)"},
+            {"act": "family", "id": "family_pair", "kind": "person", "L": 2.07, "R": 1.33, "size": [0.9, 1.65], "note": "мама и Вита держатся за руки на коврике — картинки настроения family_mood0..3 (в первой комнате — «приехали»)"},
         ],
     },
     "kitchen": {
@@ -223,7 +224,87 @@ def guide(name, path):
     img.save(path)
 
 
+def footprint(room, it):
+    """След основания на полу (для тени): 4 угла у напольной вещи, эллипс под ступнями фигуры."""
+    if it["kind"] == "person":
+        w = it["size"][0] / 2.0
+        pts = []
+        for a in range(14):
+            t = 2.0 * math.pi * a / 14.0
+            u, v = math.cos(t) * w, math.sin(t) * 0.2
+            pts.append(project(room, it["L"] + (u + v) / S2, it["R"] + (v - u) / S2, 0.0)[0])
+        return pts
+    if it["kind"] != "floor" or it["h"][1] <= 0.02:
+        return []
+    (L0, L1), (R0, R1) = it["L"], it["R"]
+    return [project(room, L, R, 0.0)[0] for L, R in ((L0, R0), (L1, R0), (L1, R1), (L0, R1))]
+
+
+def near_z(room, it):
+    """Расстояние от камеры до ближней точки основания (меньше — ближе, рисуется позже)."""
+    if it["kind"] == "person":
+        return project(room, it["L"], it["R"], 0.0)[1]
+    if it["kind"] == "wall":
+        return 99.0
+    (L0, L1), (R0, R1) = it["L"], it["R"]
+    return min(project(room, L, R, 0.0)[1] for L in (L0, L1) for R in (R0, R1))
+
+
+def apply(name, path="data/act1.json"):
+    """Прямоугольники, z по глубине и тени комнаты — в act1.json (ключ "act" у предмета плана).
+    z: настенное и лежащее на полу — самые дальние; остальное по глубине; у маленькой комнаты
+    пара героев — спрайт между слоями z < 2 и z >= 2: что ближе пары, получает z от 2."""
+    room = ROOMS[name]
+    data = json.load(open(path, encoding="utf-8"))
+    loc = next(l for l in data["locations"] if l["id"] == name)
+    items = [it for it in room["items"] if "act" in it]
+    pair = next((it for it in items if it["act"] == "family"), None)
+    pair_z = near_z(room, pair) if pair else -1.0
+    order = sorted([it for it in items if it["act"] != "family"], key=lambda it: -near_z(room, it))
+    back, front = 0, 0
+    for it in order:
+        r = rect(room, it)
+        flat = it["kind"] == "wall" or it["h"][1] <= 0.02
+        if flat:
+            # на стене — сразу за фоном; на полу: коврики 0,05, повреждения пола поверх них 0,06
+            z = 0.02 if it["kind"] == "wall" else (0.06 if it["act"].startswith("target:") else 0.05)
+        elif pair and near_z(room, it) < pair_z:
+            front += 1
+            z = 2.0 + front * 0.01
+        else:
+            back += 1
+            z = 0.1 + back * 0.01
+        kind, _, key = it["act"].partition(":")
+        if kind == "target":
+            obj = next(t for t in loc["targets"] if t["id"] == key)
+            obj.pop("more", None)
+        else:
+            obj = next(p for p in loc["props"] if p["img"] == key)
+        obj["rect"] = r
+        obj["z"] = round(z, 3)
+        fp = footprint(room, it)
+        if fp:
+            obj["shadow"] = [[round(x), round(y)] for x, y in fp]
+        else:
+            obj.pop("shadow", None)
+    if pair:
+        r = rect(room, pair)
+        feet = project(room, pair["L"], pair["R"], 0.0)[0]
+        loc["family"] = {"pos": [round(feet[0]), round(feet[1])], "height": r[3],
+                         "shadow": [[round(x), round(y)] for x, y in footprint(room, pair)]}
+    open(path, "w", encoding="utf-8").write(json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+    print("applied %s: %d items" % (name, len(items)))
+
+
 def main():
+    if "--apply" in sys.argv:
+        i = sys.argv.index("--apply")
+        out = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "data/act1.json"
+        if out != "data/act1.json":
+            import shutil
+            shutil.copy("data/act1.json", out)
+        apply(sys.argv[i + 1], out)
+        return
     guides = "--guides" in sys.argv
     out = {}
     for name in ROOMS:

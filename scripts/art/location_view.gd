@@ -136,7 +136,7 @@ func target_at(p: Vector2, repaired := false) -> Dictionary:
 		var hit := _rect(t).grow(12).has_point(p)
 		for extra: Array in t.get("more", []):
 			hit = hit or Rect2(extra[0], extra[1], extra[2], extra[3]).grow(12).has_point(p)
-		if hit and (best.is_empty() or int(t.get("z", 0)) >= int(best.get("z", 0))):
+		if hit and (best.is_empty() or float(t.get("z", 0)) >= float(best.get("z", 0))):
 			best = t
 	return best
 
@@ -147,7 +147,7 @@ func prop_at(p: Vector2) -> Dictionary:
 	for pr: Dictionary in loc.get("props", []):
 		if str(pr.get("img", "")).begins_with("family/"):
 			continue
-		if _rect(pr).grow(8).has_point(p) and (best.is_empty() or int(pr.get("z", 0)) >= int(best.get("z", 0))):
+		if _rect(pr).grow(8).has_point(p) and (best.is_empty() or float(pr.get("z", 0)) >= float(best.get("z", 0))):
 			best = pr
 	return best
 
@@ -163,7 +163,7 @@ func family_at(p: Vector2) -> bool:
 			continue
 		var covered := false
 		for other: Dictionary in loc.get("props", []):
-			if int(other.get("z", 0)) > int(pr.get("z", 0)) and _rect(other).has_point(p):
+			if float(other.get("z", 0)) > float(pr.get("z", 0)) and _rect(other).has_point(p):
 				covered = true
 		if not covered:
 			return true
@@ -265,8 +265,11 @@ func _draw() -> void:
 	else:
 		_placeholder_bg()
 	for t in _layers():
-		if int(t.get("z", 0)) < 2:
+		if float(t.get("z", 0)) < 2:
 			_draw_layer(t)
+	# тень под парой героев (спрайт семьи рисуется поверх этого слоя)
+	if _family.visible and loc.get("family", {}).has("shadow"):
+		_draw_shadow(loc["family"]["shadow"])
 	for t: Dictionary in loc.get("targets", []):
 		if not _done.get(t["id"], false):
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)), true)
@@ -339,7 +342,7 @@ func ambience() -> StringName:
 func paint_front(ci: Node2D) -> void:
 	_canvas = ci
 	for t: Dictionary in _layers():
-		if int(t.get("z", 0)) >= 2:
+		if float(t.get("z", 0)) >= 2:
 			_draw_layer(t)
 	var list := _sorted()
 	for t: Dictionary in list:
@@ -396,7 +399,7 @@ func _draw_teddy(ci: Node2D) -> void:
 
 func _sorted() -> Array:
 	var list: Array = loc.get("targets", []).duplicate()
-	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("z", 0)) < int(b.get("z", 0)))
+	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("z", 0)) < float(b.get("z", 0)))
 	return list
 
 
@@ -408,13 +411,15 @@ func _layers() -> Array:
 	for pr: Dictionary in loc.get("props", []):
 		list.append(pr)
 	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var za := int(a.get("z", 0))
-		var zb := int(b.get("z", 0))
+		var za := float(a.get("z", 0))
+		var zb := float(b.get("z", 0))
 		return za < zb or (za == zb and a.has("id") and not b.has("id")))
 	return list
 
 
 func _draw_layer(t: Dictionary) -> void:
+	if t.has("shadow"):
+		_draw_shadow(t["shadow"])
 	_flip = bool(t.get("flip", false))
 	if t.has("id"):
 		_draw_target(t)
@@ -430,6 +435,23 @@ func _draw_layer(t: Dictionary) -> void:
 	else:
 		_canvas.draw_rect(r, Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
 	_flip = false
+
+
+## Мягкая тень вещи на полу: "shadow" — след её основания на полу (многоугольник из
+## tools/room_planner.py). Три слоя: к краю светлее — вещь стоит, а не парит.
+func _draw_shadow(poly: Array) -> void:
+	var pts := PackedVector2Array()
+	var c := Vector2.ZERO
+	for p: Array in poly:
+		pts.append(Vector2(p[0], p[1]))
+		c += pts[-1]
+	c /= maxf(1.0, pts.size())
+	for i in 3:
+		var k := 1.12 - 0.06 * i
+		var grown := PackedVector2Array()
+		for p in pts:
+			grown.append(c + (p - c) * k)
+		_canvas.draw_colored_polygon(grown, Color(0.14, 0.08, 0.04, 0.08))
 
 
 func _draw_target(t: Dictionary) -> void:
