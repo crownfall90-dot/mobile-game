@@ -35,7 +35,7 @@ const SETTLE_MIN := 0.6
 const SETTLE_MAX := 4.0
 const TIME_JITTER := 0.15
 const LEAK_JITTER := 0.06       # «лови капли»: сдвиг каждого события сценария при --jitter, с
-const AFTER_LAST := 20.0        # сколько игровых секунд ждать итога после последнего засова
+const AFTER_LAST := 30.0        # сколько игровых секунд ждать итога после последнего хода (с запасом к Level.STUCK_HARD)
 const WALL_LIMIT_MS := 100000   # предел по часам для прогона уровня (вдобавок к кадрам)
 const DIG_SPEED := 900.0         # скорость пальца в мазках "strokes", px/с
 const SMOKE_SCREEN_FRAMES := 30
@@ -417,6 +417,8 @@ func _open_screen(screen_name: String) -> void:
 				OS.remove_logger(errors)
 			_quit(3)
 			return
+	if _flags.has("tap"):
+		await _tap(router, str(_flags["tap"]))
 	if not check:
 		return
 	await _frames(SMOKE_SCREEN_FRAMES)
@@ -424,6 +426,20 @@ func _open_screen(screen_name: String) -> void:
 	var ok := errors.count == 0
 	print("RESULT: SCREEN %s %s" % [screen_name, "ok" if ok else "FAIL " + errors.last])
 	_quit(0 if ok else 1)
+
+
+## --tap=x,y — нажатие на главном экране в точку поля 720×1560 (проверка бытовых сценок снимком).
+func _tap(router: Node, spec: String) -> void:
+	await _wait(1.0)
+	var xy := spec.split(",", false)
+	var hub: Node = router.call(&"current_screen")
+	if xy.size() != 2 or hub == null or not hub.has_method(&"_to_screen"):
+		print("RESULT: ERROR --tap needs x,y and the hub screen")
+		return
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = true
+	ev.position = hub.call(&"_to_screen", Vector2(float(xy[0]), float(xy[1])))
+	hub.call(&"_gui_input", ev)
 
 
 func _screen_args(sn: StringName) -> Dictionary:
@@ -454,6 +470,7 @@ func _smoke() -> void:
 	var opened := 0
 	var missing := PackedStringArray()
 	failed = not await load("res://tools/test_dialogue.gd").run() or failed
+	failed = not load("res://tools/test_activities.gd").run() or failed
 	var screens := _registry(&"SCREENS")
 	var popups := _registry(&"POPUPS")
 	for sn in screens:

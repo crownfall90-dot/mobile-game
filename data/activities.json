@@ -1,0 +1,200 @@
+{
+ "_about": "Бытовые сценки. Ключ — id починенной вещи (targets в act1.json) или «локация/картинка» предмета-наполнителя (props). acts: label — кнопка, after — нужна починенная вещь, need — нужна покупка, scene — шаги новеллы (как в novel.json). Фон — текущее состояние комнаты.",
+ "room_window": {"name": "Окно", "acts": [
+  {"label": "Смотреть на дождь", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "За окном шумит дождь, а в комнате сухо и тихо."},
+   {"say": "daughter", "text": "Мама, капли бегут наперегонки!", "mood": "smile"},
+   {"say": "mother", "text": "Вон та, большая, победит.", "mood": "smile"},
+   {"say": "daughter", "text": "А к нам ни одна не пролезет!", "mood": "happy"}]}]},
+ "room_bed": {"name": "Кровать", "acts": [
+  {"label": "Уложить Виту спать", "scene": [
+   {"bg": "room", "tint": "dim"}, {"show": ["family"]},
+   {"text": "Вечер. Мама поправляет одеяло."},
+   {"say": "daughter", "text": "Мама, а сказку?", "mood": "smile"},
+   {"say": "mother", "text": "Жила-была девочка, которая помогла починить целый дом…", "mood": "smile"},
+   {"say": "daughter", "text": "Это же я!", "mood": "happy"},
+   {"text": "Вита засыпает раньше, чем кончается сказка."}]},
+  {"label": "Попрыгать на кровати", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, смотри, как пружинит!", "mood": "happy"},
+   {"say": "mother", "text": "Только тихонько, кровать у нас одна.", "mood": "smile"}]}]},
+ "room_floor": {"name": "Пол", "acts": [
+  {"label": "Поиграть в классики", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, давай нарисуем классики мелом?", "mood": "smile"},
+   {"say": "mother", "text": "Давай. Только потом вместе отмоем.", "mood": "smile"},
+   {"say": "daughter", "text": "Раз, два… пять! Я допрыгала!", "mood": "happy"}]}]},
+ "room_wall": {"name": "Обои", "acts": [
+  {"label": "Считать цветочки", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, на обоях цветочки. Я насчитала двадцать!", "mood": "smile"},
+   {"say": "mother", "text": "А я двадцать один. Вот этот, у двери, спрятался.", "mood": "smile"},
+   {"say": "daughter", "text": "Нечестно, он маленький!", "mood": "happy"}]}]},
+ "room/room_rug": {"name": "Коврик", "acts": [
+  {"label": "Посидеть на коврике", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "Мама и Вита сидят на круглом коврике."},
+   {"say": "daughter", "text": "Он тёплый, как кошка.", "mood": "smile"},
+   {"say": "mother", "text": "Давай придумаем ему имя?", "mood": "smile"},
+   {"say": "daughter", "text": "Бублик!", "mood": "happy"}]}]},
+ "room/room_toybox": {"name": "Коробка с игрушками", "acts": [
+  {"label": "Достать игрушки", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, тут кубики и кукла без платья!", "mood": "surprised"},
+   {"say": "mother", "text": "Сошьём ей платье из старого лоскутка.", "mood": "smile"},
+   {"say": "daughter", "text": "Голубое!", "mood": "happy"}]}]},
+ "room/room_chest": {"name": "Комод", "acts": [
+  {"label": "Открыть комод", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "В нижнем ящике пахнет лавандой."},
+   {"say": "mother", "text": "Бабушка всегда клала в бельё сухие цветы.", "mood": "calm"},
+   {"say": "daughter", "text": "Можно, я тоже так буду?", "mood": "smile"}]}]},
+ "room/room_nightstand": {"name": "Ночник", "acts": [
+  {"label": "Включить ночник", "scene": [
+   {"bg": "room", "tint": "dim"}, {"show": ["family"]},
+   {"text": "Ночник рисует на потолке тёплый кружок."},
+   {"say": "daughter", "text": "Мама, с ним совсем не страшно.", "mood": "smile"},
+   {"say": "mother", "text": "Он будет гореть, пока ты не уснёшь.", "mood": "smile"}]}]},
+ "room/room_curtains": {"name": "Шторы", "acts": [
+  {"label": "Задёрнуть шторы", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "mother", "text": "Задёрнем шторы, и дождь останется снаружи.", "mood": "calm"},
+   {"say": "daughter", "text": "А утром откроем и посмотрим на солнце!", "mood": "happy"}]}]},
+
+ "kitchen_sink": {"name": "Раковина", "acts": [
+  {"label": "Помыть посуду", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "mother", "text": "Я мою, ты вытираешь?", "mood": "smile"},
+   {"say": "daughter", "text": "Тарелки скрипят — значит, чистые!", "mood": "happy"}]}]},
+ "kitchen_stove": {"name": "Плита", "acts": [
+  {"label": "Сварить кашу", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"text": "На плите булькает овсянка."},
+   {"say": "daughter", "text": "Можно, я помешаю?", "mood": "smile"},
+   {"say": "mother", "text": "Можно. Держи ложку за ручку, она горячая.", "mood": "calm"},
+   {"say": "daughter", "text": "Мама, каша пыхтит, как паровоз!", "mood": "happy"}]}]},
+ "kitchen_fridge": {"name": "Холодильник", "acts": [
+  {"label": "Заглянуть внутрь", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, тут молоко, сыр и одно яблоко.", "mood": "surprised"},
+   {"say": "mother", "text": "Яблоко пополам?", "mood": "smile"},
+   {"say": "daughter", "text": "Тебе половинку побольше!", "mood": "happy"}]}]},
+ "kitchen_cabinets": {"name": "Шкафы", "acts": [
+  {"label": "Расставить чашки", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Моя чашка с котиком будет стоять вот тут.", "mood": "smile"},
+   {"say": "mother", "text": "А моя рядом, чтобы им не было скучно.", "mood": "smile"}]}]},
+ "kitchen_ceiling": {"name": "Потолок", "acts": [
+  {"label": "Послушать тишину", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"text": "Сверху больше не капает."},
+   {"say": "daughter", "text": "Мама, слышишь? Совсем тихо.", "mood": "surprised"},
+   {"say": "mother", "text": "Это самый приятный звук в доме.", "mood": "smile"}]}]},
+ "kitchen/kitchen_kettle": {"name": "Чайник", "acts": [
+  {"label": "Поставить чайник", "after": "kitchen_stove", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"text": "Чайник тихонько засвистел."},
+   {"say": "mother", "text": "Чай с мятой — и сразу теплее.", "mood": "smile"},
+   {"say": "daughter", "text": "Мне в чашку с котиком!", "mood": "happy"}]}]},
+ "kitchen/kitchen_table": {"name": "Стол", "acts": [
+  {"label": "Позавтракать вместе", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, давай завтракать вместе всегда-всегда?", "mood": "smile"},
+   {"say": "mother", "text": "Договорились. Каждое утро.", "mood": "smile"}]}]},
+ "kitchen/kitchen_clock": {"name": "Часы", "acts": [
+  {"label": "Послушать часы", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, часы тикают, как сердечко.", "mood": "smile"},
+   {"say": "mother", "text": "Значит, дом живой.", "mood": "smile"}]}]},
+ "kitchen/kitchen_breadbox": {"name": "Хлебница", "acts": [
+  {"label": "Открыть хлебницу", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Тут горбушка! Самая хрустящая!", "mood": "happy"},
+   {"say": "mother", "text": "Горбушка — тебе.", "mood": "smile"}]}]},
+ "kitchen/kitchen_jars": {"name": "Банки", "acts": [
+  {"label": "Посмотреть банки", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, тут гречка, рис и… пуговицы?", "mood": "surprised"},
+   {"say": "mother", "text": "Бабушка хранила пуговицы в банке из-под чая.", "mood": "smile"}]}]},
+ "kitchen/kitchen_rug": {"name": "Половик", "acts": [
+  {"label": "Покружиться", "scene": [
+   {"bg": "kitchen"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, я волчок!", "mood": "happy"},
+   {"say": "mother", "text": "Осторожно, волчок, не закатись под стол.", "mood": "smile"}]}]},
+
+ "bath_tub": {"name": "Ванна", "acts": [
+  {"label": "Пускать кораблики", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"text": "В ванне плывёт бумажный кораблик."},
+   {"say": "daughter", "text": "Капитан Вита! Полный вперёд!", "mood": "happy"},
+   {"say": "mother", "text": "Капитан, через пять минут ужин.", "mood": "smile"}]}]},
+ "bath_sink": {"name": "Раковина", "acts": [
+  {"label": "Почистить зубы", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "mother", "text": "Сверху вниз, будто метёшь дорожку.", "mood": "calm"},
+   {"say": "daughter", "text": "Р-р-р! Я пенный динозавр!", "mood": "happy"}]}]},
+ "bath_tiles": {"name": "Плитка", "acts": [
+  {"label": "Рисовать на плитке", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"text": "Плитка запотела от тёплой воды."},
+   {"say": "daughter", "text": "Я нарисовала солнышко!", "mood": "happy"},
+   {"say": "mother", "text": "А я — нас с тобой под ним.", "mood": "smile"}]}]},
+ "bath_light": {"name": "Светильник", "acts": [
+  {"label": "Поиграть с тенями", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, смотри: у меня тень-зайчик!", "mood": "happy"},
+   {"say": "mother", "text": "А у меня тень-собака. Гав!", "mood": "smile"},
+   {"say": "daughter", "text": "Не кусай моего зайчика!", "mood": "happy"}]}]},
+ "bath/bath_laundry_basin": {"name": "Таз с бельём", "acts": [
+  {"label": "Постирать вместе", "after": "bath_sink", "scene": [
+   {"bg": "bath"}, {"show": ["family"]},
+   {"say": "mother", "text": "Потрёшь носочки?", "mood": "smile"},
+   {"say": "daughter", "text": "Пены много-много! Смотри, какой пузырь!", "mood": "happy"}]}]},
+
+ "living_sofa": {"name": "Диван", "acts": [
+  {"label": "Почитать сказку", "scene": [
+   {"bg": "living", "tint": "dim"}, {"show": ["family"]},
+   {"text": "Мама и Вита устроились на диване с книжкой."},
+   {"say": "mother", "text": "«Жил-был маленький дом на краю улицы…»", "mood": "calm"},
+   {"say": "daughter", "text": "Как наш!", "mood": "happy"},
+   {"say": "mother", "text": "Как наш.", "mood": "smile"}]}]},
+ "living_tv": {"name": "Телевизор", "acts": [
+  {"label": "Посмотреть мультик", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, одну серию! Самую короткую!", "mood": "smile"},
+   {"say": "mother", "text": "Одну. Потом умываться.", "mood": "calm"},
+   {"say": "daughter", "text": "Договорились!", "mood": "happy"}]}]},
+ "living_lamp": {"name": "Люстра", "acts": [
+  {"label": "Включить люстру", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"text": "Люстра зажглась, и гостиная стала золотой."},
+   {"say": "daughter", "text": "Мама, как во дворце!", "mood": "surprised"},
+   {"say": "mother", "text": "Во дворце не так уютно.", "mood": "smile"}]}]},
+ "living_wall": {"name": "Батарея", "acts": [
+  {"label": "Погреть ладошки", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Батарея тёплая-тёплая.", "mood": "smile"},
+   {"say": "mother", "text": "Грей ладошки, а я принесу плед.", "mood": "smile"}]}]},
+ "living_floor": {"name": "Пол", "acts": [
+  {"label": "Потанцевать", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Мама, давай танцевать!", "mood": "happy"},
+   {"say": "mother", "text": "Раз-два-три, раз-два-три… Ты ведёшь!", "mood": "happy"},
+   {"text": "Пол больше не скрипит — слышно только, как смеётся Вита."}]}]},
+ "living/kitchen_table": {"name": "Столик", "acts": [
+  {"label": "Полить цветок", "need": "vita_plant", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Цветочек, пей! Расти большой.", "mood": "smile"},
+   {"say": "mother", "text": "Ему нравится, когда с ним разговаривают.", "mood": "smile"}]},
+  {"label": "Попить чаю", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "mother", "text": "Чай на двоих за маленьким столиком.", "mood": "smile"},
+   {"say": "daughter", "text": "И печенье на двоих!", "mood": "happy"}]}]},
+ "living/living_drawing": {"name": "Рисунок", "acts": [
+  {"label": "Посмотреть рисунок", "scene": [
+   {"bg": "living"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Это наш дом. Вот ты, вот я, а вот Хмурь.", "mood": "smile"},
+   {"say": "mother", "text": "Повесим его на стену?", "mood": "smile"},
+   {"say": "daughter", "text": "На самое видное место!", "mood": "happy"}]}]}
+}

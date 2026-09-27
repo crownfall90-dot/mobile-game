@@ -8,6 +8,7 @@ const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не завис
 const GLOOM := preload("res://scripts/art/gloom.gd")
 const SIGN := preload("res://scripts/ui/sign_board.gd")
 const ALBUM := preload("res://scripts/popups/album_popup.gd")
+const ACTIVITIES := preload("res://scripts/core/activities.gd")
 const IDLE_AFTER := 6.0      # столько секунд без нажатий — и Вита подсказывает, куда нажать
 const IDLE_AGAIN := 14.0     # следующая подсказка — через столько
 
@@ -178,10 +179,18 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			_gloom_talk()
 			return
+		# починенная вещь или предмет в комнате: бытовые сценки (и повтор ремонта ради звёзд)
 		var done := _view.target_at(p, true)
 		if not done.is_empty():
 			accept_event()
-			_offer_replay(done)
+			_offer_actions(str(done["id"]), str(done["name"]), str(done["level"]))
+			return
+		var prop := _view.prop_at(p)
+		if not prop.is_empty():
+			var key := ACTIVITIES.prop_key(_loc_id, str(prop["img"]))
+			if not ACTIVITIES.available(key).is_empty():
+				accept_event()
+				_offer_actions(key, "", "")
 		return
 	accept_event()
 	if not Game.has_level(str(t["level"])):
@@ -340,20 +349,24 @@ func _gloom_share(holding: String) -> float:
 
 
 ## Починенная вещь: показать звёзды и предложить сыграть ещё раз (новые звёзды — монеты).
-func _offer_replay(t: Dictionary) -> void:
-	if Router.is_busy() or not Game.has_level(str(t["level"])):
+func _offer_actions(key: String, item_name: String, level: String) -> void:
+	if Router.is_busy():
+		return
+	if level != "" and not Game.has_level(level):
+		level = ""
+	var acts := ACTIVITIES.available(key)
+	if acts.is_empty() and level == "":
 		return
 	Sfx.play(&"ui_tap")
-	var best := Profile.best_stars(str(t["level"]))
-	var stars := "★".repeat(best) + "☆".repeat(3 - best)
-	var text := "Уже на все звёзды — можно сыграть просто так." if best >= 3 \
-		else "Ещё звезда — ещё монеты. Сыграть ещё раз?"
-	var popup := Router.popup(&"confirm", {"title": "%s %s" % [str(t["name"]), stars], "text": text,
-		"ok": "Играть", "cancel": "Позже"})
+	var popup := Router.popup(&"activity", {"title": ACTIVITIES.title(key, item_name), "acts": acts,
+		"level": level, "best": Profile.best_stars(level) if level != "" else 0})
 	if popup:
-		popup.closed.connect(func(yes: Variant) -> void:
-			if yes == true:
-				Router.go(&"game", {"id": t["level"]}))
+		popup.closed.connect(func(choice: Variant) -> void:
+			if choice is String and choice == "replay":
+				Router.go(&"game", {"id": level})
+			elif choice is int:
+				Router.go(&"novel", {"scene": ACTIVITIES.scene_id(key, choice),
+					"next": {"screen": "hub", "args": {"location": _loc_id}}}))
 
 
 ## Название главы локации для таблички и кнопок перехода (нет — название комнаты).

@@ -98,7 +98,7 @@ flowchart TD
 `Router.go()` заменяет стек, `push()` снимает предыдущий экран с дерева,
 `back()` возвращает его. Системная «назад» сначала обрабатывает попап, затем экран.
 
-Попапы `shop`, `pause`, `settings`, `album`, `howto`, `confirm` лежат в `scripts/popups/`.
+Попапы `shop`, `pause`, `settings`, `album`, `howto`, `confirm`, `activity` лежат в `scripts/popups/`.
 Основа — `UiPopup` (`scripts/ui/popup.gd`), результат — сигнал `closed(result)`.
 Итог победы/поражения создаёт **Hud** (`scripts/ui/hud.gd`), отдельного зарегистрированного result-попапа нет.
 
@@ -184,6 +184,7 @@ flowchart TD
 ## Сюжет и сохранение
 
 - `data/novel.json`: `names`, `scenes`, `album`; шаги `bg`, `say/text`, `show`, `choice`, `cg`, `scene`. Контракт — начало `novel_screen.gd`.
+- Бытовые сценки: `data/activities.json` (ключ — id починенной вещи или «локация/картинка» предмета; `acts`: `label`, `scene`, условия `after`/`need`), помощник `scripts/core/activities.gd`. Хаб: тап по починенной вещи или предмету → попап `activity` (сценки + «Починить ещё раз») → новелла `act:<ключ>:<n>` → возврат в ту же комнату. Флаги просмотра для них не ставятся. Проверка каталога — `tools/test_activities.gd` в `--smoke`; снимок меню — DevRunner `--tap=x,y`.
 - `LocationView` переиспользуется для комнатных фонов новеллы; `state: broken|fixed` задаёт историческое состояние для повтора из альбома.
 - Флаги: `home.<target_id>` — ремонт; `home.v2` — миграция десяти старых ремонтов; `seen.<location>` — приветствие; `seen.prologue`, `seen.novel.<scene>` — сюжет; `tut.<kind>` — обучение.
 - Четыре части фото зависят от завершения комнат; `scripts/ui/photo_card.gd` собирает изображение. `album_popup.gd.goals()` считает цели; новоселье доступно после **57 звёзд и четырёх покупок**.

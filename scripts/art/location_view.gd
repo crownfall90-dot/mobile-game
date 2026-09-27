@@ -141,6 +141,17 @@ func target_at(p: Vector2, repaired := false) -> Dictionary:
 	return best
 
 
+## Предмет-наполнитель под пальцем (не семья) — для бытовых сценок; {} — ничего.
+func prop_at(p: Vector2) -> Dictionary:
+	var best := {}
+	for pr: Dictionary in loc.get("props", []):
+		if str(pr.get("img", "")).begins_with("family/"):
+			continue
+		if _rect(pr).grow(8).has_point(p) and (best.is_empty() or int(pr.get("z", 0)) >= int(best.get("z", 0))):
+			best = pr
+	return best
+
+
 func target_rect(id: String) -> Rect2:
 	return _rect(_target(id))
 
@@ -149,7 +160,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	_update_wear(delta)
 	# холодно и страшно: раз в ~5 с семья дрожит почти секунду, чем запущеннее — тем сильнее;
-	# в тёплых нарядах из магазина («Семейное обновление») не мёрзнут
+	# в тёплых кофтах из магазина не мёрзнут
 	_shiver = 0.0
 	var ph := fmod(_t + 1.3, 5.0)
 	if _wear > 0.25 and ph < 0.9 and not Profile.owns("vita_clothes"):
