@@ -9,6 +9,8 @@ extends Control
 ##   rain  — большое окно, дождь стихает по ходу загрузки, в конце радуга;
 ##   door  — дверь приоткрывается, из щели льётся тёплый свет;
 ##   album — на деревянном столе по очереди появляются фотокарточки комнат;
+##   story — карточки сюжета с подписями: первая ночь, письмо, прабабушка Вера, наш дом;
+##   spread — раскрытый альбом: фото с уголками, подписи, сердечки на страницах;
 ##   plan  — синий чертёж: по ходу загрузки белыми линиями рисуется домик.
 
 const GLOOM := preload("res://scripts/art/gloom.gd")
@@ -18,6 +20,13 @@ const FAMILY := "res://art/act1/family/family_mood3.png"
 const TITLE_FONT = preload("res://art/fonts/Fredoka.ttf")
 const MIN_WAIT := 1.6          # не короче: название и первая подсказка успевают появиться
 const VARIANT := "room"
+## Карточки сюжета: картинка и подпись от руки.
+const STORY_PHOTOS := [
+	["res://art/act1/story/night.png", "Первая ночь"],
+	["res://art/act1/story/letter.png", "Письмо прабабушки"],
+	["res://art/act1/story/photo_full.png", "Прабабушка Вера"],
+	["res://art/act1/room/background.png", "Наш дом"],
+]
 const TIPS := [
 	"Золотая кнопка — сломанная вещь. Нажми и почини!",
 	"Бирюзовая кнопка — занятие: мама и Вита что-нибудь сделают вместе.",
@@ -67,8 +76,10 @@ func open(args: Dictionary) -> void:
 		_bg.visible = false
 		_light.visible = false
 		_art = {"house": HouseNight, "book": StoryPage, "sky": MorningSky, "rain": RainWindow, "door": WarmDoor,
-			"album": PhotoAlbum, "plan": Blueprint}.get(_variant, MorningSky).new()
+			"album": PhotoAlbum, "plan": Blueprint, "story": PhotoAlbum, "spread": AlbumSpread}.get(_variant, MorningSky).new()
 		_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		if _variant == "story":
+			_art.call(&"use", STORY_PHOTOS)
 		add_child(_art)
 	_canvas = Control.new()
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -251,7 +262,7 @@ func _layout() -> void:
 			_family.size = Vector2(fh * 0.625, fh)
 			_family.position = Vector2(60, h * 0.8 - fh)
 			_gloom.position = Vector2(580, h * 0.3)
-		"album":
+		"album", "story", "spread":
 			fh = minf(h * 0.3, 420.0)
 			_family.size = Vector2(fh * 0.625, fh)
 			_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh)
@@ -612,6 +623,7 @@ class WarmDoor extends Control:
 class PhotoAlbum extends Control:
 	var progress := 0.0
 	var _pics: Array[Texture2D] = []
+	var _caps: Array[String] = []
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -619,6 +631,15 @@ class PhotoAlbum extends Control:
 			var p := "res://art/act1/%s/background.png" % loc
 			if ResourceLoader.exists(p):
 				_pics.append(load(p))
+
+	## Свои карточки с подписями: [[путь, подпись], ...].
+	func use(list: Array) -> void:
+		_pics.clear()
+		_caps.clear()
+		for e: Array in list:
+			if ResourceLoader.exists(str(e[0])):
+				_pics.append(load(str(e[0])))
+				_caps.append(str(e[1]))
 
 	func _process(_delta: float) -> void:
 		queue_redraw()
@@ -642,7 +663,13 @@ class PhotoAlbum extends Control:
 			draw_rect(Rect2(-sz * 0.5 + Vector2(6, 8) * u, sz), Color(0, 0, 0, 0.25 * a))
 			draw_rect(Rect2(-sz * 0.5, sz), Color(1, 0.98, 0.93, a))
 			var ph := Rect2(-sz * 0.5 + Vector2(14, 14) * u, Vector2(sz.x - 28 * u, sz.y - 70 * u))
-			draw_texture_rect_region(_pics[i], ph, Rect2(Vector2(0, _pics[i].get_height() * 0.25), Vector2(_pics[i].get_width(), _pics[i].get_width() * ph.size.y / ph.size.x)), Color(1, 1, 1, a))
+			var tex := _pics[i]
+			var src_h := minf(tex.get_height(), tex.get_width() * ph.size.y / ph.size.x)
+			var src := Rect2(Vector2(0, (tex.get_height() - src_h) * 0.35), Vector2(tex.get_width(), src_h))
+			draw_texture_rect_region(tex, ph, src, Color(1, 1, 1, a))
+			if i < _caps.size():
+				var f := ThemeDB.fallback_font
+				draw_string(f, Vector2(-sz.x * 0.5, sz.y * 0.5 - 20 * u), _caps[i], HORIZONTAL_ALIGNMENT_CENTER, sz.x, int(19 * u), Color(0.35, 0.22, 0.14, a))
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -697,4 +724,56 @@ class Blueprint extends Control:
 		var tip: Vector2 = segs[cur][0].lerp(segs[cur][1], clampf(progress * n - cur, 0.0, 1.0))
 		draw_line(tip, tip + Vector2(40, -60) * u, Color("f2c14e"), 10 * u)
 		draw_circle(tip, 5 * u, Color(1, 1, 1, 0.9), true, -1.0, true)
+
+
+## «Раскрытый альбом»: две страницы, на них по очереди появляются фото с уголками и подписями,
+## между фото — сердечки. Фото — сюжет и комнаты.
+class AlbumSpread extends Control:
+	var progress := 0.0
+	var _pics: Array[Texture2D] = []
+	var _caps := ["Первая ночь", "Письмо", "Прабабушка Вера", "Кухня", "Ванная", "Гостиная"]
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for p in ["res://art/act1/story/night.png", "res://art/act1/story/letter.png", "res://art/act1/story/photo_full.png",
+				"res://art/act1/kitchen/background.png", "res://art/act1/bath/background.png", "res://art/act1/living/background.png"]:
+			_pics.append(load(p) if ResourceLoader.exists(p) else null)
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := size
+		var u := minf(s.x / 720.0, s.y / 1280.0)
+		draw_rect(Rect2(Vector2.ZERO, s), Color("5a3a4a"))
+		# обложка и две страницы
+		var book := Rect2(s.x * 0.04, s.y * 0.2, s.x * 0.92, s.y * 0.44)
+		draw_rect(book.grow(12 * u), Color("8a2f3a"))
+		var lp := Rect2(book.position, Vector2(book.size.x * 0.5, book.size.y))
+		var rp := Rect2(book.position + Vector2(book.size.x * 0.5, 0), Vector2(book.size.x * 0.5, book.size.y))
+		draw_rect(lp, Color("f6ead2"))
+		draw_rect(rp, Color("f3e3c6"))
+		draw_line(Vector2(book.get_center().x, book.position.y), Vector2(book.get_center().x, book.end.y), Color(0.5, 0.35, 0.25, 0.5), 4 * u)
+		var f := ThemeDB.fallback_font
+		for i in _pics.size():
+			var a := clampf(progress * 6.3 - i, 0.0, 1.0)
+			if a <= 0.0 or _pics[i] == null:
+				continue
+			var page := lp if i < 3 else rp
+			var col := i % 3
+			var cell := Rect2(page.position + Vector2(18 * u, 12 * u + col * page.size.y / 3.0), Vector2(page.size.x - 36 * u, page.size.y / 3.0 - 24 * u))
+			var ph := Rect2(cell.position, Vector2(cell.size.x * 0.58, cell.size.y))
+			var tex := _pics[i]
+			var src_h := minf(tex.get_height(), tex.get_width() * ph.size.y / ph.size.x)
+			draw_rect(ph.grow(4 * u), Color(1, 1, 1, a))
+			draw_texture_rect_region(tex, ph, Rect2(Vector2(0, (tex.get_height() - src_h) * 0.35), Vector2(tex.get_width(), src_h)), Color(1, 1, 1, a))
+			for c in [ph.position, Vector2(ph.end.x, ph.position.y), ph.end, Vector2(ph.position.x, ph.end.y)]:
+				var dx := 1.0 if c.x == ph.position.x else -1.0
+				var dy := 1.0 if c.y == ph.position.y else -1.0
+				draw_colored_polygon(PackedVector2Array([c, c + Vector2(22 * dx, 0) * u, c + Vector2(0, 22 * dy) * u]), Color(0.45, 0.25, 0.18, a))
+			draw_string(f, Vector2(ph.end.x + 8 * u, ph.get_center().y + 8 * u), _caps[i], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x * 0.42, int(15 * u), Color(0.4, 0.24, 0.16, a))
+			var hc := Vector2(ph.end.x + cell.size.x * 0.21, ph.end.y - 14 * u)
+			draw_circle(hc + Vector2(-5, -3) * u, 6 * u, Color(0.9, 0.35, 0.3, a), true, -1.0, true)
+			draw_circle(hc + Vector2(5, -3) * u, 6 * u, Color(0.9, 0.35, 0.3, a), true, -1.0, true)
+			draw_colored_polygon(PackedVector2Array([hc + Vector2(-10.5, -1) * u, hc + Vector2(10.5, -1) * u, hc + Vector2(0, 10) * u]), Color(0.9, 0.35, 0.3, a))
 
