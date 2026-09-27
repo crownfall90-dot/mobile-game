@@ -723,3 +723,10 @@ Profile/Home/GameScreen после чистки Claude.
 причины проигрыша в `game_screen.gd`. Проверено: lint 0 ошибок, smoke OK (вкл. test_dialogue),
 home-selfcheck OK, снимки подсказок 03/19 и карточки «Наклоняй» 720×1280.
 Тексты в файлах ChatGPT (`home.gd` — магазин, `hub_screen.gd`) — предложения в issue #3.
+
+## APK 0.13.0 (27.09, 15:35 UTC)
+
+https://github.com/crownfall90-dot/mobile-game/blob/apk-builds/Vita-0.13.0.apk — versionCode 17,
+SHA-256 `21727c2fbc0d85f2895828086d00704bcd51e8c6c38bed035f6a4215e04d7f39`, облачный ключ, поверх 0.12.0.
+Вошло: редактура текстов акта 1 (d968595), `family_mood3_teddy.png` от ChatGPT (9a40814). Бытовые
+сценки ChatGPT ещё не закоммичены — в сборку не вошли. На телефоне не проверено.
