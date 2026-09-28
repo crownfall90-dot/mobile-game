@@ -229,3 +229,15 @@ flowchart TD
 - Монетизация — заглушка; отчёты требуют настройки. Акт 2 и публикация в магазине вне текущей задачи.
 - При добавлении экрана, механики, локации или изменении владения данными обновлять таблицу здесь, результаты и точный следующий шаг — в HANDOFF.
 - Индекс codebase-memory на этой машине пропустил `scripts/`, `tools/`, `docs/`, поэтому не подтверждает связи GDScript. Эта карта сверена прямым чтением исходников; Opus может пользоваться ею без индексатора.
+
+### Бытовые анимации — 28.09
+
+`hub_screen._offer_actions` → `ACTIVITIES.animation(key,index)` →
+`LocationView.play_activity` → `scripts/art/activity_player.gd`. Непустой animation
+заменяет переход в novel для этого занятия; пока5 из60. Кадры в family/actions,
+пара/отдельные исходные герои скрываются только на время действия. Player снимает
+блокировку через finished, в том числе при отмене. Условия доступности after/need
+остались в activities.gd; ремонт/покупки анимация не меняет.
+`approach` в item — нормализованная точка относительно рисунка, экспортируется из
+Marker2D «Подход»; `activity_point` применяет fit/FlipH/rotation. Проверка:
+`godot --headless --path . --fixed-fps 120 --script res://tools/test_activity_animation.gd`.

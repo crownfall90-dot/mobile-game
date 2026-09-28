@@ -8,19 +8,19 @@
    {"say": "mother", "text": "Вон та, большая, победит.", "mood": "smile"},
    {"say": "daughter", "text": "А к нам ни одна не пролезет!", "mood": "happy"}]}]},
  "room_bed": {"name": "Кровать", "acts": [
-  {"label": "Уложить Виту спать", "scene": [
+  {"label": "Уложить Виту спать", "animation": {"kind": "sleep", "actor": "daughter"}, "scene": [
    {"bg": "room", "tint": "dim"}, {"show": ["family"]},
    {"text": "Вечер. Мама поправляет одеяло."},
    {"say": "daughter", "text": "Мама, а сказку?", "mood": "smile"},
    {"say": "mother", "text": "Жила-была девочка, которая помогла починить целый дом…", "mood": "smile"},
    {"say": "daughter", "text": "Это же я!", "mood": "happy"},
    {"text": "Вита засыпает раньше, чем кончается сказка."}]},
-  {"label": "Попрыгать на кровати", "scene": [
+  {"label": "Попрыгать на кровати", "animation": {"kind": "jump", "actor": "daughter", "surface": 0.48}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"say": "daughter", "text": "Мама, смотри, как пружинит!", "mood": "happy"},
    {"say": "mother", "text": "Только тихонько, кровать у нас одна.", "mood": "smile"}]}]},
  "room_floor": {"name": "Пол", "acts": [
-  {"label": "Поиграть в классики", "scene": [
+  {"label": "Поиграть в классики", "animation": {"kind": "jump", "actor": "daughter", "surface": 0.75}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"say": "daughter", "text": "Мама, давай нарисуем классики мелом?", "mood": "smile"},
    {"say": "mother", "text": "Давай. Только потом вместе отмоем.", "mood": "smile"},
@@ -57,7 +57,7 @@
    {"say": "daughter", "text": "Мама, тут картинки! Почитаешь?", "mood": "surprised"},
    {"say": "mother", "text": "Каждый вечер по сказке. Эту мне читала бабушка Вера.", "mood": "smile"}]}]},
  "room/room_table_lamp": {"name": "Лампа", "acts": [
-  {"label": "Включить лампу", "scene": [
+  {"label": "Включить лампу", "animation": {"kind": "light", "actor": "mother", "contact": [0.5, 0.32]}, "scene": [
    {"bg": "room", "tint": "dim"}, {"show": ["family"]},
    {"text": "Лампа рисует на потолке тёплый кружок."},
    {"say": "daughter", "text": "Мама, с ним совсем не страшно.", "mood": "smile"},
@@ -91,7 +91,7 @@
    {"say": "mother", "text": "Пора разобрать чемодан. Мы теперь живём здесь.", "mood": "smile"},
    {"say": "daughter", "text": "Мои платья — в комод! А зайку — ко мне на подушку.", "mood": "happy"}]}]},
  "room/room_curtains": {"name": "Шторы", "acts": [
-  {"label": "Задёрнуть шторы", "scene": [
+  {"label": "Задёрнуть шторы", "animation": {"kind": "curtains", "actor": "mother", "contact": [0.28, 0.62]}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"say": "mother", "text": "Задёрнем шторы, и дождь останется снаружи.", "mood": "calm"},
    {"say": "daughter", "text": "А утром откроем и посмотрим на солнце!", "mood": "happy"}]}]},
