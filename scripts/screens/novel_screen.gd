@@ -31,7 +31,6 @@ const INK := Color("4a3226")
 const EDGE := Color("6b4a33")
 const BOX_H := 270.0
 const BOX_MAX_W := 900.0      # предел ширины окна диалога на широком экране
-const ACTIVITIES := preload("res://scripts/core/activities.gd")
 const TINTS := {"dim": Color(0.04, 0.04, 0.1, 0.42), "night": Color(0.03, 0.06, 0.18, 0.55),
 	"warm": Color(1.0, 0.78, 0.45, 0.1), "": Color(0, 0, 0, 0.16)}
 
@@ -80,10 +79,6 @@ func open(args: Dictionary) -> void:
 	if f:
 		var parsed: Variant = JSON.parse_string(f.get_as_text())
 		_data = parsed if parsed is Dictionary else {}
-	# бытовые сценки (data/activities.json) играются как обычные сцены новеллы
-	var all_scenes: Dictionary = _data.get("scenes", {})
-	all_scenes.merge(ACTIVITIES.scenes())
-	_data["scenes"] = all_scenes
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var base := ColorRect.new()
@@ -382,8 +377,7 @@ func _finish() -> void:
 	_finished = true
 	# просмотрена (или пропущена) сцена и все, что идут в ней продолжением: living_done → act1_end
 	for id in _chain(_scene_id, []):
-		if not str(id).begins_with("act:"):   # бытовые сценки можно смотреть сколько угодно
-			Profile.set_flag("seen.novel." + id)
+		Profile.set_flag("seen.novel." + id)
 	if _scene_id == "prologue":
 		Profile.set_flag("seen.prologue")
 	Profile.flush()
