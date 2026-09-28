@@ -1,0 +1,205 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Texture2D" path="res://art/act1/room/background.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_window_broken.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_bed_broken.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_floor_broken.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_wall_broken.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_rug.png" id="6"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_curtains.png" id="7"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_nightstand.png" id="8"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_toybox.png" id="9"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_chest.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_shelf_books.png" id="11"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_drawings.png" id="12"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_table_lamp.png" id="13"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_slippers.png" id="14"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_blocks.png" id="15"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_suitcase.png" id="16"]
+[ext_resource type="Texture2D" path="res://art/act1/family/family_mood0.png" id="17"]
+
+[node name="room" type="Node2D"]
+metadata/location = "room"
+
+[node name="Фон" type="Sprite2D" parent="."]
+z_index = -1000
+position = Vector2(360, 780)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1")
+metadata/_edit_lock_ = true
+
+[node name="room_window" type="Sprite2D" parent="."]
+z_index = 2
+position = Vector2(285.5, 705)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2")
+metadata/kind = "target"
+metadata/key = "room_window"
+
+[node name="room_bed" type="Sprite2D" parent="."]
+z_index = 15
+position = Vector2(476.5, 984.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("3")
+metadata/kind = "target"
+metadata/key = "room_bed"
+
+[node name="room_floor" type="Sprite2D" parent="."]
+z_index = 6
+position = Vector2(490, 1210.5)
+scale = Vector2(0.6692, 0.6692)
+texture = ExtResource("4")
+metadata/kind = "target"
+metadata/key = "room_floor"
+
+[node name="room_wall" type="Sprite2D" parent="."]
+z_index = 2
+position = Vector2(530, 740.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("5")
+metadata/kind = "target"
+metadata/key = "room_wall"
+
+[node name="room__room_rug" type="Sprite2D" parent="."]
+z_index = 5
+position = Vector2(144.5, 1187.5)
+scale = Vector2(0.7865, 0.7865)
+texture = ExtResource("6")
+metadata/kind = "prop"
+metadata/key = "room/room_rug"
+
+[node name="room__room_curtains" type="Sprite2D" parent="."]
+z_index = 2
+position = Vector2(282.5, 695.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("7")
+metadata/kind = "prop"
+metadata/key = "room/room_curtains"
+
+[node name="room__room_nightstand" type="Sprite2D" parent="."]
+z_index = 13
+position = Vector2(301.5, 971.5)
+scale = Vector2(0.6566, 0.6566)
+texture = ExtResource("8")
+metadata/kind = "prop"
+metadata/key = "room/room_nightstand"
+
+[node name="room__room_toybox" type="Sprite2D" parent="."]
+z_index = 16
+position = Vector2(421, 1051)
+scale = Vector2(0.4606, 0.4606)
+texture = ExtResource("9")
+metadata/kind = "prop"
+metadata/key = "room/room_toybox"
+
+[node name="room__room_chest" type="Sprite2D" parent="."]
+z_index = 11
+position = Vector2(317, 903)
+scale = Vector2(0.4934, 0.4934)
+texture = ExtResource("10")
+metadata/kind = "prop"
+metadata/key = "room/room_chest"
+
+[node name="room__room_shelf_books" type="Sprite2D" parent="."]
+z_index = 2
+position = Vector2(602.5, 677)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("11")
+metadata/kind = "prop"
+metadata/key = "room/room_shelf_books"
+
+[node name="room__room_drawings" type="Sprite2D" parent="."]
+z_index = 2
+position = Vector2(439, 722.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("12")
+metadata/kind = "prop"
+metadata/key = "room/room_drawings"
+
+[node name="room__room_table_lamp" type="Sprite2D" parent="."]
+z_index = 14
+position = Vector2(301.5, 865)
+scale = Vector2(0.6633, 0.6633)
+texture = ExtResource("13")
+metadata/kind = "prop"
+metadata/key = "room/room_table_lamp"
+
+[node name="room__room_slippers" type="Sprite2D" parent="."]
+z_index = 14
+position = Vector2(312, 1063)
+scale = Vector2(0.5333, 0.5333)
+texture = ExtResource("14")
+metadata/kind = "prop"
+metadata/key = "room/room_slippers"
+
+[node name="room__room_blocks" type="Sprite2D" parent="."]
+z_index = 201
+position = Vector2(335.5, 1125.5)
+scale = Vector2(0.5083, 0.5083)
+texture = ExtResource("15")
+metadata/kind = "prop"
+metadata/key = "room/room_blocks"
+
+[node name="room__room_suitcase" type="Sprite2D" parent="."]
+z_index = 202
+position = Vector2(556, 1088.5)
+scale = Vector2(0.4966, 0.4966)
+texture = ExtResource("16")
+metadata/kind = "prop"
+metadata/key = "room/room_suitcase"
+
+[node name="семья" type="Sprite2D" parent="."]
+z_index = 150
+position = Vector2(163, 904.5)
+scale = Vector2(0.4473, 0.4473)
+texture = ExtResource("17")
+metadata/kind = "family"
+metadata/key = "family"
+
+[node name="декор_vita_plant" type="ReferenceRect" parent="."]
+z_index = 150
+offset_left = 324
+offset_top = 758
+offset_right = 372
+offset_bottom = 823
+mouse_filter = 2
+border_color = Color(0.2, 0.7, 0.3, 1)
+border_width = 2.0
+metadata/kind = "decor"
+metadata/key = "vita_plant"
+metadata/flip = false
+
+[node name="подпись" type="Label" parent="декор_vita_plant"]
+offset_right = 120
+offset_bottom = 23.0
+text = "цветок (покупка)"
+theme_override_font_sizes/font_size = 14
+
+[node name="декор_vita_picture" type="ReferenceRect" parent="."]
+z_index = 150
+offset_left = 79
+offset_top = 575
+offset_right = 167
+offset_bottom = 657
+mouse_filter = 2
+border_color = Color(0.2, 0.7, 0.3, 1)
+border_width = 2.0
+metadata/kind = "decor"
+metadata/key = "vita_picture"
+metadata/flip = false
+
+[node name="подпись" type="Label" parent="декор_vita_picture"]
+offset_right = 120
+offset_bottom = 23.0
+text = "картина (покупка)"
+theme_override_font_sizes/font_size = 14
+
+[node name="Видно на телефоне" type="ReferenceRect" parent="."]
+offset_left = 20.0
+offset_top = 140.0
+offset_right = 680.0
+offset_bottom = 1280.0
+mouse_filter = 2
+border_color = Color(1, 0, 0.6, 1)
+border_width = 3.0
+metadata/_edit_lock_ = true

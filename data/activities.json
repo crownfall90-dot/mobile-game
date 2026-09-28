@@ -50,12 +50,46 @@
    {"text": "В нижнем ящике пахнет лавандой."},
    {"say": "mother", "text": "Бабушка всегда клала в бельё сухие цветы.", "mood": "calm"},
    {"say": "daughter", "text": "Можно, я тоже так буду?", "mood": "smile"}]}]},
- "room/room_nightstand": {"name": "Ночник", "acts": [
-  {"label": "Включить ночник", "scene": [
+ "room/room_nightstand": {"name": "Тумбочка", "acts": [
+  {"label": "Открыть ящик", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "В ящике тумбочки нашлась старая книжка сказок."},
+   {"say": "daughter", "text": "Мама, тут картинки! Почитаешь?", "mood": "surprised"},
+   {"say": "mother", "text": "Каждый вечер по сказке. Эту мне читала бабушка Вера.", "mood": "smile"}]}]},
+ "room/room_table_lamp": {"name": "Лампа", "acts": [
+  {"label": "Включить лампу", "scene": [
    {"bg": "room", "tint": "dim"}, {"show": ["family"]},
-   {"text": "Ночник рисует на потолке тёплый кружок."},
+   {"text": "Лампа рисует на потолке тёплый кружок."},
    {"say": "daughter", "text": "Мама, с ним совсем не страшно.", "mood": "smile"},
-   {"say": "mother", "text": "Он будет гореть, пока ты не уснёшь.", "mood": "smile"}]}]},
+   {"say": "mother", "text": "Она будет гореть, пока ты не уснёшь.", "mood": "smile"}]}]},
+ "room/room_shelf_books": {"name": "Полка с книжками", "acts": [
+  {"label": "Посадить зайку", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Зайка будет сторожить книжки!", "mood": "happy"},
+   {"say": "mother", "text": "Хороший сторож. Только не спит ли он на посту?", "mood": "smile"},
+   {"say": "daughter", "text": "Он спит одним ухом.", "mood": "smile"}]}]},
+ "room/room_drawings": {"name": "Рисунки Виты", "acts": [
+  {"label": "Повесить рисунок", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Это наш дом. А это мы с тобой держимся за руки!", "mood": "happy"},
+   {"say": "mother", "text": "Повесим рядом с остальными. Настоящая выставка.", "mood": "smile"}]}]},
+ "room/room_slippers": {"name": "Тапочки", "acts": [
+  {"label": "Надеть тапочки", "after": "room_floor", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"text": "Пол больше не дует — можно ходить в тапочках."},
+   {"say": "daughter", "text": "Они мягкие, как котята!", "mood": "happy"},
+   {"say": "mother", "text": "Тёплые ноги — крепкий сон.", "mood": "smile"}]}]},
+ "room/room_blocks": {"name": "Кубики", "acts": [
+  {"label": "Построить башню", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "daughter", "text": "Смотри, башня почти до кровати!", "mood": "happy"},
+   {"say": "mother", "text": "Осторожно, строитель, ещё один кубик…", "mood": "surprised"},
+   {"text": "Бух! Кубики раскатились по полу, и обе засмеялись."}]}]},
+ "room/room_suitcase": {"name": "Чемодан", "acts": [
+  {"label": "Разобрать чемодан", "scene": [
+   {"bg": "room"}, {"show": ["family"]},
+   {"say": "mother", "text": "Пора разобрать чемодан. Мы теперь живём здесь.", "mood": "smile"},
+   {"say": "daughter", "text": "Мои платья — в комод! А зайку — ко мне на подушку.", "mood": "happy"}]}]},
  "room/room_curtains": {"name": "Шторы", "acts": [
   {"label": "Задёрнуть шторы", "scene": [
    {"bg": "room"}, {"show": ["family"]},

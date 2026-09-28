@@ -34,21 +34,23 @@ ROOMS = {
         "items": [
             {"act": "target:room_window", "id": "window", "kind": "wall", "wall": "L", "at": [0.2, 1.0], "h": [0.85, 2.1], "note": "цель room_window: рама, стекло, подоконник 0,85"},
             {"act": "prop:room/room_curtains", "id": "curtains", "kind": "wall", "wall": "L", "at": [0.08, 1.12], "h": [0.75, 2.3], "note": "шторы по краям окна"},
-            {"act": "prop:room/room_chest", "id": "chest", "kind": "floor", "L": [0.22, 0.98], "R": [0.0, 0.42], "h": [0.0, 0.8], "note": "комод под окном (низ за Витой — доступ кнопкой)"},
-            {"act": "prop:room/room_nightstand", "id": "nightstand", "kind": "floor", "L": [0.0, 0.4], "R": [0.0, 0.3], "h": [0.0, 0.55], "note": "тумбочка с лампой в углу у изголовья"},
+            {"act": "prop:room/room_chest", "id": "chest", "kind": "floor", "L": [0.16, 0.92], "R": [0.0, 0.42], "h": [0.0, 0.8], "note": "комод под окном (низ за Витой — доступ кнопкой)"},
+            {"act": "prop:room/room_nightstand", "id": "nightstand", "kind": "floor", "L": [0.95, 1.35], "R": [0.62, 0.92], "h": [0.0, 0.55], "note": "тумбочка у изголовья со стороны комнаты (в углу её закрыло бы изголовье)"},
             {"act": "target:room_bed", "id": "bed", "kind": "floor", "L": [0.0, 0.9], "R": [0.32, 2.0], "h": [0.0, 0.5],
              "parts": [{"L": [0.0, 0.9], "R": [0.32, 0.36], "h": [0.0, 0.95]}, {"L": [0.0, 0.9], "R": [1.96, 2.0], "h": [0.0, 0.8]}], "note": "цель room_bed: кровать 1,7 м вдоль правой стены, изголовье к углу, матрас 0,5, спинки 0,9"},
             {"act": "target:room_wall", "id": "wall_patch", "kind": "wall", "wall": "R", "at": [1.0, 1.5], "h": [1.05, 1.55], "note": "цель room_wall: порванные обои над кроватью"},
-            {"act": "prop:room/room_toybox", "id": "toybox", "kind": "floor", "L": [1.0, 1.42], "R": [1.62, 1.95], "h": [0.0, 0.35], "note": "ящик с игрушками у изножья"},
-            {"id": "table_lamp", "fill": True, "kind": "floor", "L": [0.08, 0.3], "R": [0.05, 0.25], "h": [0.55, 0.95], "note": "НОВОЕ: настольная лампа на тумбочке, тёплый абажур"},
-            {"id": "shelf_books", "fill": True, "kind": "wall", "wall": "R", "at": [1.45, 1.95], "h": [1.45, 1.75], "depth": 0.2, "note": "НОВОЕ: полка над изножьем — книжки и плюшевый зайчик"},
-            {"id": "drawings", "fill": True, "kind": "wall", "wall": "R", "at": [0.45, 0.85], "h": [1.2, 1.55], "note": "НОВОЕ: рисунки Виты на скотче над изголовьем"},
-            {"id": "slippers", "fill": True, "kind": "floor", "L": [0.95, 1.2], "R": [1.0, 1.3], "h": [0.0, 0.08], "note": "НОВОЕ: тапочки у кровати"},
-            {"id": "blocks", "fill": True, "kind": "floor", "L": [1.28, 1.58], "R": [1.55, 1.85], "h": [0.0, 0.1], "note": "НОВОЕ: кубики у коврика"},
-            {"id": "suitcase", "fill": True, "kind": "floor", "L": [0.95, 1.4], "R": [2.0, 2.28], "h": [0.0, 0.45], "note": "НОВОЕ: чемодан — только переехали"},
-            {"act": "prop:room/room_rug", "id": "rug", "kind": "floor", "L": [1.2, 2.15], "R": [0.9, 1.85], "h": [0.0, 0.01], "note": "круглый коврик ~1 м"},
-            {"act": "target:room_floor", "id": "floor_holes", "kind": "floor", "L": [1.12, 1.52], "R": [1.08, 1.42], "h": [0.0, 0.01], "note": "цель room_floor (одна из дыр; остальные — такие же пятна по полу)"},
-            {"act": "family", "id": "family_pair", "kind": "person", "L": 2.07, "R": 1.33, "size": [0.9, 1.65], "note": "мама и Вита держатся за руки на коврике — картинки настроения family_mood0..3 (в первой комнате — «приехали»)"},
+            {"act": "prop:room/room_toybox", "id": "toybox", "kind": "floor", "L": [1.0, 1.42], "R": [1.38, 1.71], "h": [0.0, 0.35], "note": "ящик с игрушками у кровати"},
+            {"act": "prop:room/room_table_lamp", "id": "table_lamp", "fill": True, "kind": "floor", "L": [1.04, 1.26], "R": [0.67, 0.87], "h": [0.55, 0.95], "note": "настольная лампа на тумбочке, тёплый абажур"},
+            {"act": "prop:room/room_shelf_books", "id": "shelf_books", "fill": True, "kind": "wall", "wall": "R", "at": [1.45, 1.95], "h": [1.45, 1.75], "depth": 0.2, "note": "НОВОЕ: полка над изножьем — книжки и плюшевый зайчик"},
+            {"act": "prop:room/room_drawings", "id": "drawings", "fill": True, "kind": "wall", "wall": "R", "at": [0.45, 0.85], "h": [1.2, 1.55], "note": "НОВОЕ: рисунки Виты на скотче над изголовьем"},
+            {"act": "prop:room/room_slippers", "id": "slippers", "fill": True, "kind": "floor", "L": [1.28, 1.53], "R": [0.98, 1.28], "h": [0.0, 0.08], "note": "тапочки у кровати, перед тумбочкой"},
+            {"act": "prop:room/room_blocks", "id": "blocks", "fill": True, "kind": "floor", "L": [1.52, 1.82], "R": [1.4, 1.7], "h": [0.0, 0.1], "note": "кубики между ковриком и ящиком"},
+            {"act": "prop:room/room_suitcase", "id": "suitcase", "fill": True, "kind": "floor", "L": [0.95, 1.4], "R": [1.98, 2.26], "h": [0.0, 0.45], "note": "чемодан у изножья — только переехали"},
+            {"act": "prop:room/room_rug", "id": "rug", "kind": "floor", "L": [1.72, 2.67], "R": [0.72, 1.67], "h": [0.0, 0.01], "note": "круглый коврик ~1 м под семьёй"},
+            {"act": "target:room_floor", "id": "floor_holes", "kind": "floor", "L": [1.4, 1.8], "R": [1.98, 2.32], "h": [0.0, 0.01], "note": "цель room_floor: дыра на открытом полу справа спереди, не под ковриком и не под ногами"},
+            {"act": "decor:vita_plant", "id": "plant_buy", "kind": "floor", "L": [0.2, 0.4], "R": [0.1, 0.3], "h": [0.8, 1.15], "note": "покупка «Зелёный друг»: цветок на комоде"},
+            {"act": "decor:vita_picture", "id": "picture_buy", "kind": "wall", "wall": "L", "at": [1.4, 1.85], "h": [1.72, 2.08], "note": "покупка «Наши счастливые дни»: картина на левой стене"},
+            {"act": "family", "id": "family_pair", "kind": "person", "L": 2.15, "R": 1.23, "size": [0.9, 1.65], "note": "мама и Вита держатся за руки на коврике — картинки настроения family_mood0..3 (в первой комнате — «приехали»)"},
         ],
     },
     "kitchen": {
@@ -275,10 +277,17 @@ def apply(name, path="data/act1.json"):
     data = json.load(open(path, encoding="utf-8"))
     loc = next(l for l in data["locations"] if l["id"] == name)
     items = [it for it in room["items"] if "act" in it]
+    for it in [it for it in items if it["act"].startswith("decor:")]:
+        # покупки магазина: только место; рисуются за семьёй
+        d = next((d for d in loc.get("decor", []) if d["id"] == it["act"][6:]), None)
+        if d is not None:
+            d["rect"] = rect(room, it)
+    items = [it for it in items if not it["act"].startswith("decor:")]
     pair = next((it for it in items if it["act"] == "family"), None)
     pair_z = near_z(room, pair) if pair else -1.0
     order = sorted([it for it in items if it["act"] != "family"], key=lambda it: -near_z(room, it))
     back, front = 0, 0
+    objs = {}
     for it in order:
         r = rect(room, it)
         flat = it["kind"] == "wall" or it["h"][1] <= 0.02
@@ -296,14 +305,27 @@ def apply(name, path="data/act1.json"):
             obj = next(t for t in loc["targets"] if t["id"] == key)
             obj.pop("more", None)
         else:
-            obj = next(p for p in loc["props"] if p["img"] == key)
+            obj = next((p for p in loc["props"] if p["img"] == key), None)
+            if obj is None:
+                # новый предмет наполнения — добавляем в props
+                obj = {"img": key}
+                loc["props"].append(obj)
         obj["rect"] = r
         obj["z"] = round(z, 3)
+        objs[it["id"]] = obj
         fp = footprint(room, it)
         if fp:
             obj["shadow"] = [[round(x), round(y)] for x, y in fp]
         else:
             obj.pop("shadow", None)
+    # стоящее на другой вещи (лампа на тумбочке) рисуется сразу поверх опоры
+    for it in order:
+        if it["kind"] != "floor" or it["h"][0] <= 0.05:
+            continue
+        for sup in order:
+            if sup is not it and abs(sup["h"][1] - it["h"][0]) < 0.03 and sup["L"][0] <= it["L"][0] and it["L"][1] <= sup["L"][1] \
+                    and sup["R"][0] <= it["R"][0] and it["R"][1] <= sup["R"][1]:
+                objs[it["id"]]["z"] = round(objs[sup["id"]]["z"] + 0.005, 3)
     if pair:
         r = rect(room, pair)
         feet = project(room, pair["L"], pair["R"], 0.0)[0]
