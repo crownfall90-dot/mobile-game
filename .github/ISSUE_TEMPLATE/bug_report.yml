@@ -1,0 +1,28 @@
+name: Ошибка в Vita
+description: Помогите повторить ошибку в игре
+title: "[Баг] "
+body:
+  - type: markdown
+    attributes:
+      value: Не прикладывайте токены, ключи подписи и личные данные. Уязвимости сообщайте приватно через Security → Advisories → Report a vulnerability.
+  - type: input
+    id: version
+    attributes:
+      label: Версия APK
+      placeholder: Например, 0.18.0
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Телефон и версия Android
+      placeholder: Например, realme GT3, Android 14
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      description: Что нажали, что произошло и чего ожидали? Можно приложить скриншот.
+    validations:
+      required: true
