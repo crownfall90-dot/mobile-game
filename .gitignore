@@ -10,3 +10,4 @@
 *.keystore
 *.jks
 .verify_cache/
+__pycache__/

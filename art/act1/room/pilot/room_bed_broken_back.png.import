@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bsftp7gmh87g0"
-path.s3tc="res://.godot/imported/gloom_white.png-33742bee680fb06d12d02799ff8ca872.s3tc.ctex"
-path.etc2="res://.godot/imported/gloom_white.png-33742bee680fb06d12d02799ff8ca872.etc2.ctex"
+uid="uid://drihlml4nw3uf"
+path.s3tc="res://.godot/imported/room_bed_broken_back.png-690783e84b4f4606250d487dcbe13433.s3tc.ctex"
+path.etc2="res://.godot/imported/room_bed_broken_back.png-690783e84b4f4606250d487dcbe13433.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://art/act1/story/gloom_white.png"
-dest_files=["res://.godot/imported/gloom_white.png-33742bee680fb06d12d02799ff8ca872.s3tc.ctex", "res://.godot/imported/gloom_white.png-33742bee680fb06d12d02799ff8ca872.etc2.ctex"]
+source_file="res://art/act1/room/pilot/room_bed_broken_back.png"
+dest_files=["res://.godot/imported/room_bed_broken_back.png-690783e84b4f4606250d487dcbe13433.s3tc.ctex", "res://.godot/imported/room_bed_broken_back.png-690783e84b4f4606250d487dcbe13433.etc2.ctex"]
 
 [params]
 
