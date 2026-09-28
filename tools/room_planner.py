@@ -70,7 +70,7 @@ ROOMS = {
             {"id": "fruit_bowl", "fill": True, "kind": "floor", "L": [1.02, 1.2], "R": [0.5, 0.7], "h": [0.75, 0.88], "note": "НОВОЕ: миска с яблоками на столе"},
             {"id": "window_plant", "fill": True, "kind": "wall", "wall": "L", "at": [1.25, 1.55], "h": [0.9, 1.25], "depth": 0.15, "note": "НОВОЕ: цветок в горшке на подоконнике"},
             {"id": "towel", "fill": True, "kind": "wall", "wall": "R", "at": [1.44, 1.5], "h": [0.95, 1.35], "note": "НОВОЕ: полотенце на крючке между мойкой и плитой"},
-            {"id": "stool", "fill": True, "kind": "floor", "L": [1.65, 1.95], "R": [0.95, 1.25], "h": [0.0, 0.45], "note": "НОВОЕ: табурет"},
+            {"id": "stool", "fill": True, "kind": "floor", "L": [1.9, 2.2], "R": [0.34, 0.64], "h": [0.0, 0.45], "note": "НОВОЕ: табурет у торца стола (не перед Витой)"},
             {"id": "chair", "kind": "floor", "L": [1.2, 1.6], "R": [0.9, 1.3], "h": [0.0, 0.85], "note": "стул Виты у стола, сиденье 0,45"},
             {"id": "rug", "kind": "floor", "L": [0.7, 1.2], "R": [0.8, 2.0], "h": [0.0, 0.01], "note": "половик вдоль мойки и плиты"},
             {"id": "ceiling_hole", "kind": "hang", "L": [0.9, 1.5], "R": [0.9, 1.5], "h": [2.6, 2.6], "note": "цель kitchen_ceiling: дыра в потолке"},
@@ -87,16 +87,16 @@ ROOMS = {
             {"id": "towel", "kind": "wall", "wall": "L", "at": [0.98, 1.2], "h": [1.0, 1.55], "note": "полотенце на крючке"},
             {"id": "toilet", "kind": "floor", "L": [1.3, 1.7], "R": [0.0, 0.68], "h": [0.0, 0.78], "note": "цель bath_toilet: унитаз с бачком у левой стены"},
             {"id": "basket", "kind": "floor", "L": [1.72, 2.05], "R": [0.05, 0.38], "h": [0.0, 0.42], "note": "корзина для белья"},
-            {"id": "tiles_hole", "kind": "wall", "wall": "R", "at": [1.1, 1.5], "h": [0.7, 1.05], "note": "цель bath_tiles: отбитая плитка над ванной"},
+            {"id": "tiles_hole", "kind": "wall", "wall": "R", "at": [0.75, 1.15], "h": [0.7, 1.05], "note": "цель bath_tiles: отбитая плитка над ванной"},
             {"id": "shelf", "kind": "wall", "wall": "R", "at": [0.6, 1.1], "h": [1.5, 1.62], "depth": 0.15, "note": "полочка над ванной"},
             {"id": "duck", "kind": "floor", "L": [0.55, 0.7], "R": [1.6, 1.75], "h": [0.58, 0.68], "note": "уточка на бортике"},
             {"id": "toothbrushes", "fill": True, "kind": "floor", "L": [0.45, 0.56], "R": [0.04, 0.14], "h": [0.85, 0.99], "note": "НОВОЕ: стакан с двумя щётками на раковине"},
             {"id": "robe", "fill": True, "kind": "wall", "wall": "L", "at": [1.85, 2.1], "h": [0.9, 1.6], "note": "НОВОЕ: халат на крючке"},
             {"id": "light", "kind": "hang", "L": [0.95, 1.35], "R": [0.95, 1.35], "h": [2.45, 2.6], "note": "цель bath_light: плафон"},
-            {"id": "mat", "kind": "floor", "L": [0.8, 1.25], "R": [0.8, 1.6], "h": [0.0, 0.01], "note": "коврик перед ванной"},
-            {"id": "stool_basin", "kind": "floor", "L": [1.55, 1.95], "R": [1.6, 2.0], "h": [0.0, 0.55], "note": "табурет с тазом (стирка)"},
-            {"id": "mother", "kind": "person", "L": 1.85, "R": 2.2, "size": [0.5, 1.65], "note": "мама стирает в тазу, чуть наклонилась"},
-            {"id": "daughter", "kind": "person", "L": 0.95, "R": 1.45, "size": [0.4, 0.75], "note": "Вита на коленках у ванны с корабликом (0,75)"},
+            {"id": "mat", "kind": "floor", "L": [0.8, 1.25], "R": [0.55, 1.35], "h": [0.0, 0.01], "note": "коврик перед ванной"},
+            {"id": "stool_basin", "kind": "floor", "L": [1.35, 1.7], "R": [2.0, 2.35], "h": [0.0, 0.55], "note": "табурет с тазом (стирка) справа спереди, рядом с мамой"},
+            {"id": "mother", "kind": "person", "L": 0.98, "R": 2.2, "size": [0.5, 1.65], "note": "мама у изножья ванны стирает в тазу, чуть наклонилась (не по центру: иначе закрывает всё)"},
+            {"id": "daughter", "kind": "person", "L": 0.98, "R": 1.2, "size": [0.4, 0.75], "note": "Вита на коленках у ванны с корабликом (0,75)"},
         ],
     },
     "living": {
@@ -106,12 +106,12 @@ ROOMS = {
             {"id": "reading_lamp", "kind": "floor", "L": [1.92, 2.14], "R": [0.08, 0.3], "h": [0.0, 1.5], "note": "торшер у ближнего края дивана — место для чтения"},
             {"id": "sofa", "kind": "floor", "L": [0.5, 1.95], "R": [0.0, 0.88], "h": [0.0, 0.85], "note": "цель living_sofa: диван спинкой к левой стене, сиденье 0,45"},
             {"id": "picture", "kind": "wall", "wall": "L", "at": [0.75, 1.35], "h": [1.3, 1.85], "note": "картина над диваном (покупка)"},
-            {"id": "wall_patch", "kind": "wall", "wall": "L", "at": [1.7, 2.1], "h": [1.0, 1.55], "note": "цель living_wall: сырое пятно/порванные обои"},
+            {"id": "wall_patch", "kind": "wall", "wall": "L", "at": [1.42, 1.82], "h": [0.95, 1.4], "note": "цель living_wall: сырое пятно/порванные обои (не за торшером)"},
             {"id": "window", "kind": "wall", "wall": "R", "at": [0.35, 1.3], "h": [0.85, 2.15], "note": "НОВОЕ окно на правой стене"},
             {"id": "tv", "kind": "floor", "L": [0.0, 0.55], "R": [1.4, 1.98], "h": [0.0, 1.05], "note": "цель living_tv: тумба 0,5 + телевизор, повёрнут к дивану (экран смотрит по диагонали на зрителя)"},
             {"id": "coffee_table", "kind": "floor", "L": [1.05, 1.6], "R": [1.05, 1.5], "h": [0.0, 0.45], "note": "столик перед диваном (цветок — покупка)"},
             {"id": "carpet", "fill": True, "kind": "floor", "L": [0.95, 1.95], "R": [0.95, 1.75], "h": [0.0, 0.01], "note": "НОВОЕ: ковёр под столиком"},
-            {"id": "plant", "fill": True, "kind": "floor", "L": [0.05, 0.35], "R": [0.45, 0.72], "h": [0.0, 0.95], "note": "НОВОЕ: растение в кадке под окном"},
+            {"id": "plant", "fill": True, "kind": "floor", "L": [0.05, 0.35], "R": [0.95, 1.22], "h": [0.0, 0.95], "note": "НОВОЕ: растение в кадке под окном (не перед шкафом)"},
             {"id": "lamp", "kind": "hang", "L": [1.05, 1.55], "R": [1.05, 1.55], "h": [2.2, 2.6], "note": "цель living_lamp: люстра"},
             {"id": "floor_patch", "kind": "floor", "L": [1.6, 2.1], "R": [1.4, 1.85], "h": [0.0, 0.01], "note": "цель living_floor: вздувшийся паркет"},
             {"id": "mother", "kind": "person", "L": 1.6, "R": 0.45, "size": [0.55, 1.25], "note": "мама сидит на диване у торшера с книгой (сидя 1,25)"},
@@ -269,6 +269,78 @@ def near_z(room, it):
     return min(project(room, L, R, 0.0)[1] for L in (L0, L1) for R in (R0, R1))
 
 
+def floor_box(it):
+    """След на полу прямоугольником (L0, L1, R0, R1); у фигуры — около ступней, у настенного — у стены."""
+    if it["kind"] == "person":
+        d = 0.18
+        return it["L"] - d, it["L"] + d, it["R"] - d, it["R"] + d
+    if it["kind"] == "wall":
+        a0, a1 = it["at"]
+        d = it.get("depth", 0.03)
+        return (a0, a1, 0.0, d) if it["wall"] == "L" else (0.0, d, a0, a1)
+    return it["L"][0], it["L"][1], it["R"][0], it["R"][1]
+
+
+def _on(a, b):
+    """a стоит на b (лампа на тумбочке): низ a на высоте верха b, след a внутри следа b."""
+    if a["kind"] != "floor" or b["kind"] != "floor" or a["h"][0] <= 0.05 or abs(b["h"][1] - a["h"][0]) > 0.03:
+        return False
+    al0, al1, ar0, ar1 = floor_box(a)
+    bl0, bl1, br0, br1 = floor_box(b)
+    return bl0 <= al0 and al1 <= bl1 and br0 <= ar0 and ar1 <= br1
+
+
+def _sits(a, b):
+    """Фигура a сидит на b или стоит внутри его следа (мама на диване, Вита на стуле) — она впереди."""
+    if a["kind"] != "person" or b["kind"] != "floor":
+        return False
+    bl0, bl1, br0, br1 = floor_box(b)
+    return bl0 <= a["L"] <= bl1 and br0 <= a["R"] <= br1
+
+
+def in_front(a, b):
+    """a ближе к зрителю, чем b: камера смотрит в угол по диагонали, поэтому впереди то, что целиком
+    дальше от правой стены (L) или целиком дальше от левой (R). Длинная ванна вдоль стены не
+    «ближе» девочки, стоящей перед её серединой, хотя дальний конец ванны ближе к камере."""
+    if _on(a, b) or _sits(a, b):
+        return True
+    if _on(b, a) or _sits(b, a):
+        return False
+    al0, al1, ar0, ar1 = floor_box(a)
+    bl0, bl1, br0, br1 = floor_box(b)
+    return al0 >= bl1 - 0.01 or ar0 >= br1 - 0.01
+
+
+def _overlap(r1, r2):
+    return r1[0] < r2[0] + r2[2] and r2[0] < r1[0] + r1[2] and r1[1] < r2[1] + r2[3] and r2[1] < r1[1] + r1[3]
+
+
+def depth_order(room, items):
+    """Порядок рисования от дальнего к ближнему: из пар, перекрывающихся на экране, впереди та вещь,
+    что in_front; спорные и не перекрывающиеся — по ближней точке основания."""
+    rects = {id(it): rect(room, it) for it in items}
+    after = {id(it): set() for it in items}   # кого надо нарисовать раньше
+    for a in items:
+        for b in items:
+            if a is b or not _overlap(rects[id(a)], rects[id(b)]):
+                continue
+            fa, fb = in_front(a, b), in_front(b, a)
+            if fa and not fb:
+                after[id(a)].add(id(b))
+            elif fa == fb and near_z(room, a) < near_z(room, b):
+                after[id(a)].add(id(b))
+    left = sorted(items, key=lambda it: -near_z(room, it))
+    out = []
+    while left:
+        done = {id(it) for it in out}
+        nxt = next((it for it in left if after[id(it)] <= done), None)
+        if nxt is None:
+            nxt = left[0]   # круг из спорных пар — берём самое дальнее
+        out.append(nxt)
+        left.remove(nxt)
+    return out
+
+
 def apply(name, path="data/act1.json"):
     """Прямоугольники, z по глубине и тени комнаты — в act1.json (ключ "act" у предмета плана).
     z: настенное и лежащее на полу — самые дальние; остальное по глубине; у маленькой комнаты
@@ -284,8 +356,11 @@ def apply(name, path="data/act1.json"):
             d["rect"] = rect(room, it)
     items = [it for it in items if not it["act"].startswith("decor:")]
     pair = next((it for it in items if it["act"] == "family"), None)
-    pair_z = near_z(room, pair) if pair else -1.0
-    order = sorted([it for it in items if it["act"] != "family"], key=lambda it: -near_z(room, it))
+    def flat(it):
+        return it["kind"] == "wall" or (it["kind"] != "person" and it["h"][1] <= 0.02)
+    ranked = depth_order(room, [it for it in items if not flat(it)])
+    pair_at = ranked.index(pair) if pair else len(ranked)
+    order = [it for it in items if flat(it)] + [it for it in ranked if it is not pair]
     back, front = 0, 0
     objs = {}
     for it in order:
@@ -294,7 +369,7 @@ def apply(name, path="data/act1.json"):
         if flat:
             # на стене — сразу за фоном; на полу: коврики 0,05, повреждения пола поверх них 0,06
             z = 0.02 if it["kind"] == "wall" else (0.06 if it["act"].startswith("target:") else 0.05)
-        elif pair and near_z(room, it) < pair_z:
+        elif ranked.index(it) > pair_at:
             front += 1
             z = 2.0 + front * 0.01
         else:
