@@ -38,21 +38,27 @@ static func run() -> bool:
 	Profile.set_flag("seen.room")
 	tree.root.add_child(hub)
 	hub.open({"location": "room"})
-	# Repaired furniture keeps replay; props/family no longer offer dialogue activities.
+	# Repaired furniture keeps replay; extra markers require actual animations.
 	var repaired := Profile.flag("home.room_window")
 	Profile.set_flag("home.room_window")
 	var marks: Array = hub._mark_list()
 	Profile.set_flag("home.room_window", repaired)
 	var replay_found := false
-	var repair_only: bool = marks.size() == Home.location("room")["targets"].size()
+	var valid_marks: bool = marks.size() == Home.location("room")["targets"].size() + 2
+	var activities = load("res://scripts/core/activities.gd")
 	for mark: Dictionary in marks:
 		var callback: Callable = mark["do"]
-		replay_found = replay_found or callback.get_method() == &"_offer_replay"
-		repair_only = repair_only and callback.get_method() in [&"_open_repair", &"_offer_replay"]
-	if not repair_only or not replay_found:
+		var method := callback.get_method()
+		valid_marks = valid_marks and method in [&"_open_repair", &"_offer_actions"]
+		if method == &"_offer_actions":
+			var args := callback.get_bound_arguments()
+			var key := str(args[0])
+			replay_found = replay_found or (key == "room_window" and Game.has_level(str(args[2])))
+			valid_marks = valid_marks and (Game.has_level(str(args[2])) or activities.has_animation(key))
+	if not valid_marks or not replay_found:
 		hub.queue_free()
 		Profile.set_flag("seen.room", seen)
-		push_error("Hub offers dialogue activities or lost repaired item replay")
+		push_error("Hub offers an unanimated activity or lost repaired item replay")
 		return false
 	hub._say_lines([["mother", "Interrupted"], ["daughter", "Must not run"]])
 	var bubble: Node = hub._bubbles["mother"]
@@ -85,5 +91,5 @@ static func run() -> bool:
 			return false
 	# A delayed FX callback must not run against the freed repair scene.
 	await tree.create_timer(0.6).timeout
-	print("DIALOGUE EXIT CHECK OK (line, choice, card, fade, hub, repair delay/animation, repair-only marks and replay)")
+	print("DIALOGUE EXIT CHECK OK (line, choice, card, fade, hub, repair delay/animation, animated marks and replay)")
 	return true

@@ -24,6 +24,8 @@ func _run() -> void:
 	view.setup(home.location("room").duplicate(true), Vector2(scene[0], scene[1]))
 	root.add_child(view)
 	var count := 0
+	assert(activities.available("room/room_chest").is_empty(), "Archived dialogue must not appear as a playable action")
+	assert(activities.available("room_bed").size() == 2)
 	for key: String in activities.all():
 		for i in activities.all()[key]["acts"].size():
 			var clip: Dictionary = activities.animation(key, i)
