@@ -44,6 +44,12 @@ static func export_scene(scene_path: String) -> String:
 			"z": sp.z_index / 100.0,
 			"flip": sp.flip_h != (sp.scale.x < 0.0),
 		}
+		var approach := sp.get_node_or_null("Подход") as Marker2D
+		if approach:
+			var local := approach.position / sp.texture.get_size()
+			if sp.flip_h:
+				local.x = -local.x
+			entry["approach"] = [local.x + 0.5, local.y + 0.5]
 		# вид «спиной» (картинка *_back.png, подставлена в редакторе): игра берёт такие же для
 		# сломанного и починенного состояния
 		if sp.texture.resource_path.get_basename().ends_with("_back"):

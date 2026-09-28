@@ -61,7 +61,7 @@ def build(loc):
             ext.append(path)
         return 'ExtResource("%d")' % (ext.index(path) + 1)
 
-    def sprite(name, path, rect, z, flip, kind, key, rot=None, draw=None):
+    def sprite(name, path, rect, z, flip, kind, key, rot=None, draw=None, approach=None):
         size = png_size("res://" + path)
         if size is None:
             return
@@ -84,6 +84,10 @@ def build(loc):
             lines.append("flip_h = true")
         lines += ['metadata/kind = "%s"' % kind, 'metadata/key = "%s"' % key]
         nodes.append("\n".join(lines))
+        if approach is not None:
+            px = (approach[0] - 0.5) * tw * (-1 if flip else 1)
+            py = (approach[1] - 0.5) * th
+            nodes.append('[node name="Подход" type="Marker2D" parent="%s"]\nposition = Vector2(%g, %g)\ngizmo_extents = 35.0' % (name, px, py))
 
     bg = ART + "%s/background.png" % loc["id"]
     size = png_size("res://" + bg)
@@ -96,11 +100,11 @@ def build(loc):
         path = ART + "%s/%s_broken.png" % (loc["id"], name)
         if png_size("res://" + path) is None:
             path = ART + "%s/%s_fixed.png" % (loc["id"], name)
-        sprite(name, path, t["rect"], t.get("z", 0), t.get("flip", False), "target", name, t.get("rot"), t.get("draw"))
+        sprite(name, path, t["rect"], t.get("z", 0), t.get("flip", False), "target", name, t.get("rot"), t.get("draw"), t.get("approach"))
     for pr in loc.get("props", []):
         name = pr["img"].replace("/", "__")
         sprite(name, ART + pr["img"] + ".png", pr["rect"], pr.get("z", 0), pr.get("flip", False), "prop", pr["img"],
-               pr.get("rot"), pr.get("draw"))
+               pr.get("rot"), pr.get("draw"), pr.get("approach"))
     if "family" in loc:
         f = loc["family"]
         size = png_size("res://" + ART + "family/family_mood0.png")
