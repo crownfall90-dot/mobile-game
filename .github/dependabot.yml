@@ -1,0 +1,8 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: claude/project-thread-x4ht8m
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
