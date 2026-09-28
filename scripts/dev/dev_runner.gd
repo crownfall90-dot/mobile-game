@@ -13,6 +13,7 @@ extends Node
 ##   --jitter=<seed>       ±1 px к каждому телу и ±15% к паузам из этого seed; 0 — выкл.
 ##   --mods=golden         «Золотая лихорадка»: золото становится самоцветами
 ##   --json                напечатать итог строкой RESULT_JSON {...}
+##   --layout-export=<res-путь .tscn>  сохранить расстановку сцены комнаты в data/layout/<id>.json
 ##   --screen=<имя>        открыть экран или попап Router с аргументами по умолчанию
 ##                         (или --screen-args=ключ:значение,…, например repaired:room_wall);
 ##                         без окна и без --shot — выйти через 30 кадров: RESULT: SCREEN <имя> ok|FAIL
@@ -62,6 +63,11 @@ func run(flags: Dictionary) -> void:
 	_flags = flags
 	if flags.get("home_selfcheck", false):
 		load("res://tools/test_home.gd").run()
+		return
+	if flags.has("layout-export"):
+		# сцена комнаты → data/layout/<id>.json, как Ctrl+S в редакторе с плагином Vita
+		print("LAYOUT: ", load("res://scripts/dev/layout_export.gd").export_scene(str(flags["layout-export"])))
+		get_tree().quit()
 		return
 	_start_ms = Time.get_ticks_msec()
 	var profile := get_node_or_null(^"/root/Profile")

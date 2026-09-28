@@ -20,7 +20,8 @@ const SHOP := [
 
 
 ## Расстановка, сохранённая из сцены комнаты в редакторе (scenes/locations/<id>.tscn → Ctrl+S
-## → data/layout/<id>.json): rect, z, отражение и поворот предметов и место семьи поверх act1.json.
+## → data/layout/<id>.json): rect, z, отражение и поворот предметов, место и отражение семьи,
+## rect купленного декора — поверх act1.json. Тени-следы на полу переезжают вместе с вещью.
 static func _apply_layout(loc: Dictionary) -> void:
 	var path := "res://data/layout/%s.json" % loc["id"]
 	if not FileAccess.file_exists(path):
@@ -31,12 +32,46 @@ static func _apply_layout(loc: Dictionary) -> void:
 	for t: Dictionary in loc.get("targets", []):
 		var o: Dictionary = lay.get("targets", {}).get(str(t["id"]), {})
 		if not o.is_empty():
+			_move_shadow(t, o)
 			t.merge(o, true)
 			t.erase("more")
 	for pr: Dictionary in loc.get("props", []):
-		pr.merge(lay.get("props", {}).get(str(pr["img"]), {}), true)
+		var o: Dictionary = lay.get("props", {}).get(str(pr["img"]), {})
+		_move_shadow(pr, o)
+		pr.merge(o, true)
+	for d: Dictionary in loc.get("decor", []):
+		d.merge(lay.get("decor", {}).get(str(d["id"]), {}), true)
 	if lay.has("family") and loc.has("family"):
-		loc["family"] = lay["family"]
+		var fam: Dictionary = loc["family"]
+		var o: Dictionary = lay["family"]
+		if fam.has("shadow") and o.has("pos"):
+			var h0 := float(fam.get("height", 560.0))
+			var p0: Array = fam.get("pos", [360, 1300])
+			fam["shadow"] = moved_poly(fam["shadow"], Vector2(p0[0], p0[1]), Vector2(o["pos"][0], o["pos"][1]),
+				float(o.get("height", h0)) / h0, bool(o.get("flip", false)) != bool(fam.get("flip", false)))
+		fam.merge(o, true)
+
+
+## Тень-след переезжает вместе с вещью: от середины низа старого rect к середине низа нового,
+## с тем же масштабом; отражённая вещь — отражённый след.
+static func _move_shadow(item: Dictionary, o: Dictionary) -> void:
+	if not item.has("shadow") or not o.has("rect"):
+		return
+	var r0: Array = item["rect"]
+	var r1: Array = o["rect"]
+	item["shadow"] = moved_poly(item["shadow"], Vector2(r0[0] + r0[2] * 0.5, r0[1] + r0[3]),
+		Vector2(r1[0] + r1[2] * 0.5, r1[1] + r1[3]), float(r1[3]) / maxf(1.0, float(r0[3])),
+		bool(o.get("flip", item.get("flip", false))) != bool(item.get("flip", false)))
+
+
+static func moved_poly(poly: Array, from: Vector2, to: Vector2, k: float, mirror: bool) -> Array:
+	var out: Array = []
+	for p: Array in poly:
+		var d := (Vector2(p[0], p[1]) - from) * k
+		if mirror:
+			d.x = -d.x
+		out.append([roundi(to.x + d.x), roundi(to.y + d.y)])
+	return out
 
 
 static func data() -> Dictionary:

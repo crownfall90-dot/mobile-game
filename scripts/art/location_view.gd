@@ -185,7 +185,7 @@ func family_at(p: Vector2) -> bool:
 func family_mark() -> Vector2:
 	if _family.visible and _family.texture:
 		var r := Rect2(_family.position, _family.texture.get_size() * _family.scale)
-		return r.position + r.size * Vector2(0.4, 0.62)
+		return r.position + r.size * Vector2(0.6 if _family.flip_h else 0.4, 0.62)
 	for pr: Dictionary in loc.get("props", []):
 		if str(pr.get("img", "")).begins_with("family/mother"):
 			return _rect(pr).position + _rect(pr).size * Vector2(0.5, 0.6)
@@ -294,12 +294,14 @@ func _draw() -> void:
 			var foot := Vector2(r.get_center().x, r.end.y)
 			r.position -= foot
 			var tex: Texture2D = _tex.get("decor_" + str(d["id"]))
+			# отражение из редактора сцен — масштабом -1 по x вокруг середины низа
+			var turn := Vector2(-1, 1) if bool(d.get("flip", false)) else Vector2.ONE
 			if tex:
-				draw_set_transform(foot, sway, Vector2.ONE)
+				draw_set_transform(foot, sway, turn)
 				_fit(tex, r)
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			else:
-				HomeArt.draw_decor(self, d["id"], r, Transform2D(sway, foot))
+				HomeArt.draw_decor(self, d["id"], r, Transform2D(sway, foot) * Transform2D.IDENTITY.scaled(turn))
 
 
 ## После «Праздника новоселья» — флажки-гирлянда под потолком, чуть колышутся.
@@ -396,7 +398,11 @@ func _draw_teddy(ci: Node2D) -> void:
 	var r := Rect2()
 	if _family.visible and _family.texture:
 		var ts := _family.texture.get_size() * _family.scale
-		r = Rect2(_family.position + TEDDY_ON_PAIR.position * ts, TEDDY_ON_PAIR.size * ts)
+		var at := TEDDY_ON_PAIR.position
+		if _family.flip_h:
+			# пара отражена в редакторе сцены — дочка и её свободная рука с другой стороны
+			at.x = 1.0 - at.x - TEDDY_ON_PAIR.size.x
+		r = Rect2(_family.position + at * ts, TEDDY_ON_PAIR.size * ts)
 	elif loc.has("teddy"):
 		var v: Array = loc["teddy"]
 		r = Rect2(v[0], v[1], v[2], v[3])
@@ -666,6 +672,7 @@ func _update_family() -> void:
 		if tex == null:
 			tex = load(OLD_FAMILY[mood])
 	_family.texture = tex
+	_family.flip_h = bool(fam.get("flip", false))
 	var h: float = fam.get("height", 560.0)
 	var k := h / tex.get_height()
 	_family.scale = Vector2(k, k)
@@ -714,6 +721,8 @@ func speaker_point(who: String) -> Vector2:
 		var sz := _family.texture.get_size() * _family.scale
 		# на картинке пары мама слева (голова ~38 % ширины), дочка справа ниже (~72 %, ~40 % высоты)
 		var at := Vector2(0.38, 0.07) if who == "mother" else Vector2(0.72, 0.40)
+		if _family.flip_h:
+			at.x = 1.0 - at.x
 		return _family.position + sz * at
 	return Vector2(size.x * 0.5, size.y * 0.5)
 
