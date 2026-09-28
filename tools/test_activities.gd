@@ -5,7 +5,7 @@ extends RefCounted
 ## новелла находит каждую сценку.
 
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
-const SPEAKERS := ["mother", "daughter", "gloom"]
+const SPEAKERS := ["mother", "daughter"]
 const LABEL_MAX := 24
 
 

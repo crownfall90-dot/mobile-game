@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gtf56gyb5hhn"
-path.s3tc="res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.s3tc.ctex"
-path.etc2="res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.etc2.ctex"
+uid="uid://f8ubgeb6v1ko"
+path.s3tc="res://.godot/imported/room_blocks.png-c78b04f987ec89cb503d71923cf7340f.s3tc.ctex"
+path.etc2="res://.godot/imported/room_blocks.png-c78b04f987ec89cb503d71923cf7340f.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://art/act1/story/gloom_grey.png"
-dest_files=["res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.s3tc.ctex", "res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.etc2.ctex"]
+source_file="res://art/act1/room/room_blocks.png"
+dest_files=["res://.godot/imported/room_blocks.png-c78b04f987ec89cb503d71923cf7340f.s3tc.ctex", "res://.godot/imported/room_blocks.png-c78b04f987ec89cb503d71923cf7340f.etc2.ctex"]
 
 [params]
 

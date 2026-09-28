@@ -1,33 +1,31 @@
 extends Control
 ## Сюжет в стиле визуальной новеллы: фон (комната квартиры или ночная улица), большие фигуры
-## семьи и Хмури, окно диалога с именем говорящего, текст печатается по буквам. Тап — допечатать
+## семьи, окно диалога с именем говорящего, текст печатается по буквам. Тап — допечатать
 ## строку или дальше; выбор ответа — кнопками; карточки письма и фото — поверх сцены.
 ## Сценарий: data/novel.json {"names": {...}, "scenes": {id: [шаг, ...]}}. Шаги:
 ##   {"bg": "<id локации>" | "night" | "story:<имя>", "tint": "dim"|"night"|"warm", "rain": bool,
 ##    "state": "broken"|"fixed"}   (state — комната как в тот момент, для повтора из альбома)
 ##   (не локация — картинка art/act1/story/<имя>.png; ночь без картинки рисует код)
-##   {"show": ["family", "gloom"]}                 кто на сцене
-##   {"say": "mother"|"daughter"|"gloom", "text": "…", "mood": "sad|calm|surprised|smile|happy"}
+##   {"show": ["family"]}                          кто на сцене
+##   {"say": "mother"|"daughter", "text": "…", "mood": "sad|calm|surprised|smile|happy"}
 ##   {"text": "…"}                                  слова рассказчика
 ##   {"choice": [{"text": "…", "then": [шаги]}, …]} ответ на выбор, потом сцена идёт дальше
 ##   {"cg": "letter", "text": "…"} | {"cg": "photo", "piece": 1..4} | {"hide": "cg"}
-##   {"gloom": {"amount": 0..1, "friendly": bool}}
 ##   {"scene": "<id>"}                              продолжить другой сценой
 ## Открытие: Router.go(&"novel", {"scene": id, "next": {"screen": "hub", "args": {...}}}).
 ## Картинки художника подхватываются сами: art/act1/story/<имя>.png (фоны "story:", letter,
-## photo_full), Хмурь — через gloom.gd. Пока их нет — рисует код.
+## photo_full). Пока их нет — рисует код.
 ## Для проверок: "auto" — всё листается само (выбор — первый), "step": N — начать с N-го шага.
 
 signal _advance
 signal _chosen(i: int)
 
-const GLOOM := preload("res://scripts/art/gloom.gd")
 const PHOTO := preload("res://scripts/ui/photo_card.gd")
 const DATA := "res://data/novel.json"
 const ART := "res://art/act1/"
 const CPS := 40.0                 # букв в секунду
 const MOODS := {"sad": 0, "calm": 1, "surprised": 1, "smile": 2, "happy": 3}
-const NAME_COLORS := {"mother": Color("8e3b46"), "daughter": Color("3d6fb6"), "gloom": Color("6f7684")}
+const NAME_COLORS := {"mother": Color("8e3b46"), "daughter": Color("3d6fb6")}
 const PAPER := Color("fffaf0")
 const INK := Color("4a3226")
 const EDGE := Color("6b4a33")
@@ -48,7 +46,7 @@ var _skipping := false
 var _typing := false
 var _shown := 0.0
 var _mood := 1                    # настроение пары мама+дочка 0..3 (картинки family_mood*)
-var _on_stage := {}               # "family" / "gloom" -> true
+var _on_stage := {}               # "family" -> true
 var _u := 1.0                     # масштаб интерфейса: 720 px дизайна по меньшей стороне
 var _h := 1280.0                  # высота экрана в единицах дизайна
 
@@ -62,7 +60,6 @@ var _rain: Node2D
 var _ui: Control
 var _cast: Node2D
 var _family: Sprite2D
-var _gloom: Node2D
 var _box: Panel
 var _plate: PanelContainer
 var _name: Label
@@ -132,12 +129,6 @@ func _build_ui() -> void:
 		teddy.centered = false
 		teddy.texture = load(LocationView.TEDDY)
 		_family.add_child(teddy)
-	_gloom = GLOOM.new()
-	# в сценке Хмурь всегда серая: белой она становится только шагом {"gloom": {"friendly": true}}
-	_gloom.setup(Vector2(540, 380), _gloom_default(), false)
-	_gloom.scale = Vector2(1.9, 1.9)
-	_gloom.modulate.a = 0.0
-	_cast.add_child(_gloom)
 	# окно диалога: бумага с рамкой, табличка с именем на верхнем краю
 	_box = Panel.new()
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -200,13 +191,13 @@ func _layout() -> void:
 	_skip.position = Vector2(w - _skip.size.x - 16, top + 16)
 	_choices.size = Vector2(560, 0)
 	_choices.position = Vector2((w - 560) * 0.5, _box.position.y - 40 - _choices.get_combined_minimum_size().y)
-	# семья слева стоит «за» окном диалога, Хмурь — справа повыше
+	# семья по центру стоит «за» окном диалога
 	var tex := _family.texture
 	if tex:
 		var fh := minf(_h * 0.54, 780.0)
 		var k := fh / tex.get_height()
 		_family.scale = Vector2(k, k)
-		_family.position = Vector2(w * 0.36 - tex.get_width() * k * 0.5, _box.position.y + 90 - fh)
+		_family.position = Vector2(w * 0.5 - tex.get_width() * k * 0.5, _box.position.y + 90 - fh)
 		_family_x = _family.position.x
 		var teddy := _family.get_node_or_null(^"Teddy") as Sprite2D
 		if teddy:
@@ -215,7 +206,6 @@ func _layout() -> void:
 			var tk := minf(box.size.x / teddy.texture.get_width(), box.size.y / teddy.texture.get_height())
 			teddy.scale = Vector2(tk, tk)
 			teddy.position = box.position + (box.size - teddy.texture.get_size() * tk) * 0.5
-	_gloom.position = Vector2(w * 0.74, _box.position.y - _h * 0.42)
 	if _card:
 		_card.position = Vector2((w - _card.size.x) * 0.5, maxf(top + 110, _box.position.y - 60 - _card.size.y))
 
@@ -285,8 +275,6 @@ func _step(st: Dictionary) -> void:
 		return
 	if st.has("show"):
 		_show(st["show"])
-	if st.has("gloom"):
-		_set_gloom(st["gloom"])
 	if st.has("hide"):
 		_hide_card()
 	if st.has("cg"):
@@ -309,8 +297,6 @@ func _apply_quiet(st: Dictionary) -> void:
 		_make_bg(st)
 	if st.has("show"):
 		_show(st["show"], true)
-	if st.has("gloom"):
-		_set_gloom(st["gloom"])
 	if st.has("mood") and str(st.get("say", "")) in ["mother", "daughter"]:
 		_set_mood(str(st["mood"]))
 
@@ -338,8 +324,6 @@ func _line(who: String, text: String, mood: String) -> void:
 	_text.visible_characters = 0
 	_more.visible = false
 	_typing = true
-	if who == "gloom":
-		_gloom.call(&"talk")
 	if _auto:
 		_end_typing()
 		await get_tree().process_frame
@@ -489,24 +473,19 @@ func _fit_bg() -> void:
 # --- герои -------------------------------------------------------------------
 
 func _show(who: Array, quiet := false) -> void:
-	var want := {}
-	for w in who:
-		want[str(w)] = true
-	for key: String in ["family", "gloom"]:
-		var node: CanvasItem = _family if key == "family" else _gloom
-		var on := want.has(key)
-		if on == _on_stage.has(key):
-			continue
-		if on:
-			_on_stage[key] = true
-		else:
-			_on_stage.erase(key)
-		if key == "family" and on:
-			_set_mood_index(_mood)
-		if quiet or _auto:
-			node.modulate.a = 1.0 if on else 0.0
-		else:
-			create_tween().tween_property(node, "modulate:a", 1.0 if on else 0.0, 0.4)
+	# в старых сохранённых сценах мог быть кто-то ещё — показываем только семью
+	var on := "family" in who.map(func(w): return str(w))
+	if on == _on_stage.has("family"):
+		return
+	if on:
+		_on_stage["family"] = true
+		_set_mood_index(_mood)
+	else:
+		_on_stage.erase("family")
+	if quiet or _auto:
+		_family.modulate.a = 1.0 if on else 0.0
+	else:
+		create_tween().tween_property(_family, "modulate:a", 1.0 if on else 0.0, 0.4)
 
 
 func _set_mood(mood: String) -> void:
@@ -531,34 +510,16 @@ func _set_mood_index(m: int) -> void:
 	_layout()
 
 
-## Говорящий ярче и подпрыгивает, остальные чуть в тени.
+## Говорящий ярче и подпрыгивает; пока говорит рассказчик — все в полный свет.
 func _focus(who: String) -> void:
 	var fam := who in ["mother", "daughter"]
 	var dim := Color(0.62, 0.62, 0.7)
 	_family.self_modulate = Color.WHITE if fam or who == "" else dim
-	_gloom.self_modulate = Color.WHITE if who == "gloom" or who == "" else dim
 	if fam and _on_stage.has("family") and not _auto:
 		var y := _family.position.y
 		var tw := create_tween()
 		tw.tween_property(_family, "position:y", y - 14.0, 0.1).set_ease(Tween.EASE_OUT)
 		tw.tween_property(_family, "position:y", y, 0.16).set_ease(Tween.EASE_IN)
-
-
-func _gloom_default() -> float:
-	return clampf(1.0 - float(Home.completed()) / maxf(1.0, Home.total()), 0.3, 1.0)
-
-
-func _set_gloom(g: Dictionary) -> void:
-	if g.has("amount"):
-		_gloom.set(&"amount", float(g["amount"]))
-	if bool(g.get("friendly", false)) and not bool(_gloom.get(&"friendly")):
-		_gloom.call(&"befriend")
-		if not _auto:
-			var fx := Fx.new()
-			_ui.add_child(fx)
-			fx.burst(_gloom.position, Color("fff4c8"), 36, 320, 6, 200, 1.2)
-			fx.ring(_gloom.position, Color("fff4c8"), 150.0, 0.6)
-			Sfx.play(&"restore")
 
 
 # --- выбор -------------------------------------------------------------------

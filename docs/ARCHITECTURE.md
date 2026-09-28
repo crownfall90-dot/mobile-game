@@ -159,7 +159,7 @@ flowchart TD
 | `props[]` | Отдельные PNG: `img` от `art/act1/` без `.png`, `rect`, `z`, опционально `flip` |
 | `family` | Общая пара: `pos` — центр нижнего края изображения, `height` — высота |
 | `decor` | Размещение покупок в поддерживаемых комнатах |
-| `gloom`, `lines`, `teddy` | Хмурь, реплики, резервное размещение мишки |
+| `lines`, `teddy` | Реплики, резервное размещение мишки |
 
 `LocationView.setup()` читает `art/act1/<location>/background.png` и
 `<target_id>_broken.png` / `<target_id>_fixed.png`. `Assets` лишь подгружает ресурсы;

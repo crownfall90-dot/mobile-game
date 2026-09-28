@@ -1,6 +1,6 @@
 extends Control
 ## Загрузка: сверху название с лентой, по центру радостные мама и Вита, снизу прогресс и
-## сменяющиеся подсказки (без ленты и без Хмури — решение владельца); когда всё готово — искры, и первый запуск
+## сменяющиеся подсказки (без ленты — решение владельца); когда всё готово — искры, и первый запуск
 ## ведёт в пролог-новеллу. Варианты оформления (VARIANT или args.variant):
 ##   room  — уютная комната (фон локации или art/act1/ui/loading_bg.png), луч с пылинками, полоса;
 ##   house — ночь, звёзды, домик: по ходу загрузки в окнах по одному зажигается свет;
@@ -13,7 +13,6 @@ extends Control
 ##   spread — раскрытый альбом: фото с уголками, подписи, сердечки на страницах;
 ##   plan  — синий чертёж: по ходу загрузки белыми линиями рисуется домик.
 
-const GLOOM := preload("res://scripts/art/gloom.gd")
 const BG_OWN := "res://art/act1/ui/loading_bg.png"
 const BG := "res://art/act1/room/background.png"
 const FAMILY := "res://art/act1/family/family_mood3.png"
@@ -44,7 +43,6 @@ var _light: Control
 var _family: TextureRect
 var _bar: LoadBar
 var _tip: Label
-var _gloom: Node2D
 var _fx: Fx
 var _elapsed := 0.0
 var _done := false
@@ -139,12 +137,6 @@ func open(args: Dictionary) -> void:
 	_tip.add_theme_constant_override("outline_size", 8)
 	_tip.add_theme_color_override("font_outline_color", Color(0.12, 0.07, 0.05, 0.75))
 	_canvas.add_child(_tip)
-	_gloom = GLOOM.new()
-	_gloom.setup(Vector2.ZERO, 0.8, false)
-	# по решению владельца на загрузке Хмури нет: узел остаётся для кода, но скрыт
-	_gloom.visible = false
-	_gloom.process_mode = Node.PROCESS_MODE_DISABLED
-	_canvas.add_child(_gloom)
 	_fx = Fx.new()
 	_canvas.add_child(_fx)
 	_tip_i = randi() % TIPS.size()
@@ -202,8 +194,6 @@ func _show_progress(v: float) -> void:
 		_art.set(&"progress", v)
 	if _hearts:
 		_hearts.progress = v
-	if _variant == "sky":
-		_gloom.set(&"amount", maxf(0.25, 1.0 - v))
 
 
 func _layout() -> void:
@@ -225,14 +215,12 @@ func _layout() -> void:
 	_bar.position = Vector2(100, h * 0.82 - inset.y)
 	_tip.size = Vector2(620, 80)
 	_tip.position = Vector2(50, h * 0.82 + 50 - inset.y)
-	_gloom.position = Vector2(565, h * 0.33)
 	match _variant:
 		"house":
-			# семья у двери домика, Хмурь над крышей
+			# семья у двери домика
 			fh = minf(h * 0.26, 380.0)
 			_family.size = Vector2(fh * 0.625, fh)
 			_family.position = Vector2(360 - _family.size.x * 0.5 - 150, h * 0.8 - fh)
-			_gloom.position = Vector2(470, h * 0.36)
 			_art.set(&"ground_y", h * 0.8)
 		"book":
 			# на светлой бумаге подсказка тёмная
@@ -248,19 +236,14 @@ func _layout() -> void:
 			_family.position = Vector2(d * 0.5 - _family.size.x * 0.5, d - _family.size.y * 0.9)
 			_hearts.position = Vector2(150, h * 0.3 + d + 30)
 			_tip.position = Vector2(50, h * 0.3 + d + 110)
-			_gloom.position = Vector2(590, h * 0.27)
-		"sky":
-			_gloom.position = Vector2(540, h * 0.3)
 		"door", "plan":
 			fh = minf(h * 0.36, 520.0)
 			_family.size = Vector2(fh * 0.625, fh)
 			_family.position = Vector2(60, h * 0.8 - fh)
-			_gloom.position = Vector2(580, h * 0.3)
 		"album", "story", "spread":
 			fh = minf(h * 0.3, 420.0)
 			_family.size = Vector2(fh * 0.625, fh)
 			_family.position = Vector2(360 - _family.size.x * 0.5, h * 0.8 - fh)
-			_gloom.position = Vector2(590, h * 0.25)
 	_family.set_meta(&"y", _family.position.y)
 
 

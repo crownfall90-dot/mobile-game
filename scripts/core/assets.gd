@@ -98,5 +98,5 @@ static func location_paths(loc_id: String) -> Array:
 ## Что нужно прологу-новелле: комната, семья, Хмурь.
 static func prologue_paths() -> Array:
 	var out := location_paths("room")
-	out.append_array([ART + "story/gloom_grey.png", ART + "story/night.png", ART + "story/letter.png"])
+	out.append_array([ART + "story/night.png", ART + "story/letter.png"])
 	return out
