@@ -44,7 +44,7 @@ static func run() -> bool:
 	var marks: Array = hub._mark_list()
 	Profile.set_flag("home.room_window", repaired)
 	var replay_found := false
-	var valid_marks: bool = marks.size() == Home.location("room")["targets"].size() + 3
+	var valid_marks: bool = marks.size() == Home.location("room")["targets"].size() + 4
 	var activities = load("res://scripts/core/activities.gd")
 	for mark: Dictionary in marks:
 		var callback: Callable = mark["do"]

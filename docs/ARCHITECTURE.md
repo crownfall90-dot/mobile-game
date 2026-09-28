@@ -184,7 +184,7 @@ flowchart TD
 ## Сюжет и сохранение
 
 - `data/novel.json`: `names`, `scenes`, `album`; шаги `bg`, `say/text`, `show`, `choice`, `cg`, `scene`. Контракт — начало `novel_screen.gd`.
-- Диалоговые занятия отключены 28.09: новелла не загружает `act:<ключ>:<n>`. Хаб через `_offer_actions` предлагает только готовые `animation` и повтор ремонта; архивные `scene` не появляются среди занятий. Шесть действий первой комнаты исполняет `scripts/art/activity_player.gd` внутри `LocationView`, с подходом и возвращением персонажа. `Подход` в сцене экспортируется как относительная точка `approach`. `tools/test_activity_animation.gd` проверяет клипы, точки, отмену и реальный callback меню; `tools/test_dialogue.gd` в smoke проверяет маркеры анимаций/повтора и отмену сюжетных ожиданий. Каталог/условия остаются в `data/activities.json`, проверка структуры — `tools/test_activities.gd`.
+- Диалоговые занятия отключены 28.09: новелла не загружает `act:<ключ>:<n>`. Хаб через `_offer_actions` предлагает только готовые `animation` и повтор ремонта; архивные `scene` не появляются среди занятий. Семь действий первой комнаты исполняет `scripts/art/activity_player.gd` внутри `LocationView`, с подходом и возвращением персонажа. `Подход` в сцене экспортируется как относительная точка `approach`. `tools/test_activity_animation.gd` проверяет клипы, точки, отмену и реальный callback меню; `tools/test_dialogue.gd` в smoke проверяет маркеры анимаций/повтора и отмену сюжетных ожиданий. Каталог/условия остаются в `data/activities.json`, проверка структуры — `tools/test_activities.gd`.
 - `LocationView` переиспользуется для комнатных фонов новеллы; `state: broken|fixed` задаёт историческое состояние для повтора из альбома.
 - Флаги: `home.<target_id>` — ремонт; `home.v2` — миграция десяти старых ремонтов; `seen.<location>` — приветствие; `seen.prologue`, `seen.novel.<scene>` — сюжет; `tut.<kind>` — обучение.
 - Четыре части фото зависят от завершения комнат; `scripts/ui/photo_card.gd` собирает изображение. `album_popup.gd.goals()` считает цели; новоселье доступно после **57 звёзд и четырёх покупок**.
@@ -242,8 +242,8 @@ flowchart TD
 Marker2D «Подход»; `activity_point` применяет fit/FlipH/rotation. Проверка:
 `godot --headless --path . --fixed-fps 120 --script res://tools/test_activity_animation.gd`.
 
-- Ящик комода: `drawer` в activity_player использует Polygon2D с UV исходного
-  фасада `room_chest.png`; корпус не заменяется. `panel`/`pull` в activities.json
+- Ящики комода/тумбочки: `drawer` в activity_player использует Polygon2D с UV исходного
+  фасада `room_chest.png` / `room_nightstand.png`; корпус не заменяется. `panel`/`pull` в activities.json
   относительны текстуре; поворот/отражение/подход следуют за вещью. `front_only`
   фильтруется общим Activities.animation, поэтому back-вид не предлагает ложную
   анимацию. Существующие условия ремонта/покупок сохранены.

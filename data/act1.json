@@ -284,6 +284,7 @@
     },
     {
      "img": "room/room_nightstand",
+     "approach": [-0.7, 1.65],
      "rect": [
       247,
       893,

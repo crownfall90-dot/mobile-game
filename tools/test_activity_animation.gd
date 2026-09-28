@@ -24,7 +24,7 @@ func _run() -> void:
 	view.setup(home.location("room").duplicate(true), Vector2(scene[0], scene[1]))
 	root.add_child(view)
 	var count := 0
-	assert(activities.available("room/room_nightstand").is_empty(), "Archived dialogue must not appear as a playable action")
+	assert(activities.available("room/room_shelf_books").is_empty(), "Archived dialogue must not appear as a playable action")
 	assert(activities.available("room_bed").size() == 2)
 	for key: String in activities.all():
 		for i in activities.all()[key]["acts"].size():
@@ -38,15 +38,15 @@ func _run() -> void:
 			assert(not view.activity_hidden)
 			assert(home.completed() == before, "Activities must not grant repair progress")
 			count += 1
-	assert(count == 6)
+	assert(count == 7)
 	assert(view.activity_light and view.activity_curtains == 1.0)
 	# No front drawer is offered when the owner selects a back-view cabinet.
 	for item: Dictionary in home.location("room")["props"]:
-		if item["img"] == "room/room_chest":
+		if item["img"] in ["room/room_chest", "room/room_nightstand"]:
 			var original_view: Variant = item.get("view")
 			item["view"] = "back"
-			assert(activities.available("room/room_chest").is_empty())
-			assert(not activities.has_animation("room/room_chest"))
+			assert(activities.available("room/" + str(item["img"]).get_file()).is_empty())
+			assert(not activities.has_animation("room/" + str(item["img"]).get_file()))
 			if original_view == null:
 				item.erase("view")
 			else:
@@ -72,22 +72,31 @@ func _run() -> void:
 	await player.finished
 	assert(not view.activity_hidden)
 	await process_frame
-	# The drawer facade uses its original texture; the hand follows its pull.
-	player = player_script.new()
-	view.add_child(player)
-	player.run.call_deferred(view, "room/room_chest", activities.animation("room/room_chest", 0))
-	while player.get("phase") != "action":
+	# Both original drawer facades follow their own perspective; check edited transforms.
+	for key in ["room/room_chest", "room/room_nightstand"]:
+		var item: Dictionary = view.activity_item(key)
+		if key.ends_with("room_nightstand"):
+			item["flip"] = true
+			var box: Rect2 = view.activity_rect(item)
+			item["draw"] = [box.get_center().x + 30, box.get_center().y + 15, box.size.x, box.size.y]
+			item["rot"] = 0.18
+		player = player_script.new()
+		view.add_child(player)
+		player.run.call_deferred(view, key, activities.animation(key, 0))
+		while player.get("phase") != "action":
+			await process_frame
+		await create_timer(0.8).timeout
+		var mount: Node2D = player.get_node("Drawer")
+		var face: Polygon2D = mount.get_child(1)
+		assert(face.texture == load("res://art/act1/" + str(item["img"]) + ".png"))
+		assert(mount.position.is_equal_approx(view.activity_rect(item).get_center()))
+		assert(face.position.length() > 1.0, "Drawer must visibly slide")
+		assert((player.get("_actor").position + player.get("hand_offset")).is_equal_approx(
+			player.get("contact") + mount.transform.basis_xform(face.position)), "Hand must follow drawer")
+		player.queue_free()
+		await player.finished
+		assert(not view.activity_hidden)
 		await process_frame
-	await create_timer(0.8).timeout
-	var mount: Node2D = player.get_node("Drawer")
-	var face: Polygon2D = mount.get_child(1)
-	assert(face.texture.get_size() == Vector2(304, 364))
-	assert(face.position.length() > 1.0, "Drawer must visibly slide")
-	assert((player.get("_actor").position + player.get("hand_offset")).is_equal_approx(
-		player.get("contact") + mount.transform.basis_xform(face.position)), "Hand must follow drawer")
-	player.queue_free()
-	await player.finished
-	assert(not view.activity_hidden)
 	view.queue_free()
 	await process_frame
 	await process_frame
@@ -98,7 +107,15 @@ func _run() -> void:
 	while router.is_busy():
 		await process_frame
 	var hub: Node = router.current_screen()
-	hub.call("_offer_actions", "room/room_table_lamp", "", "")
+	var marks: Array = hub.call("_mark_list")
+	assert(marks.size() == 8, "Only repairs/replays and four animated props get markers")
+	var offered := false
+	for mark: Dictionary in marks:
+		var callback: Callable = mark["do"]
+		if callback.get_method() == &"_offer_actions" and callback.get_bound_arguments()[0] == "room/room_nightstand":
+			callback.call()
+			offered = true
+	assert(offered, "Nightstand must have a working round marker")
 	var popup: Node = router.top_popup()
 	assert(popup != null)
 	popup.call("close", 0)
@@ -109,5 +126,6 @@ func _run() -> void:
 		await process_frame
 	assert(hub.get("_marks").visible)
 	assert(home.completed() == before)
-	print("ANIMATED ACTIVITIES: 6 clips, anchors, cancellation, progress and actual menu callback OK")
+	assert(await load("res://tools/test_dialogue.gd").run())
+	print("ANIMATED ACTIVITIES: 7 clips, anchors, cancellation, progress and actual menu callback OK")
 	quit()
