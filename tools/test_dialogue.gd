@@ -38,6 +38,22 @@ static func run() -> bool:
 	Profile.set_flag("seen.room")
 	tree.root.add_child(hub)
 	hub.open({"location": "room"})
+	# Repaired furniture keeps replay; props/family no longer offer dialogue activities.
+	var repaired := Profile.flag("home.room_window")
+	Profile.set_flag("home.room_window")
+	var marks: Array = hub._mark_list()
+	Profile.set_flag("home.room_window", repaired)
+	var replay_found := false
+	var repair_only: bool = marks.size() == Home.location("room")["targets"].size()
+	for mark: Dictionary in marks:
+		var callback: Callable = mark["do"]
+		replay_found = replay_found or callback.get_method() == &"_offer_replay"
+		repair_only = repair_only and callback.get_method() in [&"_open_repair", &"_offer_replay"]
+	if not repair_only or not replay_found:
+		hub.queue_free()
+		Profile.set_flag("seen.room", seen)
+		push_error("Hub offers dialogue activities or lost repaired item replay")
+		return false
 	hub._say_lines([["mother", "Interrupted"], ["daughter", "Must not run"]])
 	var bubble: Node = hub._bubbles["mother"]
 	var was_waiting := not bubble.get_signal_connection_list("finished").is_empty()
@@ -69,5 +85,5 @@ static func run() -> bool:
 			return false
 	# A delayed FX callback must not run against the freed repair scene.
 	await tree.create_timer(0.6).timeout
-	print("DIALOGUE EXIT CHECK OK (line, choice, card, fade, hub, repair delay/animation)")
+	print("DIALOGUE EXIT CHECK OK (line, choice, card, fade, hub, repair delay/animation, repair-only marks and replay)")
 	return true
