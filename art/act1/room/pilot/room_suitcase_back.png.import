@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gtf56gyb5hhn"
-path.s3tc="res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.s3tc.ctex"
-path.etc2="res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.etc2.ctex"
+uid="uid://bskhm1lkq8hxm"
+path.s3tc="res://.godot/imported/room_suitcase_back.png-04098065b2eb011b02b446749f2bea68.s3tc.ctex"
+path.etc2="res://.godot/imported/room_suitcase_back.png-04098065b2eb011b02b446749f2bea68.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://art/act1/story/gloom_grey.png"
-dest_files=["res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.s3tc.ctex", "res://.godot/imported/gloom_grey.png-c1831ba2ae14acf9629f021d3db11305.etc2.ctex"]
+source_file="res://art/act1/room/pilot/room_suitcase_back.png"
+dest_files=["res://.godot/imported/room_suitcase_back.png-04098065b2eb011b02b446749f2bea68.s3tc.ctex", "res://.godot/imported/room_suitcase_back.png-04098065b2eb011b02b446749f2bea68.etc2.ctex"]
 
 [params]
 

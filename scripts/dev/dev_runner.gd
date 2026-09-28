@@ -76,7 +76,7 @@ func run(flags: Dictionary) -> void:
 		for i in mini(int(flags["home-stage"]), Home.total()):
 			Profile.set_flag("home." + Home.tasks()[i]["id"])
 		# как в игре: пролог просмотрен; у готовой локации её сценка просмотрена, после всего
-		# акта — и финальная (Хмурь на хабе — облачко-друг)
+		# акта — и финальная
 		Profile.set_flag("seen.prologue")
 		Profile.set_flag("seen.novel.prologue")
 		for loc: Dictionary in Home.locations():
