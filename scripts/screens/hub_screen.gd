@@ -5,7 +5,6 @@ extends Control
 ## открывает её головоломку. После последнего ремонта локации — радостная сцена и новая локация.
 
 const BUBBLE := preload("res://scripts/ui/speech_bubble.gd")   # не зависит от кэша class_name
-const GLOOM := preload("res://scripts/art/gloom.gd")
 const SIGN := preload("res://scripts/ui/sign_board.gd")
 const ALBUM := preload("res://scripts/popups/album_popup.gd")
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
@@ -36,7 +35,6 @@ var _leaving := false
 var _delay: Timer
 var _hand: TextureRect
 var _bubbles := {}           # кто говорит -> SpeechBubble
-var _gloom: Node2D           # Хмурь под потолком локации
 
 
 func open(args: Dictionary) -> void:
@@ -62,12 +60,6 @@ func open(args: Dictionary) -> void:
 	holder.add_child(_view)
 	if _repair != "":
 		_view.hold_broken(_repair)
-	# Хмурь: чем больше несделанного в локации, тем она больше; после акта — облачко-друг
-	var g: Dictionary = Home.location(_loc_id).get("gloom", {})
-	var gp: Array = g.get("pos", [600, 320])
-	_gloom = GLOOM.new()
-	_gloom.setup(Vector2(gp[0], gp[1]), _gloom_share(_repair), _act_over())
-	holder.add_child(_gloom)
 	_build_ui()
 	# заранее и понемногу — картинки следующей локации (переход туда будет без задержки)
 	var locs := Home.locations()
@@ -188,11 +180,6 @@ func _gui_input(event: InputEvent) -> void:
 	var p: Vector2 = (event.position - _offset) / _k
 	var t := _view.target_at(p)
 	if t.is_empty():
-		# ремонт важнее: Хмурь отвечает, только если под пальцем нет сломанной вещи
-		if _gloom and _gloom.hit(p):
-			accept_event()
-			_gloom_talk()
-			return
 		# мама с дочкой, починенная вещь или предмет в комнате: бытовые сценки (и повтор ремонта)
 		var fam := ACTIVITIES.prop_key(_loc_id, "family")
 		if _view.family_at(p) and not ACTIVITIES.available(fam).is_empty():
@@ -341,7 +328,6 @@ func _play_repair() -> void:
 	await _view.repair_finished
 	if _leaving:
 		return
-	_gloom.set_amount(_gloom_share(""))
 	Sfx.ambience(_view.ambience())
 	# радость: подпрыгнули, искры над головами, «Ура!» и реплика про починенную вещь
 	_view.cheer()
@@ -437,7 +423,7 @@ func _to_screen(p: Vector2) -> Vector2:
 	return _offset + p * _k
 
 
-## Реплика в облачке над головой: mother, daughter или gloom. Прежнее облачко того же героя уходит.
+## Реплика в облачке над головой: mother или daughter. Прежнее облачко того же героя уходит.
 func _say(who: String, line: String, hold := 2.2) -> Node2D:
 	if _bubbles.has(who) and is_instance_valid(_bubbles[who]):
 		# прежнее облачко этого героя уходит; кто его ждал — не зависнет
@@ -445,9 +431,7 @@ func _say(who: String, line: String, hold := 2.2) -> Node2D:
 		_bubbles[who].queue_free()
 	var b: Node2D = BUBBLE.new()
 	add_child(b)
-	var from_gloom := who == "gloom" and _gloom != null
-	b.position = _to_screen(_gloom.speech_point() if from_gloom else _view.speaker_point(who))
-	b.set(&"below", from_gloom)   # Хмурь под потолком: реплика ниже неё, не под панелью сверху
+	b.position = _to_screen(_view.speaker_point(who))
 	var ui_k := minf(size.x / 720.0, size.y / 1280.0)
 	b.call(&"show_line", line, hold, Vector2(16.0, size.x - 16.0), ui_k)
 	_bubbles[who] = b
@@ -464,18 +448,6 @@ func _say_lines(lines: Array) -> void:
 		if _leaving:
 			return
 	_talking = false
-
-
-## Доля несделанных ремонтов локации (только что починенная вещь ещё считается сломанной).
-func _gloom_share(holding: String) -> float:
-	var targets: Array = Home.location(_loc_id).get("targets", [])
-	if targets.is_empty():
-		return 0.0
-	var left := 0
-	for t: Dictionary in targets:
-		if not Home.is_done(t["id"]) or t["id"] == holding:
-			left += 1
-	return float(left) / targets.size()
 
 
 ## Починенная вещь: показать звёзды и предложить сыграть ещё раз (новые звёзды — монеты).
@@ -509,22 +481,6 @@ func _loc_short(loc_id: String) -> String:
 func _loc_title(loc_id: String) -> String:
 	var loc := Home.location(loc_id)
 	return str(loc.get("title", loc.get("name", "Vita")))
-
-
-## Акт пройден и финальная сценка показана: Хмурь — белое облачко-друг.
-func _act_over() -> bool:
-	return Home.completed() >= Home.total() and Profile.flag("seen.novel.act1_end")
-
-
-## Нажали на Хмурь: она вздыхает, семья отвечает; после акта — облачко-друг.
-func _gloom_talk() -> void:
-	if _talking:
-		return
-	_gloom.talk()
-	Sfx.play(&"ui_tap")
-	var lines: Array = Home.data().get("gloom_friend", []) if _act_over() \
-		else Home.location(_loc_id).get("gloom", {}).get("lines", [])
-	await _say_lines(lines)
 
 
 ## Вход в локацию: при первом визите — короткий диалог по сюжету.

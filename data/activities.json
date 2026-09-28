@@ -243,7 +243,7 @@
    {"bg": "bath"}, {"show": ["family"]},
    {"say": "mother", "text": "Светлое — сюда, тёмное — туда. Поможешь?", "mood": "smile"},
    {"say": "daughter", "text": "Мой носочек нашёлся! А второй где?", "mood": "surprised"},
-   {"say": "mother", "text": "Второй, наверное, убежал в гости к Хмурю.", "mood": "happy"}]}]},
+   {"say": "mother", "text": "Второй, наверное, убежал под кровать — поищем вместе.", "mood": "happy"}]}]},
  "living_sofa": {"name": "Диван", "acts": [
   {"label": "Почитать сказку", "scene": [
    {"bg": "living", "tint": "dim"}, {"show": ["family"]},
@@ -286,13 +286,13 @@
  "living/living_drawing": {"name": "Рисунок", "acts": [
   {"label": "Посмотреть рисунок", "scene": [
    {"bg": "living"}, {"show": ["family"]},
-   {"say": "daughter", "text": "Это наш дом. Вот ты, вот я, а вот Хмурь.", "mood": "smile"},
+   {"say": "daughter", "text": "Это наш дом. Вот ты, вот я, а вот прабабушка Вера.", "mood": "smile"},
    {"say": "mother", "text": "Повесим его на стену?", "mood": "smile"},
    {"say": "daughter", "text": "На самое видное место!", "mood": "happy"}]},
   {"label": "Повесить рисунок", "scene": [
    {"bg": "living"}, {"show": ["family"]},
    {"say": "daughter", "text": "Мама, какой рисунок повесим на стену?", "mood": "smile"},
-   {"say": "mother", "text": "Тот, где мы все вместе. И Хмурь тоже.", "mood": "smile"},
+   {"say": "mother", "text": "Тот, где мы все вместе. И прабабушка тоже.", "mood": "smile"},
    {"say": "daughter", "text": "Ура! Теперь он живёт в гостиной.", "mood": "happy"}]}]},
  "living/family": {"name": "Мама и Вита", "acts": [
   {"label": "Потанцевать", "scene": [

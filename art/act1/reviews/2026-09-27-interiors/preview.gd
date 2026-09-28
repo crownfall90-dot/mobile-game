@@ -65,7 +65,6 @@ func _audit(hub, loc: Dictionary) -> void:
      if screen.x < 20 or screen.x > hub.size.x-20 or screen.y < 110 or screen.y > hub.size.y-88: continue
      var hit: Dictionary = view.target_at(p)
      if hit.is_empty():
-      if hub._gloom and hub._gloom.hit(p): continue
       if view.family_at(p): continue
       hit = view.target_at(p, true)
      if hit.is_empty(): hit = view.prop_at(p)
