@@ -22,6 +22,7 @@ const POPUPS := {
 	&"howto": "res://scripts/popups/howto_popup.gd",
 	&"confirm": "res://scripts/popups/confirm_popup.gd",
 	&"activity": "res://scripts/popups/activity_popup.gd",
+	&"feedback": "res://scripts/popups/feedback_popup.gd",
 }
 const POPUP_DIR := "res://scripts/popups/"
 const DEV_RUNNER := "res://scripts/dev/dev_runner.gd"

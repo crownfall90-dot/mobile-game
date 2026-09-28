@@ -1,3 +1,4 @@
 {
- "sentry_dsn": ""
+ "sentry_dsn": "",
+ "feedback_url": ""
 }
