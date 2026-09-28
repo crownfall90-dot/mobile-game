@@ -340,6 +340,7 @@
     },
     {
      "img": "room/room_chest",
+     "approach": [-0.2, 1.65],
      "rect": [
       242,
       813,

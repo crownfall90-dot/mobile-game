@@ -24,7 +24,7 @@ func _run() -> void:
 	view.setup(home.location("room").duplicate(true), Vector2(scene[0], scene[1]))
 	root.add_child(view)
 	var count := 0
-	assert(activities.available("room/room_chest").is_empty(), "Archived dialogue must not appear as a playable action")
+	assert(activities.available("room/room_nightstand").is_empty(), "Archived dialogue must not appear as a playable action")
 	assert(activities.available("room_bed").size() == 2)
 	for key: String in activities.all():
 		for i in activities.all()[key]["acts"].size():
@@ -38,8 +38,19 @@ func _run() -> void:
 			assert(not view.activity_hidden)
 			assert(home.completed() == before, "Activities must not grant repair progress")
 			count += 1
-	assert(count == 5)
+	assert(count == 6)
 	assert(view.activity_light and view.activity_curtains == 1.0)
+	# No front drawer is offered when the owner selects a back-view cabinet.
+	for item: Dictionary in home.location("room")["props"]:
+		if item["img"] == "room/room_chest":
+			var original_view: Variant = item.get("view")
+			item["view"] = "back"
+			assert(activities.available("room/room_chest").is_empty())
+			assert(not activities.has_animation("room/room_chest"))
+			if original_view == null:
+				item.erase("view")
+			else:
+				item["view"] = original_view
 	var lamp: Dictionary = view.activity_item("room/room_table_lamp")
 	var at: Vector2 = view.activity_point(lamp, Vector2(0.25, 0.6))
 	lamp["rect"][0] += 90
@@ -57,6 +68,23 @@ func _run() -> void:
 	player.run.call_deferred(view, "room_bed", activities.animation("room_bed", 0))
 	await create_timer(0.1).timeout
 	assert(view.activity_hidden)
+	player.queue_free()
+	await player.finished
+	assert(not view.activity_hidden)
+	await process_frame
+	# The drawer facade uses its original texture; the hand follows its pull.
+	player = player_script.new()
+	view.add_child(player)
+	player.run.call_deferred(view, "room/room_chest", activities.animation("room/room_chest", 0))
+	while player.get("phase") != "action":
+		await process_frame
+	await create_timer(0.8).timeout
+	var mount: Node2D = player.get_node("Drawer")
+	var face: Polygon2D = mount.get_child(1)
+	assert(face.texture.get_size() == Vector2(304, 364))
+	assert(face.position.length() > 1.0, "Drawer must visibly slide")
+	assert((player.get("_actor").position + player.get("hand_offset")).is_equal_approx(
+		player.get("contact") + mount.transform.basis_xform(face.position)), "Hand must follow drawer")
 	player.queue_free()
 	await player.finished
 	assert(not view.activity_hidden)
@@ -81,5 +109,5 @@ func _run() -> void:
 		await process_frame
 	assert(hub.get("_marks").visible)
 	assert(home.completed() == before)
-	print("ANIMATED ACTIVITIES: 5 clips, anchors, cancellation, progress and actual menu callback OK")
+	print("ANIMATED ACTIVITIES: 6 clips, anchors, cancellation, progress and actual menu callback OK")
 	quit()

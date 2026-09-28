@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer"]
 
 var _view: LocationView
 var _actor: Node2D
@@ -65,7 +65,7 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	await _walk_to(approach)
 	if _complete:
 		return
-	if kind in ["light", "curtains"] and approach.distance_to(stance) > 2.0:
+	if kind in ["light", "curtains", "drawer"] and approach.distance_to(stance) > 2.0:
 		await _walk_to(stance)
 		if _complete:
 			return
@@ -84,6 +84,44 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 			if _complete:
 				return
 			await _pause(0.7)
+		"drawer":
+			# Родной фасад PNG вырезает Polygon2D: корпус/ножки остаются неподвижными.
+			var tex := load(LocationView.ART + str(item["img"]) + ".png") as Texture2D
+			var mount := Node2D.new()
+			mount.name = "Drawer"
+			mount.position = r.get_center()
+			mount.rotation = float(item.get("rot", 0.0))
+			var k := r.size.x / tex.get_width()
+			mount.scale = Vector2(-k if bool(item.get("flip", false)) else k, k)
+			add_child(mount)
+			move_child(mount, 0)
+			var source := PackedVector2Array()
+			var points := PackedVector2Array()
+			for xy: Array in clip["panel"]:
+				var uv := Vector2(xy[0], xy[1]) * tex.get_size()
+				source.append(uv)
+				points.append(uv - tex.get_size() * 0.5)
+			var opening := Polygon2D.new()
+			opening.polygon = points
+			opening.color = Color("35200e")
+			mount.add_child(opening)
+			var face := Polygon2D.new()
+			face.polygon = points
+			face.uv = source
+			face.texture = tex
+			mount.add_child(face)
+			var pull: Array = clip.get("pull", [0.08, 0.04])
+			var shift := Vector2(pull[0], pull[1]) * tex.get_size()
+			var slide := create_tween()
+			slide.tween_property(face, "position", shift, 0.6).set_trans(Tween.TRANS_SINE)
+			slide.parallel().tween_property(_actor, "position", stance + mount.transform.basis_xform(shift), 0.6).set_trans(Tween.TRANS_SINE)
+			slide.tween_interval(1.2)
+			slide.tween_property(face, "position", Vector2.ZERO, 0.6).set_trans(Tween.TRANS_SINE)
+			slide.parallel().tween_property(_actor, "position", stance, 0.6).set_trans(Tween.TRANS_SINE)
+			await _play(slide)
+			if _complete:
+				return
+			mount.queue_free()
 		"jump":
 			var landing := view.activity_point(item, Vector2(0.5, float(clip.get("surface", 0.5))))
 			await _walk_to(landing)

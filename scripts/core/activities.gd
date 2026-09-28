@@ -31,7 +31,7 @@ static func available(key: String) -> Array:
 	var acts: Array = all().get(key, {}).get("acts", [])
 	for i in acts.size():
 		var a: Dictionary = acts[i]
-		if a.get("animation", {}).is_empty():
+		if animation(key, i).is_empty():
 			continue
 		if a.has("after") and not Home.is_done(str(a["after"])):
 			continue
@@ -66,12 +66,18 @@ static func scene_id(key: String, index: int) -> String:
 
 static func animation(key: String, index: int) -> Dictionary:
 	var acts: Array = all().get(key, {}).get("acts", [])
-	return acts[index].get("animation", {}) if index >= 0 and index < acts.size() else {}
+	var clip: Dictionary = acts[index].get("animation", {}) if index >= 0 and index < acts.size() else {}
+	if clip.get("front_only", false):
+		var loc_id := key.get_slice("/", 0)
+		for item: Dictionary in Home.location(loc_id).get("props", []):
+			if prop_key(loc_id, str(item["img"])) == key and item.get("view", "") == "back":
+				return {}
+	return clip
 
 
 static func has_animation(key: String) -> bool:
-	for a: Dictionary in all().get(key, {}).get("acts", []):
-		if not a.get("animation", {}).is_empty():
+	for i in all().get(key, {}).get("acts", []).size():
+		if not animation(key, i).is_empty():
 			return true
 	return false
 

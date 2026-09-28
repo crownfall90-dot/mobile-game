@@ -108,6 +108,10 @@ texture = ExtResource("10")
 metadata/kind = "prop"
 metadata/key = "room/room_chest"
 
+[node name="Подход" type="Marker2D" parent="room__room_chest"]
+position = Vector2(-212.8, 418.6)
+gizmo_extents = 35.0
+
 [node name="room__room_shelf_books" type="Sprite2D" parent="."]
 z_index = 2
 position = Vector2(602.5, 677)
