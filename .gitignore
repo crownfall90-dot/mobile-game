@@ -11,3 +11,5 @@
 *.jks
 .verify_cache/
 __pycache__/
+server/feedback/.wrangler/
+server/feedback/.dev.vars

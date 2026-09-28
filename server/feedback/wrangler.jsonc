@@ -1,0 +1,11 @@
+{
+  "name": "vita-feedback",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-28",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "INBOX", "class_name": "FeedbackInbox" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FeedbackInbox"] }],
+  "ratelimits": [{ "name": "RATE_LIMIT", "namespace_id": "9052801", "simple": { "limit": 10, "period": 60 } }]
+}
