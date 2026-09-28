@@ -58,6 +58,11 @@ var _shiver := 0.0               # сдвиг семьи, когда ей хол
 var _family_x := 0.0
 var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
 var _hop := {}                   # img отдельного слоя -> подскок (радость), px
+var activity_hidden := false
+var activity_light := false
+var activity_light_at := Vector2.ZERO
+var activity_curtains := 0.0
+var _curtains_tex: Texture2D
 
 
 class Front extends Node2D:
@@ -105,6 +110,57 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 	_front.view = self
 	add_child(_front)
 	_update_family()
+	_curtains_tex = _load("room_curtains_closed") if str(loc.get("id")) == "room" else null
+
+
+func activity_item(key: String) -> Dictionary:
+	for item: Dictionary in loc.get("targets", []) + loc.get("props", []):
+		if str(item.get("id", "")) == key or "%s/%s" % [loc["id"], str(item.get("img", "")).get_file()] == key:
+			return item
+	return {}
+
+
+func activity_rect(item: Dictionary) -> Rect2:
+	var dr: Array = item.get("draw", [])
+	if dr.size() == 4:
+		return Rect2(Vector2(dr[0], dr[1]) - Vector2(dr[2], dr[3]) * 0.5, Vector2(dr[2], dr[3]))
+	var tex: Texture2D = _tex.get(str(item["id"]) + "_fixed") if item.has("id") else _tex.get("prop_" + str(item["img"]))
+	return _fit_rect(tex, _rect(item)) if tex else _rect(item)
+
+
+func activity_point(item: Dictionary, at: Vector2) -> Vector2:
+	var r := activity_rect(item)
+	var offset := (at - Vector2(0.5, 0.5)) * r.size
+	if bool(item.get("flip", false)):
+		offset.x = -offset.x
+	return r.get_center() + offset.rotated(float(item.get("rot", 0.0)))
+
+
+func activity_actor(who: String) -> Dictionary:
+	for pr: Dictionary in loc.get("props", []):
+		if str(pr.get("img", "")).begins_with("family/" + who):
+			var r := activity_rect(pr)
+			return {"pos": [r.get_center().x, r.end.y], "height": r.size.y}
+	var fam: Dictionary = loc.get("family", {})
+	var pos: Array = fam.get("pos", [360, 1250])
+	var h := float(fam.get("height", 500))
+	var side := -0.11 if who == "mother" else 0.16
+	if bool(fam.get("flip", false)):
+		side = -side
+	return {"pos": [float(pos[0]) + side * h, pos[1]], "height": h * (1.0 if who == "mother" else 0.62)}
+
+
+func set_activity_hidden(value: bool) -> void:
+	activity_hidden = value
+	_family.visible = loc.has("family") and not value
+	queue_redraw()
+
+
+func play_activity(key: String, clip: Dictionary) -> void:
+	var player := preload("res://scripts/art/activity_player.gd").new()
+	add_child(player)
+	player.run.call_deferred(self, key, clip)
+	await player.finished
 
 
 ## Цель показывается сломанной, пока не сыграна анимация ремонта (после возврата из уровня).
@@ -363,6 +419,9 @@ func paint_front(ci: Node2D) -> void:
 			_draw_fx(t, 1.0 - float(_anim.get(t["id"], 0.0)))
 	_draw_teddy(ci)
 	_canvas = ci
+	if activity_light:
+		for i in 6:
+			ci.draw_circle(activity_light_at, 40.0 + i * 16.0, Color(1.0, 0.82, 0.35, 0.025))
 	_draw_bunting()
 	if show_targets:
 		for t: Dictionary in list:
@@ -393,6 +452,8 @@ func _with_teddy(path: String) -> String:
 
 ## Мишка поверх семьи: у пары — в свободной руке дочки, у отдельных поз — по "teddy" локации.
 func _draw_teddy(ci: Node2D) -> void:
+	if activity_hidden:
+		return
 	if _teddy == null or _teddy_in_art or not Profile.owns("vita_teddy"):
 		return
 	var r := Rect2()
@@ -435,6 +496,8 @@ func _layers() -> Array:
 
 
 func _draw_layer(t: Dictionary) -> void:
+	if activity_hidden and str(t.get("img", "")).begins_with("family/"):
+		return
 	if t.has("shadow"):
 		_draw_shadow(t["shadow"])
 	_flip = bool(t.get("flip", false))
@@ -453,10 +516,27 @@ func _draw_layer(t: Dictionary) -> void:
 		r.position.x += _shiver
 	if tex:
 		_fit(tex, r)
+		if str(t["img"]).ends_with("/room_curtains") and _curtains_tex and activity_curtains > 0.0:
+			_draw_closed_curtains(t)
 	else:
 		_canvas.draw_rect(r, Color(0.3, 0.4, 0.8, 0.5), false, 3.0)
 	_flip = false
 	_rot = 0.0
+
+
+func _draw_closed_curtains(item: Dictionary) -> void:
+	var r := activity_rect(item)
+	if _rot != 0.0:
+		_canvas.draw_set_transform(r.get_center(), _rot, Vector2(-1, 1) if _flip else Vector2.ONE)
+		r.position = -r.size * 0.5
+	elif _flip:
+		_canvas.draw_set_transform(Vector2(r.get_center().x * 2, 0), 0, Vector2(-1, 1))
+	var src := _curtains_tex.get_size()
+	var width := r.size.x * 0.5 * activity_curtains
+	var sw := src.x * 0.5 * activity_curtains
+	_canvas.draw_texture_rect_region(_curtains_tex, Rect2(r.position, Vector2(width, r.size.y)), Rect2(Vector2.ZERO, Vector2(sw, src.y)))
+	_canvas.draw_texture_rect_region(_curtains_tex, Rect2(Vector2(r.end.x - width, r.position.y), Vector2(width, r.size.y)), Rect2(Vector2(src.x - sw, 0), Vector2(sw, src.y)))
+	_canvas.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 
 ## Мягкая тень вещи на полу: "shadow" — след её основания на полу (многоугольник из

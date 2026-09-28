@@ -249,12 +249,12 @@ func _mark_list() -> Array:
 	for pr: Dictionary in loc.get("props", []):
 		var img := str(pr.get("img", ""))
 		var key := ACTIVITIES.prop_key(_loc_id, img)
-		if img.begins_with("family/") or not ACTIVITIES.all().has(key):
+		if img.begins_with("family/") or not ACTIVITIES.has_animation(key):
 			continue
 		var v: Array = pr["rect"]
 		later.append(_act_mark(key, Rect2(v[0], v[1], v[2], v[3]).get_center()))
 	var fam := ACTIVITIES.prop_key(_loc_id, "family")
-	if ACTIVITIES.all().has(fam) and _view.family_mark() != Vector2.ZERO:
+	if ACTIVITIES.has_animation(fam) and _view.family_mark() != Vector2.ZERO:
 		later.append(_act_mark(fam, _view.family_mark()))
 	out.append_array(later)
 	return out
@@ -452,7 +452,7 @@ func _say_lines(lines: Array) -> void:
 
 ## Починенная вещь: показать звёзды и предложить сыграть ещё раз (новые звёзды — монеты).
 func _offer_actions(key: String, item_name: String, level: String) -> void:
-	if Router.is_busy():
+	if _busy or Router.is_busy():
 		return
 	if level != "" and not Game.has_level(level):
 		level = ""
@@ -467,8 +467,30 @@ func _offer_actions(key: String, item_name: String, level: String) -> void:
 			if choice is String and choice == "replay":
 				Router.go(&"game", {"id": level})
 			elif choice is int:
-				Router.go(&"novel", {"scene": ACTIVITIES.scene_id(key, choice),
-					"next": {"screen": "hub", "args": {"location": _loc_id}}}))
+				var clip := ACTIVITIES.animation(key, choice)
+				if not clip.is_empty():
+					_play_activity.call_deferred(key, clip)
+				# Архивные scene в каталоге не используются как замена анимации.
+			)
+
+
+func _play_activity(key: String, clip: Dictionary) -> void:
+	if _busy or _leaving:
+		return
+	_busy = true
+	_marks.hide()
+	if _hand:
+		_hand.hide()
+	for bubble in _bubbles.values():
+		if is_instance_valid(bubble):
+			bubble.queue_free()
+	await _view.play_activity(key, clip)
+	if _leaving:
+		return
+	_busy = false
+	_idle = 0.0
+	_rebuild_marks()
+	_marks.show()
 
 
 ## Короткое название комнаты для переходов внизу: «Кухня», «Санузел».

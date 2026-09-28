@@ -30,6 +30,8 @@ static func available(key: String) -> Array:
 	var acts: Array = all().get(key, {}).get("acts", [])
 	for i in acts.size():
 		var a: Dictionary = acts[i]
+		if a.get("animation", {}).is_empty():
+			continue
 		if a.has("after") and not Home.is_done(str(a["after"])):
 			continue
 		if a.has("need") and not Profile.owns(str(a["need"])):
@@ -42,6 +44,8 @@ static func available(key: String) -> Array:
 ## или у ключа нет занятий.
 static func locked_reason(key: String) -> String:
 	for a: Dictionary in all().get(key, {}).get("acts", []):
+		if a.get("animation", {}).is_empty():
+			continue
 		if a.has("after") and not Home.is_done(str(a["after"])):
 			return "Сначала почини: %s" % str(Home.task(str(a["after"])).get("name", "вещь")).to_lower()
 		if a.has("need") and not Profile.owns(str(a["need"])):
@@ -57,6 +61,18 @@ static func title(key: String, fallback := "") -> String:
 
 static func scene_id(key: String, index: int) -> String:
 	return "act:%s:%d" % [key, index]
+
+
+static func animation(key: String, index: int) -> Dictionary:
+	var acts: Array = all().get(key, {}).get("acts", [])
+	return acts[index].get("animation", {}) if index >= 0 and index < acts.size() else {}
+
+
+static func has_animation(key: String) -> bool:
+	for a: Dictionary in all().get(key, {}).get("acts", []):
+		if not a.get("animation", {}).is_empty():
+			return true
+	return false
 
 
 ## Все сценки для новеллы: id -> шаги.

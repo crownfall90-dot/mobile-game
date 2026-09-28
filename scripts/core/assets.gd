@@ -92,10 +92,15 @@ static func location_paths(loc_id: String) -> Array:
 	if loc.has("family"):
 		for m in 4:
 			out.append("%sfamily/family_mood%d.png" % [ART, m])
+	if loc_id == "room":
+		for who in ["mother", "daughter"]:
+			for i in 4:
+				out.append("%sfamily/actions/%s_%d.png" % [ART, who, i])
+		out.append_array([ART + "family/actions/daughter_sleep.png", ART + "room/room_curtains_closed.png"])
 	return out
 
 
-## Что нужно прологу-новелле: комната, семья, Хмурь.
+## Что нужно прологу-новелле: комната, семья и письмо.
 static func prologue_paths() -> Array:
 	var out := location_paths("room")
 	out.append_array([ART + "story/night.png", ART + "story/letter.png"])
