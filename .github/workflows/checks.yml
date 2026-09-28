@@ -23,14 +23,11 @@ jobs:
     name: Vita checks
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      GODOT: ${{ runner.temp }}/Godot_v4.5.1-stable_linux.x86_64
-      XDG_DATA_HOME: ${{ runner.temp }}/vita-profile
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install verified Godot 4.5.1
@@ -40,7 +37,9 @@ jobs:
             --output "$RUNNER_TEMP/godot.zip"
           echo "02ec53d1cc7dbb9cc6355393c61b9ab43d1244751a124f10248a4802830788cd  $RUNNER_TEMP/godot.zip" | sha256sum --check --strict
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP"
-          chmod +x "$GODOT"
+          chmod +x "$RUNNER_TEMP/Godot_v4.5.1-stable_linux.x86_64"
+          echo "GODOT=$RUNNER_TEMP/Godot_v4.5.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+          echo "XDG_DATA_HOME=$RUNNER_TEMP/vita-profile" >> "$GITHUB_ENV"
       - name: Validate level data
         run: python3 tools/lint_levels.py
       - name: Import assets
