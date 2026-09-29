@@ -1,4 +1,4 @@
 {
  "sentry_dsn": "",
- "feedback_url": ""
+ "feedback_url": "https://vita-feedback.crownfall90-vita.workers.dev/feedback"
 }

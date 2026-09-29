@@ -12,6 +12,10 @@ static func run() -> bool:
 	var same: bool = Reports.feedback_draft.get("packet") == packet
 	Reports._on_feedback_sent(HTTPRequest.RESULT_SUCCESS, 200, [], '{"ok":false}'.to_utf8_buffer())
 	var retained: bool = Reports.feedback_draft.get("packet") == packet
+	Reports._on_feedback_sent(HTTPRequest.RESULT_TIMEOUT, 0, [], PackedByteArray())
+	retained = retained and Reports.feedback_draft.get("packet") == packet
+	Reports._on_feedback_sent(HTTPRequest.RESULT_SUCCESS, 502, [], '<html>Bad gateway</html>'.to_utf8_buffer())
+	retained = retained and Reports.feedback_draft.get("packet") == packet
 	Reports._on_feedback_sent(HTTPRequest.RESULT_SUCCESS, 429, [], '{}'.to_utf8_buffer())
 	retained = retained and Reports.feedback_draft.get("packet") == packet
 	Reports._on_feedback_sent(HTTPRequest.RESULT_SUCCESS, 200, [], '{"ok":true,"url":"https://example.com/"}'.to_utf8_buffer())
