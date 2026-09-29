@@ -2054,3 +2054,12 @@ https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.
 Веткаapk-builds78c6ac2 содержит README с новыми Releases, старые файлы сохранены.
 Telegram-чат получил подтверждение обеих версий и разрешение публиковать
 общий анонс/опрос; на момент записи отправка ещё не подтверждена.
+
+
+0.19.2 armv7 для старых телефонов также опубликована в release399277193:
+https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.2/Vita-Test-0.19.2-old-phones.apk
+113641084bytes, SHA256 f8c33d73d9518b9258e3258c882a5d6c0dcde92db10289daa39eae3727c98e26.
+Nativeexport, apksigner v2/тот же сертификат и aapt code25/armv7 проверены.
+Локальная копия D:/tools/vita-build/Vita-Test-0.19.2-old-phones.apk.
+Для Honor400 использовать основной arm64 APK. Armv7 на физическом Android
+не запускался. Оба0.19.2 бинарных файла неизменны после публикации.
