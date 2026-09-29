@@ -2025,3 +2025,12 @@ hub целевой check -- kettle повторён на объединённо�
 Неизменённые проверки каши/комнаты повторно не запускались. Основной
 checkout наa4ccaff с сохранёнными локальными настройками project.godot;
 его незавершённую релизную работу не меняли. Это не проверка нового APK.
+
+Сборка0.19.2 из a4ccaff: Godot import/export без SCRIPT ERROR/ERROR;
+smoke OK (12opened,0missing,0errors), контекстный check после расширения
+диагностики OK. Подпись apksigner v2, сертификат0af54d49…01f0; aapt
+com.crownfall90.vita.test/versionCode25/0.19.2-test/arm64/INTERNET.
+Размер109905528bytes, SHA256 e3707a9f877ac4bd73d672ad30ea8b438dcaa51b55cefb2c5308d42511ec5bbe.
+Сохранён D:/tools/vita-build/Vita-Test-0.19.2.apk. Worker72bb55eb-cd8b-4d26-9113-348870797eb4
+поддерживает увеличенный пакет. GitHub Release399277193 создан draft,
+APK загружается; это ещё не подтверждение публичного скачивания.
