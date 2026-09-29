@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Texture2D" path="res://art/act1/living/background.png" id="1"]
 [ext_resource type="Texture2D" path="res://art/act1/living/living_sofa_broken.png" id="2"]
@@ -6,10 +6,13 @@
 [ext_resource type="Texture2D" path="res://art/act1/living/living_lamp_broken.png" id="4"]
 [ext_resource type="Texture2D" path="res://art/act1/living/living_wall_broken.png" id="5"]
 [ext_resource type="Texture2D" path="res://art/act1/living/living_floor_broken.png" id="6"]
-[ext_resource type="Texture2D" path="res://art/act1/family/mother_living.png" id="7"]
-[ext_resource type="Texture2D" path="res://art/act1/living/living_drawing.png" id="8"]
-[ext_resource type="Texture2D" path="res://art/act1/family/daughter_living.png" id="9"]
-[ext_resource type="Texture2D" path="res://art/act1/kitchen/kitchen_table.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/act1/living/living_window.png" id="7"]
+[ext_resource type="Texture2D" path="res://art/act1/living/living_floorlamp.png" id="8"]
+[ext_resource type="Texture2D" path="res://art/act1/living/living_table.png" id="9"]
+[ext_resource type="Texture2D" path="res://art/act1/room/room_rug.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/act1/family/mother_living.png" id="11"]
+[ext_resource type="Texture2D" path="res://art/act1/family/daughter_living.png" id="12"]
+[ext_resource type="Texture2D" path="res://art/act1/living/living_drawing.png" id="13"]
 
 [node name="living" type="Node2D"]
 metadata/location = "living"
@@ -23,75 +26,137 @@ metadata/_edit_lock_ = true
 
 [node name="living_sofa" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(220.5, 876)
-scale = Vector2(0.6346, 0.6346)
+position = Vector2(222.5, 1026.5)
+scale = Vector2(0.525, 0.525)
 texture = ExtResource("2")
 metadata/kind = "target"
 metadata/key = "living_sofa"
 
 [node name="living_tv" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(612.5, 933)
-scale = Vector2(0.4478, 0.4478)
+position = Vector2(568, 922)
+scale = Vector2(0.2917, 0.2917)
 texture = ExtResource("3")
 metadata/kind = "target"
 metadata/key = "living_tv"
 
 [node name="living_lamp" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(360, 240)
-scale = Vector2(0.5, 0.5)
+position = Vector2(356.5, 495)
+scale = Vector2(0.3421, 0.3421)
 texture = ExtResource("4")
 metadata/kind = "target"
 metadata/key = "living_lamp"
 
 [node name="living_wall" type="Sprite2D" parent="."]
-z_index = 0
-position = Vector2(180, 558.5)
-scale = Vector2(0.4615, 0.4615)
+z_index = 50
+position = Vector2(136.5, 862)
+scale = Vector2(0.0988, 0.0988)
 texture = ExtResource("5")
 metadata/kind = "target"
 metadata/key = "living_wall"
 
 [node name="living_floor" type="Sprite2D" parent="."]
 z_index = 0
-position = Vector2(160, 1300)
-scale = Vector2(0.4, 0.4)
+position = Vector2(160, 1245.5)
+scale = Vector2(0.2767, 0.2767)
 texture = ExtResource("6")
 metadata/kind = "target"
 metadata/key = "living_floor"
 
+[node name="living__living_window" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(181, 703.5)
+scale = Vector2(0.375, 0.375)
+texture = ExtResource("7")
+metadata/kind = "prop"
+metadata/key = "living/living_window"
+
+[node name="living__living_floorlamp" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(415, 950.5)
+scale = Vector2(0.3667, 0.3667)
+texture = ExtResource("8")
+metadata/kind = "prop"
+metadata/key = "living/living_floorlamp"
+
+[node name="living__living_table" type="Sprite2D" parent="."]
+z_index = 100
+position = Vector2(569.5, 1014)
+scale = Vector2(0.44, 0.44)
+texture = ExtResource("9")
+metadata/kind = "prop"
+metadata/key = "living/living_table"
+
+[node name="room__room_rug" type="Sprite2D" parent="."]
+z_index = 0
+position = Vector2(459, 1295.5)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("10")
+metadata/kind = "prop"
+metadata/key = "room/room_rug"
+
 [node name="family__mother_living" type="Sprite2D" parent="."]
 z_index = 300
-position = Vector2(225.5, 841.5)
-scale = Vector2(0.4678, 0.4678)
-texture = ExtResource("7")
+position = Vector2(231, 949)
+scale = Vector2(0.32, 0.32)
+texture = ExtResource("11")
 metadata/kind = "prop"
 metadata/key = "family/mother_living"
 
-[node name="living__living_drawing" type="Sprite2D" parent="."]
-z_index = 300
-position = Vector2(475, 1332)
-scale = Vector2(0.4667, 0.4667)
-texture = ExtResource("8")
-metadata/kind = "prop"
-metadata/key = "living/living_drawing"
-
 [node name="family__daughter_living" type="Sprite2D" parent="."]
 z_index = 400
-position = Vector2(563.5, 1190)
-scale = Vector2(0.5333, 0.5333)
-texture = ExtResource("9")
+position = Vector2(445.5, 1185)
+scale = Vector2(0.426, 0.426)
+texture = ExtResource("12")
 metadata/kind = "prop"
 metadata/key = "family/daughter_living"
 
-[node name="kitchen__kitchen_table" type="Sprite2D" parent="."]
-z_index = 100
-position = Vector2(443, 1040)
-scale = Vector2(0.292, 0.292)
-texture = ExtResource("10")
+[node name="living__living_drawing" type="Sprite2D" parent="."]
+z_index = 410
+position = Vector2(374, 1281)
+scale = Vector2(0.2778, 0.2778)
+texture = ExtResource("13")
 metadata/kind = "prop"
-metadata/key = "kitchen/kitchen_table"
+metadata/key = "living/living_drawing"
+
+[node name="декор_vita_plant" type="ReferenceRect" parent="."]
+z_index = 150
+offset_left = 563
+offset_top = 1004
+offset_right = 612
+offset_bottom = 1075
+mouse_filter = 2
+border_color = Color(0.2, 0.7, 0.3, 1)
+border_width = 2.0
+metadata/kind = "decor"
+metadata/key = "vita_plant"
+metadata/flip = false
+
+[node name="подпись" type="Label" parent="декор_vita_plant"]
+offset_right = 120
+offset_bottom = 23.0
+text = "цветок (покупка)"
+theme_override_font_sizes/font_size = 14
+
+[node name="декор_vita_picture" type="ReferenceRect" parent="."]
+z_index = 150
+offset_left = 509
+offset_top = 641
+offset_right = 598
+offset_bottom = 719
+mouse_filter = 2
+border_color = Color(0.2, 0.7, 0.3, 1)
+border_width = 2.0
+metadata/kind = "decor"
+metadata/key = "vita_picture"
+metadata/flip = false
+
+[node name="подпись" type="Label" parent="декор_vita_picture"]
+offset_right = 120
+offset_bottom = 23.0
+text = "картина (покупка)"
+theme_override_font_sizes/font_size = 14
 
 [node name="Видно на телефоне" type="ReferenceRect" parent="."]
 offset_left = 20.0

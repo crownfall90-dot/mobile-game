@@ -1,6 +1,6 @@
 extends SceneTree
 ## godot --headless --path . --script res://tools/test_kitchen_layout.gd
-## Add -- bath for the bathroom only; editable sprites and five reachable repairs/replays.
+## Add -- bath or -- living for one location only; editable sprites and five reachable repairs/replays.
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -12,7 +12,7 @@ func _run() -> void:
 	profile.data = profile.defaults()
 	var router := root.get_node("Router")
 	router.forward_app_pause = false
-	var loc_id := "bath" if "bath" in OS.get_cmdline_user_args() else "kitchen"
+	var loc_id := "living" if "living" in OS.get_cmdline_user_args() else ("bath" if "bath" in OS.get_cmdline_user_args() else "kitchen")
 	var loc: Dictionary = home.location(loc_id)
 	assert(home.tasks().size() == 19)
 	assert(loc["targets"].size() == 5)
@@ -35,7 +35,7 @@ func _run() -> void:
 	scene.free()
 	for repaired in [false, true]:
 		for task: Dictionary in home.tasks():
-			profile.set_flag("home." + task["id"], repaired or task["loc"] == "room" or (loc_id == "bath" and task["loc"] == "kitchen"))
+			profile.set_flag("home." + task["id"], repaired or task["loc"] == "room" or (loc_id in ["bath", "living"] and task["loc"] == "kitchen") or (loc_id == "living" and task["loc"] == "bath"))
 		profile.set_flag("seen." + loc_id)
 		router.go(&"hub", {"location": loc_id})
 		await create_timer(0.4).timeout
@@ -44,7 +44,7 @@ func _run() -> void:
 		assert(marks.size() == 5)
 		for i in loc["targets"].size():
 			var task: Dictionary = loc["targets"][i]
-			assert(task["level"] == "home_%02d" % ((10 if loc_id == "bath" else 5) + i))
+			assert(task["level"] == "home_%02d" % (({"kitchen": 5, "bath": 10, "living": 15}[loc_id]) + i))
 			assert(marks[i]["kind"] == ("act" if repaired else "repair"))
 			assert(hub._view.target_at(marks[i]["at"], repaired).get("id") == task["id"])
 			assert(Rect2(60, 110, 600, 1260).has_point(marks[i]["at"]))
@@ -52,7 +52,7 @@ func _run() -> void:
 	router.go(&"hub", {"location": loc_id})
 	await create_timer(0.4).timeout
 	assert(router.current_screen()._view._teddy != null)
-	assert(not router.current_screen()._view._teddy_in_art)
+	assert(router.current_screen()._view._teddy_in_art == (loc_id == "living"))
 	assert(home.completed() == 19, "Opening the location must not change repair progress")
 	print(loc_id + ": editable props, five repair/replay markers, teddy overlay OK")
 	quit()
