@@ -17,6 +17,12 @@ func _run() -> void:
 	router.go(&"hub", {"location": "kitchen"})
 	await create_timer(0.6).timeout
 	var hub: Node = router.current_screen()
+	var edited := "--edited-seated" in OS.get_cmdline_user_args()
+	if edited:
+		var seated: Dictionary = hub._view.activity_item("kitchen/daughter_kitchen_seated_v2")
+		seated["flip"] = true
+		seated["rot"] = -0.18
+		hub._view.queue_redraw()
 	hub._play_activity("kitchen/kitchen_kettle", load("res://scripts/core/activities.gd").animation("kitchen/kitchen_kettle", 1))
 	var player: Node = hub._view.get_children().filter(func(n: Node) -> bool: return n.get_script() == load("res://scripts/art/activity_player.gd"))[0]
 	for state in ["carry", "pour", "restored"]:
@@ -29,5 +35,5 @@ func _run() -> void:
 			await create_timer(0.35 if state == "carry" else 0.3).timeout
 		await RenderingServer.frame_post_draw
 		var ratio := "20x9" if root.size.y > root.size.x * 2 else "16x9"
-		assert(root.get_texture().get_image().save_png("res://art/act1/reviews/2026-09-29-tea/" + state + "-" + ratio + ".png") == OK)
+		assert(root.get_texture().get_image().save_png("res://art/act1/reviews/2026-09-29-tea/" + ("edited-seated-" if edited else "") + state + "-" + ratio + ".png") == OK)
 	quit()

@@ -21,13 +21,18 @@ func _run() -> void:
 	home.is_done("kitchen_stove")
 	assert(activities.available(key) == [[0, "Вскипятить чайник"], [1, "Налить чай Вите"]])
 	var clip: Dictionary = activities.animation(key, 1)
-	for mode in ["finish", "cancel", "moved", "missing_cup"]:
+	for mode in ["finish", "cancel", "moved", "seated_transform", "seated_cancel", "missing_cup"]:
 		var before: Dictionary = profile.data.duplicate(true)
 		var view = load("res://scripts/art/location_view.gd").new()
 		view.setup(home.location("kitchen").duplicate(true), Vector2(720, 1560))
 		root.add_child(view)
 		var kettle: Dictionary = view.activity_item(key)
 		var cup: Dictionary = view.activity_item("kitchen/cup_daughter")
+		var seated: Dictionary = view.activity_item("kitchen/daughter_kitchen_seated_v2")
+		if mode.begins_with("seated_"):
+			seated["draw"] = [470, 910, 260, 320]
+			seated["flip"] = true
+			seated["rot"] = -0.18
 		if mode == "moved":
 			kettle["draw"] = [440, 890, 85, 75]
 			kettle["flip"] = true
@@ -47,6 +52,12 @@ func _run() -> void:
 		if mode != "missing_cup":
 			assert(view.activity_hidden and view.activity_prop == "kitchen/kitchen_kettle")
 			assert(player.has_node("SeatedDaughter"), "Vita keeps her authored kitchen pose")
+			var pose: Sprite2D = player.get_node("SeatedDaughter")
+			for corner in [Vector2.ZERO, Vector2(1, 0), Vector2.ONE, Vector2(0, 1)]:
+				var pixel: Vector2 = (corner - Vector2(0.5, 0.5) if pose.centered else corner) * pose.texture.get_size()
+				if pose.flip_h:
+					pixel.x = -pixel.x if pose.centered else pose.texture.get_width() - pixel.x
+				assert(player.to_local(pose.to_global(pixel)).is_equal_approx(view.activity_point(seated, corner)), "Seated Vita must preserve all edited layer corners: " + mode)
 			var vessel: Sprite2D = player.get_node("CarriedKettle")
 			var stream: Line2D = player.get_node("TeaStream")
 			assert(vessel.flip_h == (mode == "moved"))
@@ -54,7 +65,7 @@ func _run() -> void:
 			assert(stream.points[0].distance_to(stream.points[1]) < 55.0)
 			await create_timer(0.2).timeout
 			assert(stream.width > 0.0)
-			if mode == "cancel":
+			if mode in ["cancel", "seated_cancel"]:
 				player.queue_free()
 		while not done[0]:
 			await process_frame
@@ -86,5 +97,5 @@ func _run() -> void:
 	while router.is_busy():
 		await process_frame
 	assert(not is_instance_valid(old_view) and home.completed() == 19)
-	print("POUR: gate, cup anchor/tea stream, finish/cancel, edited kettle/cup, missing cup, actual menu and hub exit OK")
+	print("POUR: gate, cup anchor/tea stream, finish/cancel, edited kettle/cup/seated Vita, missing cup, actual menu and hub exit OK")
 	quit()

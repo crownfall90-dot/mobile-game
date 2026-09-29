@@ -62,11 +62,12 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 			return
 		var chair_pose := Sprite2D.new()
 		chair_pose.name = "SeatedDaughter"
-		chair_pose.centered = false
 		chair_pose.texture = load(LocationView.ART + str(seated["img"]) + ".png")
 		var seat_rect := view.activity_rect(seated)
-		chair_pose.position = seat_rect.position
+		chair_pose.position = seat_rect.get_center()
 		chair_pose.scale = seat_rect.size / chair_pose.texture.get_size()
+		chair_pose.flip_h = bool(seated.get("flip", false))
+		chair_pose.rotation = float(seated.get("rot", 0.0))
 		add_child(chair_pose)
 	else:
 		var still := view.activity_actor(other)
