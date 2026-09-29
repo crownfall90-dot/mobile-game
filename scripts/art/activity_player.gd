@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook", "kettle"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook", "kettle", "meal"]
 const TOYS := "res://art/act1/room/toys/"
 const CARRY_HAND := [Vector2(433, 476), Vector2(491, 443), Vector2(479, 368), Vector2(507, 214)]
 
@@ -39,6 +39,9 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 		return
 	if kind == "kettle":
 		await _kettle(item, clip)
+		return
+	if kind == "meal":
+		await _meal(item, clip)
 		return
 	for i in 4:
 		_frames.append(load(ART + _who + "_%d.png" % i))
@@ -364,6 +367,108 @@ func _kettle(item: Dictionary, clip: Dictionary) -> void:
 		await _play(boil)
 		if _complete:
 			return
+	_finish()
+
+
+func _meal(item: Dictionary, clip: Dictionary) -> void:
+	var r := _view.activity_rect(item)
+	var chair := _view.activity_item("kitchen/kitchen_chair")
+	if r.size.x <= 0 or chair.is_empty():
+		_finish()
+		return
+	var mount := Node2D.new()
+	mount.name = "Breakfast"
+	mount.position = r.get_center()
+	mount.rotation = float(item.get("rot", 0.0))
+	mount.scale = Vector2(-r.size.x if item.get("flip", false) else r.size.x, r.size.x)
+	add_child(mount)
+	var furnishings: Array[Dictionary] = [item]
+	for key: String in clip["tabletop"]:
+		var prop := _view.activity_item("kitchen/" + key)
+		if prop.is_empty():
+			_finish()
+			return
+		furnishings.append(prop)
+	# Fixed dining composition relative to the editable table; existing furniture PNGs.
+	for side in [-1, 1]:
+		var seat := Sprite2D.new()
+		seat.texture = load(LocationView.ART + str(chair["img"]) + ".png")
+		seat.position = Vector2(-0.24 if side < 0 else 0.38, 0.14)
+		seat.scale = Vector2.ONE * 0.55 / seat.texture.get_width()
+		seat.flip_h = side < 0
+		mount.add_child(seat)
+	_view.activity_props.append(str(chair["img"]))
+	var bodies: Array[Sprite2D] = []
+	var hands: Array[Sprite2D] = []
+	var frames: Array = []
+	var hand_frames: Array = []
+	for spec: Dictionary in clip["poses"]:
+		var tex := load(ART + str(spec["sheet"]) + ".png") as Texture2D
+		if tex == null:
+			_finish()
+			return
+		var full: Array[Texture2D] = []
+		var front: Array[Texture2D] = []
+		var foot := Vector2(spec["foot"][0], spec["foot"][1])
+		var body := Sprite2D.new()
+		body.name = str(spec["actor"])
+		body.centered = false
+		body.offset = -foot
+		body.position = Vector2(spec["at"][0] - 0.5, (spec["at"][1] - 0.5) * r.size.y / r.size.x)
+		body.scale = Vector2.ONE * float(spec["height"]) / 1024.0
+		mount.add_child(body)
+		var hand := Sprite2D.new()
+		hand.centered = false
+		hand.position = body.position
+		hand.scale = body.scale
+		mount.add_child(hand)
+		for i in 2:
+			var xy: Array = spec["regions"][i]
+			var region := Rect2(xy[0], xy[1], xy[2], xy[3])
+			var frame := AtlasTexture.new()
+			frame.atlas = tex
+			frame.region = region
+			full.append(frame)
+			var arm: Array = spec["front"][i]
+			var fore := AtlasTexture.new()
+			fore.atlas = tex
+			fore.region = Rect2(region.position + Vector2(arm[0], arm[1]), Vector2(arm[2], arm[3]))
+			front.append(fore)
+		body.texture = full[0]
+		bodies.append(body)
+		hands.append(hand)
+		frames.append(full)
+		hand_frames.append(front)
+	for pr: Dictionary in furnishings:
+		var prop := Sprite2D.new()
+		prop.name = str(pr["img"]).get_file()
+		prop.texture = load(LocationView.ART + str(pr["img"]) + ".png")
+		if pr == item:
+			prop.position = Vector2.ZERO
+			prop.scale = r.size / prop.texture.get_size() / r.size.x
+		else:
+			var at: Array = clip["tabletop"][str(pr["img"]).get_file()]
+			prop.position = Vector2(at[0], at[1])
+			prop.scale = Vector2.ONE * float(at[2]) / prop.texture.get_width()
+		mount.add_child(prop)
+		_view.activity_props.append(str(pr["img"]))
+	for hand in hands:
+		mount.move_child(hand, mount.get_child_count() - 1)
+	_view.set_activity_hidden(true)
+	_view.activity_prop = str(item["img"])
+	phase = "eat"
+	# ponytail: two authored eating poses; smoother reaches need extra aligned frames.
+	for bite in 4:
+		for frame in 2:
+			for i in bodies.size():
+				bodies[i].texture = frames[i][frame]
+				hands[i].texture = hand_frames[i][frame]
+				var arm: Array = clip["poses"][i]["front"][frame]
+				var foot: Array = clip["poses"][i]["foot"]
+				hands[i].offset = Vector2(arm[0] - foot[0], arm[1] - foot[1])
+			await _pause(0.65)
+			if _complete:
+				return
 	_finish()
 
 
