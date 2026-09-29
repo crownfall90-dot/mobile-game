@@ -7,7 +7,9 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy"]
+const TOYS := "res://art/act1/room/toys/"
+const CARRY_HAND := [Vector2(433, 476), Vector2(491, 443), Vector2(479, 368), Vector2(507, 214)]
 
 var _view: LocationView
 var _actor: Node2D
@@ -18,6 +20,7 @@ var _elapsed := 0.0
 var _who := ""
 var _complete := false
 var _pending: Tween
+var _held: Sprite2D
 var phase := "approach"
 var contact := Vector2.ZERO
 var hand_offset := Vector2.ZERO
@@ -54,12 +57,17 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	var hand := Vector2(280, -504) * (height / 707.0) if _who == "mother" else Vector2(215, -530) * (height / 766.0)
 	if bool(item.get("flip", false)):
 		hand.x = -hand.x
+	if kind == "toy":
+		var palm: Vector2 = CARRY_HAND[3]
+		if bool(item.get("flip", false)):
+			palm.x = _frames[3].get_width() - palm.x
+		hand = _sprite.position + palm * _sprite.scale
 	hand_offset = hand
 	var stance := contact - hand
 	var approach := contact - hand
 	if kind in ["sleep", "jump"]:
 		approach = view.activity_point(item, Vector2(0.12, 1.1))
-	if kind == "sit":
+	if kind in ["sit", "blocks"]:
 		approach = contact
 	if item.has("approach"):
 		var at: Array = item["approach"]
@@ -67,7 +75,7 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	await _walk_to(approach)
 	if _complete:
 		return
-	if kind in ["light", "curtains", "drawer"] and approach.distance_to(stance) > 2.0:
+	if kind in ["light", "curtains", "drawer", "toy"] and approach.distance_to(stance) > 2.0:
 		await _walk_to(stance)
 		if _complete:
 			return
@@ -75,6 +83,46 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	_sprite.texture = _frames[3]
 	_sprite.flip_h = bool(item.get("flip", false))
 	match kind:
+		"toy":
+			var box := Sprite2D.new()
+			box.name = "Toybox"
+			box.texture = load(TOYS + "box_without_ball.png")
+			box.position = r.get_center()
+			box.scale = Vector2.ONE * r.size.x / box.texture.get_width()
+			box.rotation = float(item.get("rot", 0.0))
+			box.flip_h = bool(item.get("flip", false))
+			add_child(box)
+			move_child(box, 0)
+			view.activity_prop = str(item["img"])
+			var ball := Sprite2D.new()
+			ball.name = "Ball"
+			ball.texture = load(TOYS + "ball.png")
+			ball.scale = Vector2.ONE * r.size.x * 0.23 / ball.texture.get_width()
+			ball.position = contact
+			add_child(ball)
+			_held = ball
+			await _pause(0.4)
+			if _complete:
+				return
+			phase = "carry"
+			await _walk_to(base)
+			if _complete:
+				return
+			await _pause(1.2)
+			if _complete:
+				return
+			await _walk_to(stance)
+			if _complete:
+				return
+			_sprite.texture = _frames[3]
+			_sprite.flip_h = bool(item.get("flip", false))
+			await _pause(0.4)
+			if _complete:
+				return
+			_held = null
+			ball.queue_free()
+			box.queue_free()
+			view.activity_prop = ""
 		"light":
 			view.activity_light = true
 			view.activity_light_at = contact
@@ -138,7 +186,7 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 				if _complete:
 					return
 			await _walk_to(approach)
-		"sleep", "sit":
+		"sleep", "sit", "blocks":
 			var sleep := Sprite2D.new()
 			sleep.name = "Rest"
 			sleep.texture = load(ART + ("daughter_sleep.png" if kind == "sleep" else "daughter_sit0.png"))
@@ -148,7 +196,7 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 			sleep.scale = Vector2.ONE * w / sleep.texture.get_width()
 			sleep.position = view.activity_point(item, Vector2(0.55, 0.38)) if kind == "sleep" else contact
 			sleep.rotation = float(item.get("rot", 0.0)) if kind == "sleep" else 0.0
-			if kind == "sit":
+			if kind != "sleep":
 				sleep.offset.y = -sleep.texture.get_height() * 0.475
 			sleep.modulate.a = 0.0
 			add_child(sleep)
@@ -158,10 +206,55 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 			await _play(settle)
 			if _complete:
 				return
-			var breath := create_tween().set_loops(3)
-			breath.tween_property(sleep, "scale:y", sleep.scale.y * 1.015, 0.65)
-			breath.tween_property(sleep, "scale:y", sleep.scale.y, 0.65)
-			await _play(breath)
+			if kind == "blocks":
+				var toys := Node2D.new()
+				toys.name = "Blocks"
+				add_child(toys)
+				view.activity_prop = str(item["img"])
+				var spots := [Vector2(0.16, 0.85), Vector2(0.47, 0.65), Vector2(0.48, 0.32), Vector2(0.73, 0.87), Vector2(0.89, 0.53)]
+				var names := ["blue", "yellow", "red", "green", "cream"]
+				for i in names.size():
+					var cube := Sprite2D.new()
+					cube.texture = load(TOYS + "cube_" + names[i] + ".png")
+					cube.scale = Vector2.ONE * r.size.x * 0.35 / cube.texture.get_width()
+					cube.offset.y = -cube.texture.get_height() * 0.43
+					cube.position = view.activity_point(item, spots[i])
+					cube.rotation = float(item.get("rot", 0.0))
+					cube.flip_h = bool(item.get("flip", false))
+					toys.add_child(cube)
+				for i in toys.get_child_count():
+					var cube: Sprite2D = toys.get_child(i)
+					sleep.texture = load(ART + "daughter_sit1.png")
+					var build := create_tween()
+					# ponytail: two authored poses; independent cubes move between hand and tower,
+					# full arm articulation would need additional drawn reach frames.
+					var palm := sleep.position + Vector2(-145 if sleep.flip_h else 145, -94) * sleep.scale
+					build.tween_property(cube, "position", palm, 0.35).set_trans(Tween.TRANS_SINE)
+					build.tween_property(cube, "position", view.activity_point(item, Vector2(0.6, 1.0 - i * 0.31)), 0.45).set_trans(Tween.TRANS_SINE)
+					await _play(build)
+					if _complete:
+						return
+					sleep.texture = load(ART + "daughter_sit0.png")
+					await _pause(0.15)
+					if _complete:
+						return
+				phase = "tower"
+				await _pause(1.0)
+				if _complete:
+					return
+				var scatter := create_tween().set_parallel(true)
+				for i in toys.get_child_count():
+					scatter.tween_property(toys.get_child(i), "position", view.activity_point(item, spots[i]), 0.65).set_trans(Tween.TRANS_BOUNCE)
+				await _play(scatter)
+				if _complete:
+					return
+				toys.queue_free()
+				view.activity_prop = ""
+			else:
+				var breath := create_tween().set_loops(3)
+				breath.tween_property(sleep, "scale:y", sleep.scale.y * 1.015, 0.65)
+				breath.tween_property(sleep, "scale:y", sleep.scale.y, 0.65)
+				await _play(breath)
 			if _complete:
 				return
 			var wake := create_tween().set_parallel(true)
@@ -235,6 +328,11 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _walking and is_instance_valid(_sprite):
 		_sprite.texture = _frames[1 + (int(_elapsed * 7.0) % 2)]
+	if is_instance_valid(_held):
+		var palm: Vector2 = CARRY_HAND[maxi(0, _frames.find(_sprite.texture))]
+		if _sprite.flip_h:
+			palm.x = _sprite.texture.get_width() - palm.x
+		_held.position = _actor.position + _sprite.position + palm * _sprite.scale
 	queue_redraw()
 
 

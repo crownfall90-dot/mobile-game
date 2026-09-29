@@ -59,6 +59,7 @@ var _family_x := 0.0
 var _flip := false               # слой с "flip": true рисуется отражённым (кровать к другой стене)
 var _hop := {}                   # img отдельного слоя -> подскок (радость), px
 var activity_hidden := false
+var activity_prop := ""
 var activity_light := false
 var activity_light_at := Vector2.ZERO
 var activity_curtains := 0.0
@@ -152,6 +153,8 @@ func activity_actor(who: String) -> Dictionary:
 
 func set_activity_hidden(value: bool) -> void:
 	activity_hidden = value
+	if not value:
+		activity_prop = ""
 	_family.visible = loc.has("family") and not value
 	queue_redraw()
 
@@ -496,6 +499,8 @@ func _layers() -> Array:
 
 
 func _draw_layer(t: Dictionary) -> void:
+	if not activity_prop.is_empty() and str(t.get("img", "")) == activity_prop:
+		return
 	if activity_hidden and str(t.get("img", "")).begins_with("family/"):
 		return
 	if t.has("shadow"):

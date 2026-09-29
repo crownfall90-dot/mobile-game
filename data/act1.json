@@ -314,6 +314,7 @@
     },
     {
      "img": "room/room_toybox",
+     "approach": [-0.2, 1.8],
      "rect": [
       353,
       975,
@@ -430,6 +431,7 @@
     },
     {
      "img": "room/room_blocks",
+     "approach": [-0.25, 1.45],
      "rect": [
       274,
       1078,

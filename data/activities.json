@@ -39,7 +39,7 @@
    {"say": "mother", "text": "Давай придумаем ему имя?", "mood": "smile"},
    {"say": "daughter", "text": "Бублик!", "mood": "happy"}]}]},
  "room/room_toybox": {"name": "Коробка с игрушками", "acts": [
-  {"label": "Достать игрушки", "scene": [
+  {"label": "Достать мяч", "animation": {"kind": "toy", "actor": "daughter", "contact": [0.6162, 0.31]}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"say": "daughter", "text": "Мама, тут кубики и кукла без платья!", "mood": "surprised"},
    {"say": "mother", "text": "Сошьём ей платье из старого лоскутка.", "mood": "smile"},
@@ -80,7 +80,7 @@
    {"say": "daughter", "text": "Они мягкие, как котята!", "mood": "happy"},
    {"say": "mother", "text": "Тёплые ноги — крепкий сон.", "mood": "smile"}]}]},
  "room/room_blocks": {"name": "Кубики", "acts": [
-  {"label": "Построить башню", "scene": [
+  {"label": "Построить башню", "animation": {"kind": "blocks", "actor": "daughter", "contact": [-0.25, 1.45]}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"say": "daughter", "text": "Смотри, башня почти до кровати!", "mood": "happy"},
    {"say": "mother", "text": "Осторожно, строитель, ещё один кубик…", "mood": "surprised"},

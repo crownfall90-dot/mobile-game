@@ -1,5 +1,6 @@
 extends SceneTree
 ## godot --headless --path . --fixed-fps 120 --script res://tools/test_activity_animation.gd
+## Add -- toys-only to check only the two new toy clips and their menu markers.
 
 
 
@@ -7,7 +8,11 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
-	create_timer(80.0).timeout.connect(func() -> void:
+	if "toys-only" in OS.get_cmdline_user_args():
+		await _toys()
+		quit()
+		return
+	create_timer(150.0).timeout.connect(func() -> void:
 		push_error("Animated activity check timed out")
 		quit(1))
 	var activities = load("res://scripts/core/activities.gd")
@@ -38,7 +43,7 @@ func _run() -> void:
 			assert(not view.activity_hidden)
 			assert(home.completed() == before, "Activities must not grant repair progress")
 			count += 1
-	assert(count == 8)
+	assert(count == 10)
 	assert(view.activity_light and view.activity_curtains == 1.0)
 	# No front drawer is offered when the owner selects a back-view cabinet.
 	for item: Dictionary in home.location("room")["props"]:
@@ -127,7 +132,7 @@ func _run() -> void:
 		await process_frame
 	var hub: Node = router.current_screen()
 	var marks: Array = hub.call("_mark_list")
-	assert(marks.size() == 9, "Only repairs/replays and five animated props get markers")
+	assert(marks.size() == 11, "Only repairs/replays and seven animated props get markers")
 	var offered := false
 	for mark: Dictionary in marks:
 		var callback: Callable = mark["do"]
@@ -146,5 +151,58 @@ func _run() -> void:
 	assert(hub.get("_marks").visible)
 	assert(home.completed() == before)
 	assert(await load("res://tools/test_dialogue.gd").run())
-	print("ANIMATED ACTIVITIES: 8 clips, anchors, cancellation, progress and actual menu callback OK")
+	print("ANIMATED ACTIVITIES: 10 clips, anchors, cancellation, progress and actual menu callback OK")
 	quit()
+
+
+func _toys() -> void:
+	create_timer(75.0).timeout.connect(func() -> void:
+		push_error("Toy animation check timed out")
+		quit(1))
+	var home = load("res://scripts/core/home.gd")
+	var activities = load("res://scripts/core/activities.gd")
+	var profile := root.get_node("Profile")
+	profile.volatile = true
+	root.get_node("Router").forward_app_pause = false
+	for task: Dictionary in home.tasks():
+		profile.set_flag("home." + task["id"])
+	var before: int = home.completed()
+	for key in ["room/room_blocks", "room/room_toybox"]:
+		for edited in [false, true]:
+			var view = load("res://scripts/art/location_view.gd").new()
+			view.setup(home.location("room").duplicate(true), Vector2(720, 1560))
+			root.add_child(view)
+			var item: Dictionary = view.activity_item(key)
+			if edited:
+				item["draw"] = [420, 1060, 170, 180]
+				item["flip"] = true
+				item["rot"] = 0.2
+			var player: Node = load("res://scripts/art/activity_player.gd").new()
+			view.add_child(player)
+			player.run.call_deferred(view, key, activities.animation(key, 0))
+			if key.ends_with("room_blocks"):
+				while player.get("phase") != "tower":
+					await process_frame
+				var toys: Node = player.get_node("Blocks")
+				assert(toys.get_child_count() == 5, "Five independent cubes replace the pile")
+				var bottom: Sprite2D = toys.get_child(0)
+				var top: Sprite2D = toys.get_child(4)
+				assert(bottom.position.distance_to(top.position) > 70, "Cubes must form a real tall stack")
+				assert(top.position.is_equal_approx(view.activity_point(item, Vector2(0.6, -0.24))), "Stack follows edited item transform")
+			else:
+				while player.get("phase") != "carry":
+					await process_frame
+				await create_timer(1.0).timeout
+				var ball: Sprite2D = player.get_node("Ball")
+				assert(ball.position.distance_to(player.get("contact")) > 20, "Ball must leave the box with Vita")
+				assert(player.get_node("Toybox").position.is_equal_approx(view.activity_rect(item).get_center()))
+			assert(view.activity_prop == item["img"], "Source object must not duplicate moving toys")
+			if edited:
+				player.queue_free()
+			await player.finished
+			assert(not view.activity_hidden and view.activity_prop.is_empty(), "Completion/cancellation restores family and original prop")
+			assert(home.completed() == before)
+			view.queue_free()
+			await process_frame
+	assert(await load("res://tools/test_dialogue.gd").run())
+	print("TOY ACTIVITIES: tower and carried ball, edited transforms, cancellation, unchanged progress and menu markers OK")
