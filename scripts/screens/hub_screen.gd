@@ -477,6 +477,7 @@ func _offer_actions(key: String, item_name: String, level: String) -> void:
 func _play_activity(key: String, clip: Dictionary) -> void:
 	if _busy or _leaving:
 		return
+	Reports.note_feedback("Занятие начато: %s (%s)" % [key, str(clip.get("kind", ""))])
 	_busy = true
 	_marks.hide()
 	if _hand:
@@ -487,6 +488,7 @@ func _play_activity(key: String, clip: Dictionary) -> void:
 	await _view.play_activity(key, clip)
 	if _leaving:
 		return
+	Reports.note_feedback("Занятие завершено: " + key)
 	_busy = false
 	_idle = 0.0
 	_rebuild_marks()

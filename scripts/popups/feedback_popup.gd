@@ -44,7 +44,8 @@ func open(args: Dictionary) -> void:
 	_text.custom_minimum_size = Vector2(500, 180)
 	_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_text.add_theme_font_size_override("font_size", 25)
-	_text.add_theme_color_override("font_color", UiKit.INK)
+	_text.add_theme_color_override("font_color", UiKit.TEXT)
+	_text.add_theme_color_override("font_placeholder_color", UiKit.TEXT_MUTED)
 	_text.add_theme_stylebox_override("normal", UiKit.panel_box(&"card"))
 	_text.add_theme_stylebox_override("focus", UiKit.panel_box(&"card"))
 	_text.text = str(Reports.feedback_draft.get("text", ""))

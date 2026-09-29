@@ -150,6 +150,10 @@ func _run() -> void:
 	while hub.get("_busy"):
 		assert(router.current_screen() == hub)
 		await process_frame
+	var events: Array[String] = root.get_node("Reports").feedback_events
+	assert(events.size() >= 2)
+	assert(events[-2].contains("Занятие начато: room/room_nightstand"))
+	assert(events[-1].contains("Занятие завершено: room/room_nightstand"))
 	assert(hub.get("_marks").visible)
 	assert(home.completed() == before)
 	assert(await load("res://tools/test_dialogue.gd").run())

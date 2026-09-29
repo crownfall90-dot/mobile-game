@@ -67,6 +67,8 @@ static func context_checks() -> bool:
 	Router.go(&"novel", {"id": "prologue"})
 	await _idle(tree)
 	var popup := Router.popup(&"feedback")
+	assert((popup.get("_text") as TextEdit).get_theme_color(&"font_color") == UiKit.TEXT,
+		"Feedback text must contrast with the dark card")
 	var captured: Dictionary = Reports.feedback_draft.context.duplicate(true)
 	assert(captured.screen == "novel" and JSON.parse_string(captured.context).scene == "prologue")
 	assert(tree.paused)
