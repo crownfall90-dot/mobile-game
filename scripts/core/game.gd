@@ -124,7 +124,7 @@ static func parse_flags(args: PackedStringArray) -> Dictionary:
 		match key:
 			"level", "file", "screen", "shot", "home-stage", "home-items", "screen-args", "profile-flags", "tap", "layout-export":
 				d[key] = val
-			"autoplay", "all-at-once", "json", "smoke", "home-selfcheck":
+			"autoplay", "all-at-once", "json", "smoke", "home-selfcheck", "feedback-selfcheck":
 				d[key.replace("-", "_")] = true
 			"pins":
 				d["pins"] = val.split(",", false)

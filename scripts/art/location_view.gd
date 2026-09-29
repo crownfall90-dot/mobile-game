@@ -37,6 +37,8 @@ var _rot := 0.0                   # поворот текущего слоя и�
 var _rot_box := Rect2()           # центр и размер картинки, не границы
 var show_targets := true          # мягкая пульсация вокруг несделанных целей
 
+# ponytail: eight background edge samples cover the current four rooms; evict oldest for more rooms.
+static var _edge_cache: Dictionary = {}
 var _edge_colors := PackedColorArray()
 var _side_tex: Array[Texture2D] = []   # левый и правый край фона, усреднённые в пятна по высоте
 var _bg: Texture2D
@@ -79,12 +81,20 @@ func setup(location: Dictionary, scene_size: Vector2) -> void:
 	_font = ThemeDB.fallback_font
 	_bg = _load("background")
 	if _bg:
-		var sample := _bg.get_image()
-		if sample.is_compressed():
-			sample.decompress()
-		_side_tex = [_side_strip(sample, true), _side_strip(sample, false)]
-		sample.resize(1, 2, Image.INTERPOLATE_LANCZOS)
-		_edge_colors = PackedColorArray([sample.get_pixel(0, 0), sample.get_pixel(0, 1)])
+		var key := _bg.resource_path
+		if not _edge_cache.has(key):
+			var sample := _bg.get_image()
+			if sample and not sample.is_empty():
+				if sample.is_compressed():
+					sample.decompress()
+				var strips: Array[Texture2D] = [_side_strip(sample, true), _side_strip(sample, false)]
+				sample.resize(1, 2, Image.INTERPOLATE_LANCZOS)
+				if _edge_cache.size() >= 8:
+					_edge_cache.erase(_edge_cache.keys()[0])
+				_edge_cache[key] = [strips, PackedColorArray([sample.get_pixel(0, 0), sample.get_pixel(0, 1)])]
+		if _edge_cache.has(key):
+			_side_tex = _edge_cache[key][0]
+			_edge_colors = _edge_cache[key][1]
 		_setup_wear()
 	for t in loc.get("targets", []):
 		# вид «спиной» из редактора: <id>_broken_back / <id>_fixed_back, если нарисованы

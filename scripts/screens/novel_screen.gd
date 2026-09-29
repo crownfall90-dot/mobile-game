@@ -39,6 +39,8 @@ var _scene_id := "prologue"
 var _next := {}
 var _auto := false
 var _start := 0
+var _feedback_step := 0
+var _feedback_action: Dictionary = {}
 var _finished := false
 var _bg_tween: Tween
 var _skipping := false
@@ -264,6 +266,9 @@ func _run(steps: Array) -> void:
 
 
 func _step(st: Dictionary) -> void:
+	_feedback_step += 1
+	_feedback_action = st.duplicate(true)
+	Reports.note_feedback("Сюжет %s, шаг %d" % [_scene_id, _feedback_step])
 	if st.has("bg"):
 		await _set_bg(st)
 	if _skipping:
@@ -434,6 +439,10 @@ func _make_bg(st: Dictionary) -> void:
 		var s := Sprite2D.new()
 		s.centered = false
 		s.texture = load(story)
+		if id == "night":
+			var motion := NightMotion.new()
+			motion.size = s.texture.get_size()
+			s.add_child(motion)
 		_bg_node = s
 	else:
 		_bg_node = NightBg.new()
@@ -462,6 +471,8 @@ func _fit_bg() -> void:
 	var k := maxf(view.x / src.x, view.y / src.y)
 	_bg_holder.scale = Vector2(k, k)
 	_bg_holder.position = (view - src * k) * 0.5
+	if _bg_key.begins_with("night|"):
+		_bg_holder.position.y = 0 # Keep the moon and sky visible on shorter portrait screens.
 
 
 # --- герои -------------------------------------------------------------------
@@ -669,6 +680,43 @@ class NightBg extends Node2D:
 			draw_circle(Vector2(w * (0.2 + i * 0.3), house.end.y + 70 + i * 40), 40.0, Color(0.6, 0.7, 0.9, 0.12))
 
 
+class NightMotion extends Node2D:
+	var size := Vector2(1440, 3120)
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var reduced := bool(Profile.setting(&"low_fx"))
+		var phase := 0.35 if reduced else fmod(_t / 110.0 + 0.15, 1.0)
+		var moon := Vector2(size.x * lerpf(0.065, 0.265, phase), size.y * (0.053 - sin(phase * PI) * 0.012))
+		var radius := size.x * 0.024
+		var fade := 1.0 if reduced else minf(1.0, minf(phase, 1.0 - phase) * 12.0)
+		for i in range(6, 0, -1):
+			draw_circle(moon, radius * (1.0 + i * 0.28), Color(0.65, 0.77, 1.0, 0.018 * fade))
+		draw_circle(moon, radius, Color(0.84, 0.88, 0.96, 0.88 * fade))
+		draw_circle(moon + Vector2(-radius * 0.2, radius * 0.25), radius * 0.22, Color(0.5, 0.59, 0.72, 0.16 * fade))
+		draw_circle(moon + Vector2(radius * 0.35, -radius * 0.15), radius * 0.14, Color(0.5, 0.59, 0.72, 0.12 * fade))
+		# Coordinates follow the existing night illustration, before the screen's cover scale.
+		for i in 2:
+			var lamp := size * (Vector2(0.738, 0.350) if i == 0 else Vector2(0.077, 0.445))
+			var strength := 0.68 if reduced else 0.68 + sin(_t * (1.15 if i == 0 else 0.8)) * 0.12
+			var flicker := not reduced and i == 1 and fmod(_t, 13.0) > 10.8 and fmod(_t * 7.0, 1.0) < 0.45
+			if flicker:
+				strength = 0.1
+			for ring in range(7, 0, -1):
+				draw_circle(lamp, size.x * (0.017 + ring * 0.009), Color(1.0, 0.72, 0.30, strength * 0.015))
+			if flicker:
+				for ring in range(5, 0, -1):
+					draw_circle(lamp, size.x * (0.012 + ring * 0.005), Color(0.06, 0.10, 0.20, 0.09))
+		# Small distant window breathes separately from the lamps.
+		var window := size * Vector2(0.174, 0.366)
+		var glow := 0.045 if reduced else 0.045 + sin(_t * 0.65 + 2.0) * 0.015
+		draw_circle(window, size.x * 0.04, Color(1.0, 0.72, 0.36, glow))
+
+
 class Rain extends Node2D:
 	var size := Vector2(720, 1280)
 	var _t := 0.0
@@ -679,7 +727,29 @@ class Rain extends Node2D:
 			queue_redraw()
 
 	func _draw() -> void:
-		for i in 70:
-			var x := fmod(i * 97.3, size.x + 100.0) - 50.0
-			var y := fmod(i * 53.1 + _t * 900.0, size.y + 60.0) - 30.0
-			draw_line(Vector2(x, y), Vector2(x - 8.0, y + 28.0), Color(0.75, 0.82, 1.0, 0.35), 2.0)
+		var reduced := bool(Profile.setting(&"low_fx"))
+		var wind := 0.18 + sin(_t * 0.45) * 0.035
+		for i in (28 if reduced else 90):
+			var near := i % 3 == 0
+			var speed := 930.0 if near else 560.0 + (i % 5) * 38.0
+			var length := 30.0 if near else 12.0 + (i % 4) * 3.0
+			var y := fposmod(i * 83.1 + _t * speed, size.y + 80.0) - 40.0
+			var x := fposmod(i * 137.3 - _t * speed * wind, size.x + 160.0) - 80.0
+			draw_line(Vector2(x, y), Vector2(x - length * wind, y + length), Color(0.76, 0.86, 1.0, 0.29 if near else 0.14), 1.8 if near else 1.0)
+		if reduced:
+			return
+		# Ripples stay below the door, on the wet road, rather than over the family or sky.
+		for i in 7:
+			var age := fposmod(_t * 0.8 + i * 0.37, 1.0)
+			var center := Vector2(size.x * (0.12 + fposmod(i * 0.271, 0.76)), size.y * (0.76 + (i % 3) * 0.035))
+			draw_set_transform(center, 0, Vector2(1, 0.28))
+			draw_arc(Vector2.ZERO, 4.0 + age * 28.0, 0, TAU, 18, Color(0.66, 0.79, 0.95, (1.0 - age) * 0.15), 1.5)
+		draw_set_transform(Vector2.ZERO)
+
+
+func feedback_context() -> Dictionary:
+	return {"where": "Пролог" if _scene_id == "prologue" else "Сюжет: " + _scene_id,
+		"location": _bg_key, "scene": _scene_id, "step": _start + _feedback_step,
+		"typing": _typing, "speaker": _name.text if _name else "", "line": _text.text if _text else "",
+		"choice_visible": _choices.get_child_count() > 0 if _choices else false,
+		"card": _card.name if is_instance_valid(_card) else "", "action": _feedback_action}

@@ -39,9 +39,12 @@ try {
   assert.equal((await worker.fetch(new Request("https://test/health"), env)).status, 200);
   assert.equal((await worker.fetch(request(report), {})).status, 503);
   assert.equal((await worker.fetch(request({ ...report, text: "tiny" }), env)).status, 400);
-  assert.equal((await worker.fetch(request({ ...report, text: "я".repeat(10000) }), env)).status, 413);
+  assert.equal((await worker.fetch(request({ ...report, text: "я".repeat(10000) }), env)).status, 400);
   assert.equal((await worker.fetch(request({ ...report, kind: "anything" }), env)).status, 400);
   assert.equal((await worker.fetch(new Request("https://test/feedback"), env)).status, 405);
+  assert.equal((await worker.fetch(request({ ...report, diagnostics: "x".repeat(70000) }), env)).status, 413);
+  assert.equal((await worker.fetch(request({ ...report, context: "x".repeat(4097) }), env)).status, 400);
+  assert.equal((await worker.fetch(request({ ...report, automatic: true }), env)).status, 400);
   const replies = await Promise.all([worker.fetch(request(report), env), worker.fetch(request(report), env)]);
   assert.deepEqual(replies.map(r => r.status), [201, 200]);
   assert.equal(posts, 1);
@@ -67,6 +70,32 @@ try {
   globalThis.fetch = async () => Response.json([]);
   assert.equal((await worker.fetch(request(pending), env)).status, 503);
   assert(entries.has("report:" + pending.id));
+
+  const crash = { ...report, id: "e".repeat(32), kind: "crash", text: "", context: "Пролог @someone <script>", diagnostics: "GPU: test", automatic: true };
+  const issueUrl = "https://github.com/crownfall90-dot/mobile-game/issues/123";
+  let issuePosts = 0;
+  globalThis.fetch = async (target, options) => {
+    assert(target.endsWith("/issues"));
+    assert.equal(options.method, "POST");
+    const payload = JSON.parse(options.body);
+    assert(payload.title.includes("Неожиданное закрытие"));
+    assert(payload.body.includes("&lt;script&gt;") && payload.body.includes("&#64;someone"));
+    issuePosts++;
+    return Response.json({ html_url: issueUrl }, { status: 201 });
+  };
+  assert.equal((await worker.fetch(request(crash), env)).status, 201);
+  assert.equal((await worker.fetch(request(crash), env)).status, 200);
+  assert.equal(issuePosts, 1);
+  const crashLost = { ...crash, id: "f".repeat(32) };
+  globalThis.fetch = async () => { issuePosts++; throw new Error("lost reply"); };
+  assert.equal((await worker.fetch(request(crashLost), env)).status, 503);
+  globalThis.fetch = async (target, options) => {
+    assert(target.includes("/issues?state=all&since="));
+    assert.equal(options.method, undefined);
+    return Response.json([{ body: `<!-- vita-feedback:${crashLost.id} -->`, html_url: issueUrl }]);
+  };
+  assert.equal((await worker.fetch(request(crashLost), env)).status, 200);
+  assert.equal(issuePosts, 2);
 
   entries.set("daily", { date: new Date().toISOString().slice(0, 10), count: 200 });
   assert.equal((await worker.fetch(request({ ...report, id: "d".repeat(32) }), env)).status, 429);

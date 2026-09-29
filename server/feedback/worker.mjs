@@ -2,7 +2,7 @@
 const REPO = "crownfall90-dot/mobile-game";
 const ISSUE = 5;
 const API = `https://api.github.com/repos/${REPO}/issues/${ISSUE}/comments`;
-const MAX_BYTES = 16384;
+const MAX_BYTES = 65536;
 const reply = (status, data) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 
 async function readReport(request) {
@@ -24,12 +24,21 @@ async function readReport(request) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   if (!data || Array.isArray(data) || typeof data !== "object") throw new Error("invalid");
-  if (typeof data.id !== "string" || !/^[a-f0-9]{32}$/.test(data.id) || !["bug", "idea"].includes(data.kind)) throw new Error("invalid");
-  if (typeof data.text !== "string" || data.text.trim().length < 10 || data.text.length > 1500) throw new Error("invalid");
+  if (typeof data.id !== "string" || !/^[a-f0-9]{32}$/.test(data.id) || !["bug", "crash", "idea"].includes(data.kind)) throw new Error("invalid");
+  if (typeof data.text !== "string" || (data.text.trim().length < 10 && !data.context) || data.text.length > 1500) throw new Error("invalid");
   const out = { id: data.id, kind: data.kind, text: data.text.trim() };
   for (const key of ["version", "screen", "location", "level", "viewport", "os", "model"]) {
     if (typeof data[key] !== "string" || data[key].length > 100 || /[\x00-\x1f]/.test(data[key])) throw new Error("invalid");
     out[key] = data[key];
+  }
+  for (const [key, max] of [["context", 4096], ["diagnostics", 8000]]) {
+    if (data[key] === undefined) continue; // Legacy packets keep their original hash on retry.
+    if (typeof data[key] !== "string" || data[key].length > max || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(data[key])) throw new Error("invalid");
+    out[key] = data[key];
+  }
+  if (data.automatic !== undefined) {
+    if (data.automatic !== true || data.kind !== "crash") throw new Error("invalid");
+    out.automatic = true;
   }
   return out;
 }
@@ -38,9 +47,11 @@ async function readReport(request) {
 const literal = value => value.replace(/[&<>@`]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "@": "&#64;", "`": "&#96;" }[c]));
 const marker = id => `<!-- vita-feedback:${id} -->`;
 function comment(report) {
-  return `### ${report.kind === "bug" ? "Ошибка" : "Предложение"} из Vita\n\n<pre>${literal(report.text)}</pre>\n\n`
-    + Object.entries(report).filter(([key, value]) => !["id", "kind", "text"].includes(key) && value)
+  return `### ${({ bug: "Баг", crash: "Вылет", idea: "Улучшение" })[report.kind]} из Vita\n\n<pre>${literal(report.text || "Без дополнительного описания")}</pre>\n\n`
+    + Object.entries(report).filter(([key, value]) => !["id", "kind", "text", "context", "diagnostics", "automatic"].includes(key) && value)
       .map(([key, value]) => `- ${key}: ${literal(value)}`).join("\n")
+    + ["context", "diagnostics"].filter(key => report[key]).map(key =>
+      `\n\n<details><summary>${key === "context" ? "Момент игры" : "Технические данные"}</summary>\n<pre>${literal(report[key])}</pre>\n</details>`).join("")
     + `\n\n${marker(report.id)}`;
 }
 async function digest(text) {
@@ -85,6 +96,10 @@ export class FeedbackInbox {
   }
 
   async deliver(report) {
+    const api = report.automatic ? `https://api.github.com/repos/${REPO}/issues` : API;
+    const validUrl = value => report.automatic
+      ? new RegExp(`^https://github.com/${REPO}/issues/[0-9]+$`).test(value || "")
+      : value?.startsWith(`https://github.com/${REPO}/issues/${ISSUE}#issuecomment-`);
     const hash = await digest(JSON.stringify(report));
     const key = "report:" + report.id;
     const previous = await this.state.storage.get(key);
@@ -92,13 +107,13 @@ export class FeedbackInbox {
     if (previous?.url) return reply(200, { ok: true, url: previous.url });
     if (previous) {
       // A lost POST response is ambiguous: search for its marker, never blindly post twice.
-      let url = `${API}?since=${encodeURIComponent(previous.since)}&per_page=100`;
+      let url = `${api}?state=all&since=${encodeURIComponent(previous.since)}&per_page=100`;
       for (let page = 0; page < 3; page++) {
         const response = await this.github(url);
         if (!response.ok) return reply(503, { error: "retry" });
         const comments = await response.json();
         const found = comments.find(c => c.body?.includes(marker(report.id)));
-        if (found) {
+        if (found && validUrl(found.html_url)) {
           await this.state.storage.put(key, { ...previous, url: found.html_url });
           return reply(200, { ok: true, url: found.html_url });
         }
@@ -115,14 +130,16 @@ export class FeedbackInbox {
     daily.count++;
     const pending = { hash, since: new Date(Date.now() - 60000).toISOString() };
     await this.state.storage.put({ [key]: pending, daily });
-    const response = await this.github(API, { method: "POST", body: JSON.stringify({ body: comment(report) }) });
+    const payload = { body: comment(report) };
+    if (report.automatic) payload.title = `[Vita ${report.version}] Неожиданное закрытие: ${report.screen || "запуск"} / ${report.location || report.level || "неизвестно"}`;
+    const response = await this.github(api, { method: "POST", body: JSON.stringify(payload) });
     if (!response.ok) {
       // An explicit rejection did not create a comment and can be retried safely.
       if (response.status >= 400 && response.status < 500) await this.state.storage.delete(key);
       return reply(503, { error: "github_unavailable" });
     }
     const created = await response.json();
-    if (!created.html_url?.startsWith(`https://github.com/${REPO}/issues/${ISSUE}#issuecomment-`)) return reply(503, { error: "retry" });
+    if (!validUrl(created.html_url)) return reply(503, { error: "retry" });
     await this.state.storage.put(key, { ...pending, url: created.html_url });
     return reply(201, { ok: true, url: created.html_url });
   }

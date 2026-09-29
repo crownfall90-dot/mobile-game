@@ -46,6 +46,7 @@ var _busy := false
 var _queued: Array = []
 var _app_paused := false
 var _exit_popup: Node
+var _feedback_button: Button
 
 
 func _ready() -> void:
@@ -74,6 +75,24 @@ func _ready() -> void:
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fade_layer.add_child(_fade)
 	_set_fade(0.0)
+	var feedback_layer := CanvasLayer.new()
+	feedback_layer.layer = 20
+	add_child(feedback_layer)
+	_feedback_button = UiKit.button("Отзыв", &"secondary")
+	_feedback_button.custom_minimum_size = Vector2(120, 52)
+	_feedback_button.add_theme_font_size_override("font_size", 22)
+	_feedback_button.tooltip_text = "Сообщить о проблеме в этом моменте"
+	feedback_layer.add_child(_feedback_button)
+	_feedback_button.pressed.connect(func() -> void:
+		if not _busy:
+			popup(&"feedback"))
+	get_viewport().size_changed.connect(_place_feedback)
+	_place_feedback()
+
+
+func _place_feedback() -> void:
+	var size := get_viewport().get_visible_rect().size
+	_feedback_button.position = Vector2(size.x - 136, UiKit.safe_insets(get_viewport()).x + 100)
 
 
 func _notification(what: int) -> void:
@@ -162,6 +181,12 @@ func is_busy() -> bool:
 
 ## Открывает попап на слое 50. null, если его скрипта ещё нет.
 func popup(popup_name: StringName, args := {}) -> Node:
+	if popup_name == &"feedback":
+		for opened in _popups.get_children():
+			if opened.name == "FeedbackPopup" and not opened.is_queued_for_deletion():
+				return opened
+		args = args.duplicate()
+		args["captured"] = Reports.capture_feedback()
 	var path := _popup_path(popup_name)
 	if path == "":
 		push_warning("Router: popup '%s' is not available yet" % popup_name)
@@ -172,6 +197,10 @@ func popup(popup_name: StringName, args := {}) -> Node:
 		return null
 	var node: Node = script.new()
 	node.name = String(popup_name).to_pascal_case() + "Popup"
+	if popup_name == &"feedback":
+		var was_paused := get_tree().paused
+		get_tree().paused = true
+		node.closed.connect(func(_result: Variant) -> void: get_tree().paused = was_paused)
 	_popups.add_child(node)
 	if node.has_method(&"open"):
 		node.call(&"open", args)
@@ -205,6 +234,9 @@ func _change(mode: StringName, screen: StringName, args: Dictionary) -> void:
 		_queued = [mode, screen, args]
 		return
 	_busy = true
+	Reports.note_feedback("Переход на " + str(screen))
+	if Reports._tracking:
+		Reports._mark_running(true)
 	# попапы старого экрана закрываются вместе с ним; открытые после вызова остаются
 	var old_popups := _popups.get_children()
 	if _stack.is_empty():
@@ -266,6 +298,9 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 	if node.has_method(&"open"):
 		node.call(&"open", args)
 	screen_changed.emit(screen)
+	Reports.note_feedback("Открыт экран " + str(screen))
+	if Reports._tracking:
+		Reports._mark_running(true)
 
 
 ## Старый экран уходит из дерева сразу: две камеры и два уровня не живут вместе ни кадра.

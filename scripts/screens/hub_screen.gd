@@ -631,3 +631,14 @@ static func _safe_rect() -> Rect2:
 static func _scene_size() -> Vector2:
 	var s: Array = Home.data().get("scene", {}).get("size", [720, 1560])
 	return Vector2(s[0], s[1])
+
+
+func feedback_context() -> Dictionary:
+	var actions := []
+	if _view:
+		for child in _view.get_children():
+			if child.get_script() == preload("res://scripts/art/activity_player.gd"):
+				actions.append({"phase": child.phase, "item": _view.activity_prop})
+	return {"where": str(Home.location(_loc_id).get("name", _loc_id)), "location": _loc_id,
+		"repair": _repair, "busy": _busy, "talking": _talking, "completed_repairs": Home.completed(),
+		"actions": actions}

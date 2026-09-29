@@ -1,5 +1,7 @@
 extends Node
-## Автозагрузка "Reports": отчёты о сбоях в Sentry из скачанных APK, без нативных библиотек.
+## Reports: отзывы в тему тестеров и автоматические задачи о неожиданных закрытиях.
+## Нативный процесс после вылета уже не работает: сохранённый отчёт отправляется при следующем запуске.
+## Sentry остаётся необязательным дополнительным приёмником ошибок.
 ## - Ошибки скриптов и движка ловит свой Logger; каждая уходит событием (одна и та же — один раз
 ##   за запуск, не больше MAX_EVENTS за запуск).
 ## - Если прошлый запуск оборвался, пока игра была на экране (метка user://running не снята),
@@ -22,6 +24,15 @@ var feedback_busy := false
 var feedback_draft: Dictionary = {}
 var feedback_message := ""
 var _feedback_http: HTTPRequest
+var feedback_events: Array[String] = []
+var feedback_errors: Array[String] = []
+var previous_run: Dictionary = {}
+var _tracking := false
+var _checkpoint: Timer
+const CRASH_QUEUE := "user://crash_reports"
+var _crash_http: HTTPRequest
+var _crash_file := ""
+var _run_id := _uuid()
 
 var enabled := false
 var _key := ""
@@ -40,6 +51,26 @@ func _ready() -> void:
 		var draft: Variant = JSON.parse_string(FileAccess.get_file_as_string(FEEDBACK_DRAFT))
 		if draft is Dictionary and draft.get("text") is String:
 			feedback_draft = draft
+	_tracking = not Profile.volatile and (OS.has_feature("android") or OS.get_environment("VITA_REPORT_TEST") == "1")
+	if _tracking:
+		var json := JSON.new()
+		if FileAccess.file_exists(RUNNING) and json.parse(FileAccess.get_file_as_string(RUNNING)) == OK and json.data is Dictionary:
+			previous_run = json.data
+			previous_run["log"] = _previous_log_tail().right(2200)
+		_checkpoint = Timer.new()
+		_checkpoint.wait_time = 5
+		_checkpoint.timeout.connect(func() -> void: _mark_running(true))
+		add_child(_checkpoint)
+		_checkpoint.start()
+		_queue_previous_run()
+		var retry := Timer.new()
+		retry.wait_time = 60
+		retry.timeout.connect(_send_crash)
+		add_child(retry)
+		retry.start()
+		_send_crash.call_deferred()
+		_mark_running.call_deferred(true)
+		OS.add_logger(Catcher.new(self))
 	_dsn = _read_dsn()
 	var allowed := OS.has_feature("android") or OS.get_environment("VITA_REPORT_TEST") == "1"
 	if _dsn == "" or not allowed:
@@ -60,24 +91,93 @@ func _ready() -> void:
 	_http.timeout = 20.0
 	add_child(_http)
 	_http.request_completed.connect(_on_sent)
-	OS.add_logger(Catcher.new(self))
+	if not _tracking:
+		OS.add_logger(Catcher.new(self))
 	_check_last_run()
 	_mark_running(true)
 
 
 func _notification(what: int) -> void:
-	if not enabled:
+	if not enabled and not _tracking:
 		return
 	# свернули или закрыли — это не сбой; вернулись — снова «на экране»
 	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_PREDELETE]:
+		if _checkpoint:
+			_checkpoint.stop()
 		_mark_running(false)
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		if _checkpoint:
+			_checkpoint.start()
 		_mark_running(true)
 
 
 ## Ошибка из журнала (вызывается из Catcher, возможно не из главного потока).
 func report_error(text: String, where: String, trace: String) -> void:
-	_add_event.call_deferred("error", text, where, trace)
+	_record_error.call_deferred(text, where, trace)
+
+
+func _record_error(text: String, where: String, trace: String) -> void:
+	feedback_errors.append((where + ": " + text + "\n" + trace).left(500))
+	if feedback_errors.size() > 8:
+		feedback_errors.pop_front()
+	if enabled:
+		_add_event("error", text, where, trace)
+
+
+func _input(event: InputEvent) -> void:
+	if Router.top_popup() and Router.top_popup().name == "FeedbackPopup":
+		return  # Never record typed feedback or keyboard input.
+	if event is InputEventScreenTouch and event.pressed:
+		note_feedback("Касание %s" % event.position)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		note_feedback("Касание %s" % event.position)
+
+
+func note_feedback(action: String) -> void:
+	feedback_events.append("%.1fs %s: %s" % [Time.get_ticks_msec() / 1000.0, Router.current(), action.left(180)])
+	if feedback_events.size() > 20:
+		feedback_events.pop_front()
+
+
+func capture_feedback() -> Dictionary:
+	var screen := Router.current_screen()
+	var name := str(Router.current())
+	var detail: Dictionary = screen.feedback_context() if screen and screen.has_method("feedback_context") else {"where": name}
+	var size := get_viewport().get_visible_rect().size
+	var tech := {"engine": Engine.get_version_info().string, "uptime_s": Time.get_ticks_msec() / 1000.0,
+		"fps": Engine.get_frames_per_second(), "memory_bytes": OS.get_static_memory_usage(),
+		"video_memory_bytes": Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED),
+		"gpu": RenderingServer.get_video_adapter_name(), "driver": str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")),
+		"screen_pixels": str(DisplayServer.window_get_size()), "locale": OS.get_locale(),
+		"events": feedback_events.duplicate(), "errors": feedback_errors.duplicate(),
+		"progress": Profile.data.duplicate(true)}
+	if not previous_run.is_empty():
+		var prior := previous_run.duplicate(true)
+		prior.erase("diagnostics") # Avoid nesting checkpoints on repeated interrupted runs.
+		tech["previous_interrupted_run"] = prior
+	var diagnostics := JSON.stringify(tech, "  ")
+	# Runtime logs can include a local user path. Keep paths anonymous in public feedback.
+	var redact := RegEx.new()
+	redact.compile(r"(?i)([A-Z]:[\\/]Users[\\/]|/home/|/Users/)[^\\/\n]+")
+	diagnostics = redact.sub(diagnostics, "$1<user>", true)
+	return {"version": str(ProjectSettings.get_setting("application/config/version", "")),
+		"screen": name, "location": str(detail.get("location", "")), "level": str(detail.get("level", "")),
+		"viewport": "%dx%d" % [size.x, size.y], "os": (OS.get_name() + " " + OS.get_version()).left(100),
+		"model": OS.get_model_name().left(100), "context": JSON.stringify(detail, "  ").left(4000),
+		"diagnostics": diagnostics.left(8000), "summary": str(detail.get("where", name)),
+		"captured_at": Time.get_datetime_string_from_system(true)}
+
+
+func begin_feedback(captured: Dictionary) -> void:
+	if not feedback_busy and (not feedback_draft.has("context") or (str(feedback_draft.get("text", "")).is_empty() and not feedback_draft.has("packet"))):
+		feedback_draft["context"] = captured.duplicate(true)
+		feedback_draft["device"] = true
+
+
+func new_feedback(captured: Dictionary) -> void:
+	if not feedback_busy:
+		feedback_draft = {"context": captured.duplicate(true), "kind": "bug", "text": "", "device": true}
+		save_feedback("bug", "", true)
 
 
 func _add_event(level: String, text: String, where: String, extra: String) -> void:
@@ -137,11 +237,80 @@ func _check_last_run() -> void:
 
 func _mark_running(on: bool) -> void:
 	if on:
-		var f := FileAccess.open(RUNNING, FileAccess.WRITE)
-		if f:
-			f.store_string(str(Time.get_unix_time_from_system()))
+		var context := capture_feedback()
+		context.erase("summary")
+		context["id"] = _run_id
+		_atomic_json(RUNNING, context)
 	elif FileAccess.file_exists(RUNNING):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(RUNNING))
+
+
+func _atomic_json(path: String, data: Dictionary) -> bool:
+	var file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
+	if file == null:
+		return false
+	var stored := file.store_string(JSON.stringify(data)) and file.get_error() == OK
+	file.close()
+	return stored and DirAccess.rename_absolute(path + ".tmp", path) == OK
+
+
+func _queue_previous_run() -> void:
+	if previous_run.is_empty():
+		return
+	var packet := previous_run.duplicate(true)
+	packet["id"] = str(packet.get("id", _uuid()))
+	packet["kind"] = "crash"
+	packet["automatic"] = true
+	# A native crash and a foreground OS kill both leave a marker; don't claim certainty.
+	packet["text"] = "Автоматический отчёт: предыдущий запуск неожиданно оборвался на экране. Возможен вылет или завершение системой."
+	packet["context"] = (str(packet.get("context", "")) + "\nМомент: " + str(packet.get("captured_at", ""))).left(4096)
+	var redact := RegEx.new()
+	redact.compile(r"(?i)([A-Z]:[\\/]Users[\\/]|/home/|/Users/)[^\\/\n]+")
+	packet["diagnostics"] = redact.sub(("Последний журнал:\n" + str(packet.get("log", "")) + "\n" + str(packet.get("diagnostics", ""))).left(8000), "$1<user>", true)
+	packet.erase("log")
+	packet.erase("captured_at")
+	DirAccess.make_dir_recursive_absolute(CRASH_QUEUE)
+	if _atomic_json(CRASH_QUEUE + "/" + packet.id + ".json", packet):
+		DirAccess.remove_absolute(RUNNING)
+
+
+func _send_crash() -> void:
+	if not _tracking or not _crash_file.is_empty() or feedback_url().is_empty():
+		return
+	var dir := DirAccess.open(CRASH_QUEUE)
+	if dir == null:
+		return
+	for file in dir.get_files():
+		if not file.ends_with(".json"):
+			continue
+		var path := CRASH_QUEUE + "/" + file
+		var packet: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not packet is Dictionary:
+			continue
+		if _crash_http == null:
+			_crash_http = HTTPRequest.new()
+			_crash_http.timeout = 25
+			_crash_http.body_size_limit = 2048
+			_crash_http.max_redirects = 0
+			add_child(_crash_http)
+			_crash_http.request_completed.connect(_on_crash_sent)
+		_crash_file = path
+		if _crash_http.request(feedback_url(), ["Content-Type: application/json"], HTTPClient.METHOD_POST, JSON.stringify(packet)) != OK:
+			_crash_file = ""
+		return
+
+
+func _on_crash_sent(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var accepted: bool = result == HTTPRequest.RESULT_SUCCESS and code in [200, 201] and parsed is Dictionary and parsed.get("ok") == true
+	var url := str(parsed.get("url", "")) if parsed is Dictionary else ""
+	var prefix := "https://github.com/crownfall90-dot/mobile-game/issues/"
+	accepted = accepted and url.begins_with(prefix) and url.trim_prefix(prefix).is_valid_int()
+	if accepted:
+		DirAccess.remove_absolute(_crash_file)
+	_crash_file = ""
+	if accepted:
+		_send_crash.call_deferred()
 
 
 ## Godot хранит журналы в user://logs: godot.log — текущий, прошлые — с датой в имени.
@@ -188,7 +357,8 @@ func save_feedback(kind: String, text: String, device: bool) -> bool:
 	if feedback_busy:
 		return false
 	if feedback_draft.get("kind") != kind or feedback_draft.get("text") != text or feedback_draft.get("device") != device:
-		feedback_draft = {"kind": kind, "text": text, "device": device}
+		feedback_draft.erase("packet")
+		feedback_draft.merge({"kind": kind, "text": text, "device": device}, true)
 	if Profile.volatile:
 		return true
 	var tmp := FEEDBACK_DRAFT + ".tmp"
@@ -206,8 +376,8 @@ func send_feedback() -> void:
 		return
 	var text := str(feedback_draft.get("text", "")).strip_edges()
 	var kind := str(feedback_draft.get("kind", ""))
-	if text.length() < 10 or text.length() > 1500 or kind not in ["bug", "idea"]:
-		_feedback_result(false, "Опиши подробнее: от 10 до 1500 знаков.")
+	if text.length() > 1500 or kind not in ["bug", "crash", "idea"]:
+		_feedback_result(false, "Описание может содержать до 1500 знаков.")
 		return
 	var url := feedback_url()
 	if url == "":
@@ -215,16 +385,17 @@ func send_feedback() -> void:
 		return
 	# Keep the same packet/ID on retry, even after restarting or changing rooms.
 	if not feedback_draft.has("packet"):
-		var screen := Router.current_screen()
-		var name := str(Router.current())
-		var device := bool(feedback_draft.get("device", false))
-		var size := get_viewport().get_visible_rect().size
-		feedback_draft["packet"] = {"id": _uuid(), "kind": kind, "text": text,
-			"version": str(ProjectSettings.get_setting("application/config/version", "")),
-			"screen": name, "location": str(screen.get("_loc_id")) if name == "hub" and screen else "",
-			"level": str(screen.get("level_id")) if name == "game" and screen else "",
-			"viewport": "%dx%d" % [size.x, size.y],
-			"os": (OS.get_name() + " " + OS.get_version()).left(100) if device else "", "model": OS.get_model_name().left(100) if device else ""}
+		var captured: Dictionary = (feedback_draft["context"] if feedback_draft.has("context") else capture_feedback()).duplicate(true)
+		captured.erase("summary")
+		captured["context"] += "\nМомент: " + str(captured.get("captured_at", ""))
+		captured.erase("captured_at")
+		if not bool(feedback_draft.get("device", true)):
+			captured["os"] = ""
+			captured["model"] = ""
+			captured.erase("diagnostics")
+		captured.merge({"id": _uuid(), "kind": kind, "text": text}, true)
+		feedback_draft["packet"] = captured
+
 	if not save_feedback(kind, str(feedback_draft["text"]), bool(feedback_draft.get("device", false))):
 		_feedback_result(false, "Не удалось сохранить текст на телефоне. Освободи немного места и повтори.")
 		return

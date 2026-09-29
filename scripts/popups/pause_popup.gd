@@ -12,7 +12,7 @@ func open(args: Dictionary) -> void:
 			content.add_child(l)
 	get_tree().paused = true
 	closed.connect(func(_v: Variant) -> void: get_tree().paused = false)
-	for entry in [["Продолжить","resume"],["Начать заново","restart"],["Настройки","settings"],["Вернуться домой","home"]]:
+	for entry in [["Продолжить","resume"],["Начать заново","restart"],["Настройки","settings"],["Сообщить о проблеме","feedback"],["Вернуться домой","home"]]:
 		var button := UiKit.button(entry[0], &"secondary" if entry[1] == "restart" else &"primary")
 		content.add_child(button)
 		button.pressed.connect(func() -> void:
@@ -20,8 +20,8 @@ func open(args: Dictionary) -> void:
 				close()
 			elif entry[1] == "restart":
 				close("restart")   # экран уровня перезапускает попытку
-			elif entry[1] == "settings":
-				Router.popup(&"settings")
+			elif entry[1] in ["settings", "feedback"]:
+				Router.popup(StringName(entry[1]))
 			else:
 				get_tree().paused = false
 				Router.go(&"hub"))

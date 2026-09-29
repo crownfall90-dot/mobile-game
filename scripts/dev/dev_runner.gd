@@ -102,7 +102,9 @@ func run(flags: Dictionary) -> void:
 	_rng.seed = jitter
 	if flags.has("shot"):
 		_take_shot(str(flags["shot"]))
-	if flags.get("smoke", false):
+	if flags.get("feedback_selfcheck", false):
+		get_tree().quit(0 if await load("res://tools/test_feedback.gd").context_checks() else 1)
+	elif flags.get("smoke", false):
 		_quit_after_shot = false
 		_smoke()
 	elif flags.has("screen"):

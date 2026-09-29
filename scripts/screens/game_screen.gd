@@ -213,6 +213,7 @@ func _open_pause(restart_fallback: bool) -> void:
 
 
 func _on_pin_pulled(_pin: Pin) -> void:
+	Reports.note_feedback("Вытащен засов " + _pin.id)
 	Sfx.play(&"pin")
 	Sfx.haptic(15)
 	_hud.hide_hint()
@@ -479,3 +480,14 @@ func _hint() -> void:
 				level.set_hint_pin(next)
 			return
 	Router.toast("Попробуй начать заново: порядок уже изменился")
+
+
+func feedback_context() -> Dictionary:
+	var pins := {}
+	if level:
+		for pin in level.pins:
+			pins[pin.id] = pin.pulled
+	return {"where": "Уровень: " + _title(), "location": str(Home.task_for_level(level_id).get("loc", "")),
+		"level": level_id, "attempt": _attempt, "repair": _repair, "paused": get_tree().paused,
+		"finished": level.finished if level else false, "result": level.result() if level else {},
+		"pins": pins, "mods": mods, "jitter": _jitter, "level_data": _data}
