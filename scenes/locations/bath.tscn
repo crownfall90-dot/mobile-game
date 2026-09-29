@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Texture2D" path="res://art/act1/bath/background.png" id="1"]
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_tub_broken.png" id="2"]
@@ -12,10 +12,11 @@
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_duck.png" id="10"]
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_mat.png" id="11"]
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_basket.png" id="12"]
-[ext_resource type="Texture2D" path="res://art/act1/family/mother_bath.png" id="13"]
+[ext_resource type="Texture2D" path="res://art/act1/family/mother_bath_v2.png" id="13"]
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_laundry_stool.png" id="14"]
 [ext_resource type="Texture2D" path="res://art/act1/bath/bath_laundry_basin.png" id="15"]
-[ext_resource type="Texture2D" path="res://art/act1/family/daughter_bath.png" id="16"]
+[ext_resource type="Texture2D" path="res://art/act1/family/daughter_bath_v2.png" id="16"]
+[ext_resource type="Texture2D" path="res://art/act1/bath/v2/paper_boat.png" id="17"]
 
 [node name="bath" type="Node2D"]
 metadata/location = "bath"
@@ -29,123 +30,131 @@ metadata/_edit_lock_ = true
 
 [node name="bath_tub" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(559.5, 938)
-scale = Vector2(0.5038, 0.5038)
+position = Vector2(473, 962.5)
+scale = Vector2(0.425, 0.425)
 texture = ExtResource("2")
 metadata/kind = "target"
 metadata/key = "bath_tub"
 
 [node name="bath_toilet" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(118.5, 925.5)
-scale = Vector2(0.465, 0.465)
+position = Vector2(167, 939)
+scale = Vector2(0.38, 0.38)
 texture = ExtResource("3")
 metadata/kind = "target"
 metadata/key = "bath_toilet"
 
 [node name="bath_sink" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(307.5, 853)
-scale = Vector2(0.4667, 0.4667)
+position = Vector2(316.5, 898)
+scale = Vector2(0.4325, 0.4325)
 texture = ExtResource("4")
 metadata/kind = "target"
 metadata/key = "bath_sink"
 
 [node name="bath_tiles" type="Sprite2D" parent="."]
 z_index = 0
-position = Vector2(590, 730)
-scale = Vector2(0.2885, 0.2885)
+position = Vector2(476, 823.5)
+scale = Vector2(0.1788, 0.1788)
 texture = ExtResource("5")
 metadata/kind = "target"
 metadata/key = "bath_tiles"
 
 [node name="bath_light" type="Sprite2D" parent="."]
-z_index = 100
-position = Vector2(360, 227.5)
-scale = Vector2(0.5833, 0.5833)
+z_index = 0
+position = Vector2(360.5, 456)
+scale = Vector2(0.2533, 0.2533)
 texture = ExtResource("6")
 metadata/kind = "target"
 metadata/key = "bath_light"
 
 [node name="bath__bath_mirror" type="Sprite2D" parent="."]
 z_index = 0
-position = Vector2(310, 655.5)
-scale = Vector2(0.6818, 0.6818)
+position = Vector2(308.5, 697)
+scale = Vector2(0.4409, 0.4409)
 texture = ExtResource("7")
 metadata/kind = "prop"
 metadata/key = "bath/bath_mirror"
 
 [node name="bath__bath_towel" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(160, 708)
-scale = Vector2(0.6, 0.6)
+position = Vector2(200, 766)
+scale = Vector2(0.3, 0.3)
 texture = ExtResource("8")
 metadata/kind = "prop"
 metadata/key = "bath/bath_towel"
 
 [node name="bath__bath_shelf" type="Sprite2D" parent="."]
 z_index = 100
-position = Vector2(588, 537.5)
-scale = Vector2(0.6643, 0.6643)
+position = Vector2(466, 700)
+scale = Vector2(0.2714, 0.2714)
 texture = ExtResource("9")
 metadata/kind = "prop"
 metadata/key = "bath/bath_shelf"
 
 [node name="bath__bath_duck" type="Sprite2D" parent="."]
 z_index = 200
-position = Vector2(645.5, 879)
-scale = Vector2(0.5, 0.5)
+position = Vector2(587, 928)
+scale = Vector2(0.25, 0.25)
 texture = ExtResource("10")
 metadata/kind = "prop"
 metadata/key = "bath/bath_duck"
 
 [node name="bath__bath_mat" type="Sprite2D" parent="."]
 z_index = 0
-position = Vector2(584, 1091.5)
-scale = Vector2(0.6875, 0.6875)
+position = Vector2(406, 1094)
+scale = Vector2(0.6062, 0.6062)
 texture = ExtResource("11")
 metadata/kind = "prop"
 metadata/key = "bath/bath_mat"
 
 [node name="bath__bath_basket" type="Sprite2D" parent="."]
 z_index = 200
-position = Vector2(105, 1212)
-scale = Vector2(0.7, 0.7)
+position = Vector2(172.5, 1172)
+scale = Vector2(0.5182, 0.5182)
 texture = ExtResource("12")
 metadata/kind = "prop"
 metadata/key = "bath/bath_basket"
 
-[node name="family__mother_bath" type="Sprite2D" parent="."]
+[node name="family__mother_bath_v2" type="Sprite2D" parent="."]
 z_index = 300
-position = Vector2(335, 1142.5)
-scale = Vector2(0.65, 0.65)
+position = Vector2(611.5, 904.5)
+scale = Vector2(0.2728, 0.2728)
 texture = ExtResource("13")
 metadata/kind = "prop"
-metadata/key = "family/mother_bath"
+metadata/key = "family/mother_bath_v2"
 
 [node name="bath__bath_laundry_stool" type="Sprite2D" parent="."]
 z_index = 300
-position = Vector2(415, 1325)
-scale = Vector2(0.6333, 0.6333)
+position = Vector2(553.5, 1046.5)
+scale = Vector2(0.41, 0.41)
 texture = ExtResource("14")
 metadata/kind = "prop"
 metadata/key = "bath/bath_laundry_stool"
 
 [node name="bath__bath_laundry_basin" type="Sprite2D" parent="."]
 z_index = 400
-position = Vector2(415, 1242)
-scale = Vector2(0.6, 0.6)
+position = Vector2(549.5, 951)
+scale = Vector2(0.3417, 0.3417)
 texture = ExtResource("15")
 metadata/kind = "prop"
 metadata/key = "bath/bath_laundry_basin"
 
-[node name="family__daughter_bath" type="Sprite2D" parent="."]
+[node name="family__daughter_bath_v2" type="Sprite2D" parent="."]
 z_index = 400
-position = Vector2(592.5, 1279)
-scale = Vector2(0.49, 0.49)
+position = Vector2(401, 984.5)
+scale = Vector2(0.1521, 0.1521)
 texture = ExtResource("16")
 metadata/kind = "prop"
-metadata/key = "family/daughter_bath"
+metadata/key = "family/daughter_bath_v2"
+
+[node name="bath__v2__paper_boat" type="Sprite2D" parent="."]
+z_index = 410
+position = Vector2(330, 954)
+scale = Vector2(0.0289, 0.0289)
+texture = ExtResource("17")
+metadata/kind = "prop"
+metadata/key = "bath/v2/paper_boat"
 
 [node name="Видно на телефоне" type="ReferenceRect" parent="."]
 offset_left = 20.0
