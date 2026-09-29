@@ -41,7 +41,10 @@ func _run() -> void:
 		await create_timer(0.4).timeout
 		var hub: Node = router.current_screen()
 		var marks: Array = hub._mark_list()
-		assert(marks.size() == 5)
+		assert(marks.size() == (6 if loc_id == "kitchen" else 5))
+		if loc_id == "kitchen":
+			assert(marks[-1]["kind"] == ("act" if repaired else "lock"))
+			assert(Rect2(60, 110, 600, 1260).has_point(marks[-1]["at"]))
 		for i in loc["targets"].size():
 			var task: Dictionary = loc["targets"][i]
 			assert(task["level"] == "home_%02d" % (({"kitchen": 5, "bath": 10, "living": 15}[loc_id]) + i))

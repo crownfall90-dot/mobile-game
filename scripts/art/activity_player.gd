@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook", "kettle"]
 const TOYS := "res://art/act1/room/toys/"
 const CARRY_HAND := [Vector2(433, 476), Vector2(491, 443), Vector2(479, 368), Vector2(507, 214)]
 
@@ -36,6 +36,9 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 		return
 	if kind == "cook":
 		await _cook(clip)
+		return
+	if kind == "kettle":
+		await _kettle(item, clip)
 		return
 	for i in 4:
 		_frames.append(load(ART + _who + "_%d.png" % i))
@@ -311,18 +314,7 @@ func _cook(clip: Dictionary) -> void:
 	arm.texture = tex
 	arm.position = elbow - tip
 	pose.add_child(arm)
-	var steam := Node2D.new()
-	steam.name = "Steam"
-	steam.position = _view.activity_point(vessel, Vector2(0.5, 0.25))
-	add_child(steam)
-	for i in 3:
-		var curl := Line2D.new()
-		curl.points = PackedVector2Array([Vector2(i * 9 - 9, 0), Vector2(i * 9 - 6, -8), Vector2(i * 9 - 12, -16), Vector2(i * 9 - 9, -24)])
-		curl.width = 2.0
-		curl.default_color = Color(1, 0.96, 0.86, 0.6)
-		curl.begin_cap_mode = Line2D.LINE_CAP_ROUND
-		curl.end_cap_mode = Line2D.LINE_CAP_ROUND
-		steam.add_child(curl)
+	var steam := _make_steam(_view.activity_point(vessel, Vector2(0.5, 0.25)))
 	_view.activity_prop = str(source["img"])
 	phase = "stir"
 	var start := steam.position
@@ -338,6 +330,58 @@ func _cook(clip: Dictionary) -> void:
 		if _complete:
 			return
 	_finish()
+
+
+func _kettle(item: Dictionary, clip: Dictionary) -> void:
+	var kettle := Sprite2D.new()
+	kettle.name = "Kettle"
+	kettle.texture = load(LocationView.ART + str(item["img"]) + ".png") as Texture2D
+	if kettle.texture == null:
+		kettle.free()
+		_finish()
+		return
+	var r := _view.activity_rect(item)
+	kettle.position = r.get_center()
+	kettle.scale = r.size / kettle.texture.get_size()
+	kettle.flip_h = bool(item.get("flip", false))
+	var angle := float(item.get("rot", 0.0))
+	kettle.rotation = angle
+	add_child(kettle)
+	var at: Array = clip["contact"]
+	contact = _view.activity_point(item, Vector2(at[0], at[1]))
+	var steam := _make_steam(contact, 3.0)
+	steam.modulate = Color(0.55, 0.68, 0.78)
+	_view.activity_prop = str(item["img"])
+	phase = "boil"
+	for i in 6:
+		steam.position = contact
+		steam.modulate.a = 1.0
+		var boil := create_tween()
+		boil.tween_property(kettle, "rotation", angle + 0.018, 0.4).set_trans(Tween.TRANS_SINE)
+		boil.tween_property(kettle, "rotation", angle - 0.018, 0.4).set_trans(Tween.TRANS_SINE)
+		boil.parallel().tween_property(steam, "position:y", contact.y - 15.0, 0.4)
+		boil.parallel().tween_property(steam, "modulate:a", 0.0, 0.4)
+		await _play(boil)
+		if _complete:
+			return
+	_finish()
+
+
+func _make_steam(at: Vector2, spread := 9.0) -> Node2D:
+	var steam := Node2D.new()
+	steam.name = "Steam"
+	steam.position = at
+	add_child(steam)
+	for i in 3:
+		var curl := Line2D.new()
+		var x := (i - 1) * spread
+		curl.points = PackedVector2Array([Vector2(x, 0), Vector2(x + 3, -8), Vector2(x - 3, -16), Vector2(x, -24)])
+		curl.width = 2.0
+		curl.default_color = Color(1, 0.96, 0.86, 0.6)
+		curl.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		curl.end_cap_mode = Line2D.LINE_CAP_ROUND
+		steam.add_child(curl)
+	return steam
 
 
 func _finish() -> void:

@@ -1,5 +1,6 @@
 extends SceneTree
 ## godot --headless --path . --fixed-fps 120 --script res://tools/test_cooking_animation.gd
+## Add -- kettle to check the kettle and its actual prop menu instead.
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -13,48 +14,65 @@ func _run() -> void:
 	var profile := root.get_node("Profile")
 	profile.volatile = true
 	profile.data = profile.defaults()
-	assert(activities.available("kitchen_stove").is_empty())
+	var is_kettle := "kettle" in OS.get_cmdline_user_args()
+	var key := "kitchen/kitchen_kettle" if is_kettle else "kitchen_stove"
+	var action_phase := "boil" if is_kettle else "stir"
+	assert(activities.available(key).is_empty())
+	assert(not activities.locked_reason(key).is_empty())
 	for task: Dictionary in home.tasks():
 		profile.set_flag("home." + task["id"])
-	assert(activities.available("kitchen_stove") == [[0, "Сварить кашу"]])
+	assert(activities.available(key) == [[0, "Вскипятить чайник" if is_kettle else "Сварить кашу"]])
 	var before: Dictionary = profile.data.duplicate(true)
-	var clip: Dictionary = activities.animation("kitchen_stove", 0)
+	var clip: Dictionary = activities.animation(key, 0)
 	for mode in ["finish", "cancel", "moved"]:
 		var view = load("res://scripts/art/location_view.gd").new()
 		view.setup(home.location("kitchen").duplicate(true), Vector2(720, 1560))
 		root.add_child(view)
-		var pot: Dictionary = view.activity_item(clip["vessel"])
+		var pot: Dictionary = view.activity_item(key if is_kettle else clip["vessel"])
 		if mode == "moved":
 			pot["rect"] = [350, 900, 140, 95]
 			pot["flip"] = true
 			pot["rot"] = 0.15
+			if is_kettle:
+				pot["draw"] = [420, 950, 140, 95]
 		var player: Node = load("res://scripts/art/activity_player.gd").new()
 		view.add_child(player)
 		var done := [false]
 		player.finished.connect(func() -> void: done[0] = true)
-		player.run.call_deferred(view, "kitchen_stove", clip)
-		while player.phase != "stir":
+		player.run.call_deferred(view, key, clip)
+		while player.phase != action_phase:
 			await process_frame
-		var pose: Node2D = player.get_node("Cooking")
-		var arm: Polygon2D = pose.get_node("Arm")
-		assert(view.activity_prop == "family/mother_kitchen_v2")
+		var pose: Node2D = player.get_node("Kettle" if is_kettle else "Cooking")
+		var moving: Node2D = pose if is_kettle else pose.get_node("Arm")
+		assert(view.activity_prop == ("kitchen/kitchen_kettle" if is_kettle else "family/mother_kitchen_v2"))
 		assert(not view.activity_hidden, "Daughter must remain in her seated scene pose")
-		assert(pose.position.is_equal_approx(view.activity_point(pot, Vector2(0.75, 0.5))))
-		assert(pose.scale.x < 0 if mode == "moved" else pose.scale.x > 0)
-		assert(is_equal_approx(pose.rotation, float(pot.get("rot", 0))))
-		var initial := arm.rotation
+		if is_kettle:
+			assert(pose.position.is_equal_approx(view.activity_rect(pot).get_center()))
+			assert(pose.flip_h == (mode == "moved"))
+			assert((pose.texture.get_size() * pose.scale).is_equal_approx(view.activity_rect(pot).size))
+			assert(player.contact.is_equal_approx(view.activity_point(pot, Vector2(0.15, 0.36))))
+			assert(player.get_node("Steam").position.is_equal_approx(player.contact))
+		else:
+			assert(pose.position.is_equal_approx(view.activity_point(pot, Vector2(0.75, 0.5))))
+			assert(pose.scale.x < 0 if mode == "moved" else pose.scale.x > 0)
+		assert(absf(pose.rotation - float(pot.get("rot", 0))) < 0.019 if is_kettle else is_equal_approx(pose.rotation, float(pot.get("rot", 0))))
+		var initial := moving.rotation
+		var steam_start: Vector2 = player.get_node("Steam").position
 		for i in 30:
 			await process_frame
-		assert(not is_equal_approx(arm.rotation, initial), "The arm/spoon must move independently")
-		assert(pose.position.is_equal_approx(player.contact), "Torso must stay at the vessel anchor")
+		assert(not is_equal_approx(moving.rotation, initial), "The kettle or arm/spoon must move")
+		if not is_kettle:
+			assert(pose.position.is_equal_approx(player.contact), "Torso must stay at the vessel anchor")
 		assert(player.get_node("Steam").get_child_count() == 3)
+		await create_timer(0.35).timeout
+		assert(player.get_node("Steam").modulate.a < 1.0 and player.get_node("Steam").position.y < steam_start.y)
 		if mode == "cancel":
 			player.queue_free()
 		while not done[0]:
 			await process_frame
 		await process_frame
 		assert(not view.activity_hidden and view.activity_prop.is_empty())
-		assert(profile.data == before, "Cooking cannot grant repairs, stars or purchases")
+		assert(profile.data == before, "Household actions cannot grant repairs, stars or purchases")
 		view.queue_free()
 		await process_frame
 	var router := root.get_node("Router")
@@ -66,7 +84,7 @@ func _run() -> void:
 	var hub: Node = router.current_screen()
 	for mark: Dictionary in hub._mark_list():
 		var callback: Callable = mark["do"]
-		if callback.get_method() == &"_offer_actions" and callback.get_bound_arguments()[0] == "kitchen_stove":
+		if callback.get_method() == &"_offer_actions" and callback.get_bound_arguments()[0] == key:
 			callback.call()
 	assert(router.top_popup() != null, "Repaired stove must open the activity menu")
 	router.top_popup().close(0)
@@ -76,7 +94,7 @@ func _run() -> void:
 		assert(router.current_screen() == hub)
 		await process_frame
 	assert(hub._marks.visible and hub._view.activity_prop.is_empty())
-	hub._play_activity("kitchen_stove", clip)
+	hub._play_activity(key, clip)
 	await create_timer(0.3).timeout
 	var old_view: Node = hub._view
 	router.go(&"hub", {"location": "room"})
@@ -84,5 +102,5 @@ func _run() -> void:
 		await process_frame
 	assert(not is_instance_valid(old_view), "Leaving the hub must cancel/free the cooking view")
 	assert(home.completed() == 19)
-	print("COOKING: repair gate, independent arm/steam, finish/cancel, moved/flipped/rotated vessel, actual menu and leaving hub OK")
+	print(key + ": repair gate, moving object/steam, finish/cancel, moved/flipped/rotated vessel, actual menu and leaving hub OK")
 	quit()

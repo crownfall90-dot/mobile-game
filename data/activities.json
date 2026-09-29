@@ -141,7 +141,7 @@
    {"say": "daughter", "text": "Мама, слышишь? Совсем тихо.", "mood": "surprised"},
    {"say": "mother", "text": "Это самый приятный звук в доме.", "mood": "smile"}]}]},
  "kitchen/kitchen_kettle": {"name": "Чайник", "acts": [
-  {"label": "Поставить чайник", "after": "kitchen_stove", "scene": [
+  {"label": "Вскипятить чайник", "after": "kitchen_stove", "animation": {"kind": "kettle", "contact": [0.15, 0.36]}, "scene": [
    {"bg": "kitchen"}, {"show": ["family"]},
    {"text": "Чайник тихонько засвистел."},
    {"say": "mother", "text": "Чай с мятой — и сразу теплее.", "mood": "smile"},
