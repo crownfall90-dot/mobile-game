@@ -2,7 +2,7 @@
 const REPO = "crownfall90-dot/mobile-game";
 const ISSUE = 5;
 const API = `https://api.github.com/repos/${REPO}/issues/${ISSUE}/comments`;
-const MAX_BYTES = 65536;
+const MAX_BYTES = 131072;
 const reply = (status, data) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 
 async function readReport(request) {
@@ -31,7 +31,7 @@ async function readReport(request) {
     if (typeof data[key] !== "string" || data[key].length > 100 || /[\x00-\x1f]/.test(data[key])) throw new Error("invalid");
     out[key] = data[key];
   }
-  for (const [key, max] of [["context", 4096], ["diagnostics", 8000]]) {
+  for (const [key, max] of [["context", 12288], ["diagnostics", 32000]]) {
     if (data[key] === undefined) continue; // Legacy packets keep their original hash on retry.
     if (typeof data[key] !== "string" || data[key].length > max || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(data[key])) throw new Error("invalid");
     out[key] = data[key];

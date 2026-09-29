@@ -42,8 +42,8 @@ try {
   assert.equal((await worker.fetch(request({ ...report, text: "я".repeat(10000) }), env)).status, 400);
   assert.equal((await worker.fetch(request({ ...report, kind: "anything" }), env)).status, 400);
   assert.equal((await worker.fetch(new Request("https://test/feedback"), env)).status, 405);
-  assert.equal((await worker.fetch(request({ ...report, diagnostics: "x".repeat(70000) }), env)).status, 413);
-  assert.equal((await worker.fetch(request({ ...report, context: "x".repeat(4097) }), env)).status, 400);
+  assert.equal((await worker.fetch(request({ ...report, diagnostics: "x".repeat(140000) }), env)).status, 413);
+  assert.equal((await worker.fetch(request({ ...report, context: "x".repeat(12289) }), env)).status, 400);
   assert.equal((await worker.fetch(request({ ...report, automatic: true }), env)).status, 400);
   const replies = await Promise.all([worker.fetch(request(report), env), worker.fetch(request(report), env)]);
   assert.deepEqual(replies.map(r => r.status), [201, 200]);

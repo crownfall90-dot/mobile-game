@@ -308,7 +308,7 @@
    {"say": "daughter", "text": "Мама, давай танцевать!", "mood": "happy"},
    {"say": "mother", "text": "Раз-два-три, раз-два-три… Ты ведёшь!", "mood": "happy"},
    {"text": "Пол больше не скрипит — слышно только, как смеётся Вита."}]}]},
- "living/kitchen_table": {"name": "Столик", "acts": [
+ "living/living_table": {"name": "Столик", "acts": [
   {"label": "Полить цветок", "need": "vita_plant", "scene": [
    {"bg": "living"}, {"show": ["family"]},
    {"say": "daughter", "text": "Цветочек, пей! Расти большой.", "mood": "smile"},

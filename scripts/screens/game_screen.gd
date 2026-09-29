@@ -483,6 +483,13 @@ func _hint() -> void:
 
 
 func feedback_context() -> Dictionary:
+	var bodies := []
+	if level:
+		for item in level.items:
+			if is_instance_valid(item) and not item.removed:
+				bodies.append({"kind": item.kind, "xy": str(item.position), "velocity": str(item.linear_velocity), "sleeping": item.sleeping})
+			if bodies.size() >= 64:
+				break # ponytail: bounded sample; use an attachment for complete large-world replays.
 	var pins := {}
 	if level:
 		for pin in level.pins:
@@ -490,4 +497,5 @@ func feedback_context() -> Dictionary:
 	return {"where": "Уровень: " + _title(), "location": str(Home.task_for_level(level_id).get("loc", "")),
 		"level": level_id, "attempt": _attempt, "repair": _repair, "paused": get_tree().paused,
 		"finished": level.finished if level else false, "result": level.result() if level else {},
-		"pins": pins, "mods": mods, "jitter": _jitter, "level_data": _data}
+		"pins": pins, "mods": mods, "jitter": _jitter, "objects_sample": bodies,
+		"objects_total": level.items.size() if level else 0, "level_data": _data}

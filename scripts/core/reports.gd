@@ -14,7 +14,7 @@ extends Node
 const CONFIG := "res://data/telemetry.json"
 const RUNNING := "user://running"
 const MAX_EVENTS := 5
-const LOG_TAIL := 6000          # сколько последних символов прошлого журнала приложить
+const LOG_TAIL := 16000          # сколько последних символов прошлого журнала приложить
 
 signal feedback_finished(ok: bool, message: String)
 
@@ -56,7 +56,7 @@ func _ready() -> void:
 		var json := JSON.new()
 		if FileAccess.file_exists(RUNNING) and json.parse(FileAccess.get_file_as_string(RUNNING)) == OK and json.data is Dictionary:
 			previous_run = json.data
-			previous_run["log"] = _previous_log_tail().right(2200)
+			previous_run["log"] = _previous_log_tail()
 		_checkpoint = Timer.new()
 		_checkpoint.wait_time = 5
 		_checkpoint.timeout.connect(func() -> void: _mark_running(true))
@@ -117,8 +117,11 @@ func report_error(text: String, where: String, trace: String) -> void:
 
 
 func _record_error(text: String, where: String, trace: String) -> void:
-	feedback_errors.append((where + ": " + text + "\n" + trace).left(500))
-	if feedback_errors.size() > 8:
+	var error := (where + ": " + text + "\n" + trace).left(4000)
+	if error in feedback_errors:
+		return
+	feedback_errors.append(error)
+	if feedback_errors.size() > 4:
 		feedback_errors.pop_front()
 	if enabled:
 		_add_event("error", text, where, trace)
@@ -147,7 +150,10 @@ func capture_feedback() -> Dictionary:
 	var tech := {"engine": Engine.get_version_info().string, "uptime_s": Time.get_ticks_msec() / 1000.0,
 		"fps": Engine.get_frames_per_second(), "memory_bytes": OS.get_static_memory_usage(),
 		"video_memory_bytes": Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED),
-		"gpu": RenderingServer.get_video_adapter_name(), "driver": str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")),
+		"gpu": RenderingServer.get_video_adapter_name(), "gpu_vendor": RenderingServer.get_video_adapter_vendor(),
+		"cpu": OS.get_processor_name(), "cpu_count": OS.get_processor_count(),
+		"physics_fps": Engine.physics_ticks_per_second, "nodes": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+		"router_busy": Router.is_busy(), "run_id": _run_id, "driver": str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")),
 		"screen_pixels": str(DisplayServer.window_get_size()), "locale": OS.get_locale(),
 		"events": feedback_events.duplicate(), "errors": feedback_errors.duplicate(),
 		"progress": Profile.data.duplicate(true)}
@@ -163,8 +169,8 @@ func capture_feedback() -> Dictionary:
 	return {"version": str(ProjectSettings.get_setting("application/config/version", "")),
 		"screen": name, "location": str(detail.get("location", "")), "level": str(detail.get("level", "")),
 		"viewport": "%dx%d" % [size.x, size.y], "os": (OS.get_name() + " " + OS.get_version()).left(100),
-		"model": OS.get_model_name().left(100), "context": JSON.stringify(detail, "  ").left(4000),
-		"diagnostics": diagnostics.left(8000), "summary": str(detail.get("where", name)),
+		"model": OS.get_model_name().left(100), "context": JSON.stringify(detail, "  ").left(12000),
+		"diagnostics": diagnostics.left(24000), "summary": str(detail.get("where", name)),
 		"captured_at": Time.get_datetime_string_from_system(true)}
 
 
@@ -263,10 +269,10 @@ func _queue_previous_run() -> void:
 	packet["automatic"] = true
 	# A native crash and a foreground OS kill both leave a marker; don't claim certainty.
 	packet["text"] = "Автоматический отчёт: предыдущий запуск неожиданно оборвался на экране. Возможен вылет или завершение системой."
-	packet["context"] = (str(packet.get("context", "")) + "\nМомент: " + str(packet.get("captured_at", ""))).left(4096)
+	packet["context"] = (str(packet.get("context", "")) + "\nМомент: " + str(packet.get("captured_at", ""))).left(12288)
 	var redact := RegEx.new()
 	redact.compile(r"(?i)([A-Z]:[\\/]Users[\\/]|/home/|/Users/)[^\\/\n]+")
-	packet["diagnostics"] = redact.sub(("Последний журнал:\n" + str(packet.get("log", "")) + "\n" + str(packet.get("diagnostics", ""))).left(8000), "$1<user>", true)
+	packet["diagnostics"] = redact.sub(("Последний журнал:\n" + str(packet.get("log", "")) + "\n" + str(packet.get("diagnostics", ""))).left(32000), "$1<user>", true)
 	packet.erase("log")
 	packet.erase("captured_at")
 	DirAccess.make_dir_recursive_absolute(CRASH_QUEUE)
