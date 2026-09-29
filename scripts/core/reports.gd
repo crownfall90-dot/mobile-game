@@ -244,7 +244,8 @@ func send_feedback() -> void:
 
 
 func _on_feedback_sent(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var json := JSON.new()
+	var parsed: Variant = json.data if json.parse(body.get_string_from_utf8()) == OK else null
 	var accepted: bool = result == HTTPRequest.RESULT_SUCCESS and code in [200, 201] and parsed is Dictionary \
 		and parsed.get("ok") == true and str(parsed.get("url", "")).begins_with(FEEDBACK_THREAD + "#issuecomment-")
 	if accepted:
