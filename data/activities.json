@@ -113,7 +113,7 @@
    {"say": "mother", "text": "Я мою, ты вытираешь?", "mood": "smile"},
    {"say": "daughter", "text": "Тарелки скрипят — значит, чистые!", "mood": "happy"}]}]},
  "kitchen_stove": {"name": "Плита", "acts": [
-  {"label": "Сварить кашу", "scene": [
+  {"label": "Сварить кашу", "after": "kitchen_stove", "animation": {"kind": "cook", "actor": "mother", "actor_prop": "kitchen/mother_kitchen_v2", "vessel": "kitchen/pot", "contact": [0.75, 0.5]}, "scene": [
    {"bg": "kitchen"}, {"show": ["family"]},
    {"text": "На плите булькает овсянка."},
    {"say": "daughter", "text": "Можно, я помешаю?", "mood": "smile"},

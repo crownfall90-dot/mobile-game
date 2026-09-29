@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook"]
 const TOYS := "res://art/act1/room/toys/"
 const CARRY_HAND := [Vector2(433, 476), Vector2(491, 443), Vector2(479, 368), Vector2(507, 214)]
 
@@ -33,6 +33,9 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	var item := view.activity_item(key)
 	if item.is_empty() or not kind in KINDS:
 		_finish()
+		return
+	if kind == "cook":
+		await _cook(clip)
 		return
 	for i in 4:
 		_frames.append(load(ART + _who + "_%d.png" % i))
@@ -271,6 +274,72 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	_finish()
 
 
+func _cook(clip: Dictionary) -> void:
+	var source := _view.activity_item(str(clip["actor_prop"]))
+	var vessel := _view.activity_item(str(clip["vessel"]))
+	if source.is_empty() or vessel.is_empty():
+		_finish()
+		return
+	var tex := load(LocationView.ART + str(source["img"]) + ".png") as Texture2D
+	var at: Array = clip["contact"]
+	contact = _view.activity_point(vessel, Vector2(at[0], at[1]))
+	# ponytail: authored elbow/outline for mother_kitchen_v2 only; new poses need new cut points.
+	var tip := Vector2(758, 700)
+	var elbow := Vector2(478, 544)
+	var edge := [Vector2(784, 500), Vector2(668, 500), Vector2(617, 499), Vector2(594, 529), Vector2(487, 520), Vector2(469, 505), Vector2(468, 551), Vector2(480, 587), Vector2(539, 582), Vector2(615, 571), Vector2(647, 575), Vector2(667, 625), Vector2(711, 704), Vector2(760, 728), Vector2(784, 728)]
+	var pose := Sprite2D.new()
+	pose.name = "Cooking"
+	pose.position = contact
+	var k := _view.activity_rect(source).size.y / tex.get_height()
+	pose.scale = Vector2(-k if vessel.get("flip", false) else k, k)
+	pose.rotation = float(vessel.get("rot", 0.0))
+	add_child(pose)
+	var body := Polygon2D.new()
+	body.name = "Body"
+	body.uv = PackedVector2Array([Vector2.ZERO, Vector2(784, 0)] + edge + [Vector2(784, 1544), Vector2(0, 1544)])
+	body.polygon = body.uv
+	body.texture = tex
+	body.position = -tip
+	pose.add_child(body)
+	var arm := Polygon2D.new()
+	arm.name = "Arm"
+	arm.uv = PackedVector2Array(edge)
+	var points := PackedVector2Array()
+	for point in edge:
+		points.append(point - elbow)
+	arm.polygon = points
+	arm.texture = tex
+	arm.position = elbow - tip
+	pose.add_child(arm)
+	var steam := Node2D.new()
+	steam.name = "Steam"
+	steam.position = _view.activity_point(vessel, Vector2(0.5, 0.25))
+	add_child(steam)
+	for i in 3:
+		var curl := Line2D.new()
+		curl.points = PackedVector2Array([Vector2(i * 9 - 9, 0), Vector2(i * 9 - 6, -8), Vector2(i * 9 - 12, -16), Vector2(i * 9 - 9, -24)])
+		curl.width = 2.0
+		curl.default_color = Color(1, 0.96, 0.86, 0.6)
+		curl.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		curl.end_cap_mode = Line2D.LINE_CAP_ROUND
+		steam.add_child(curl)
+	_view.activity_prop = str(source["img"])
+	phase = "stir"
+	var start := steam.position
+	for i in 6:
+		steam.position = start
+		steam.modulate.a = 1.0
+		var stir := create_tween()
+		stir.tween_property(arm, "rotation", 0.075, 0.4).set_trans(Tween.TRANS_SINE)
+		stir.tween_property(arm, "rotation", -0.065, 0.4).set_trans(Tween.TRANS_SINE)
+		stir.parallel().tween_property(steam, "position:y", start.y - 15.0, 0.4)
+		stir.parallel().tween_property(steam, "modulate:a", 0.0, 0.4)
+		await _play(stir)
+		if _complete:
+			return
+	_finish()
+
+
 func _finish() -> void:
 	if _complete:
 		return
@@ -337,6 +406,8 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if _frames.is_empty():
+		return
 	for actor: Node in get_children():
 		if actor is Node2D and not actor is Sprite2D:
 			draw_set_transform(actor.position, 0.0, Vector2(1, 0.25))

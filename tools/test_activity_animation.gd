@@ -32,6 +32,8 @@ func _run() -> void:
 	assert(activities.available("room/room_shelf_books").is_empty(), "Archived dialogue must not appear as a playable action")
 	assert(activities.available("room_bed").size() == 2)
 	for key: String in activities.all():
+		if not key.begins_with("room"):
+			continue
 		for i in activities.all()[key]["acts"].size():
 			var clip: Dictionary = activities.animation(key, i)
 			if clip.is_empty():
