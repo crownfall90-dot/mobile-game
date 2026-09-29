@@ -1727,3 +1727,49 @@ Windows-сессии; инструмента доступа к её файлов
 из-за активной правки docs/ROADMAP.md другого чата. Ни одна его правка не
 скрыта/перезаписана; готовый этап в арт-копии и GitHub. После сохранения
 другого этапа обновить основную копию ff, не переносить старую историю.
+## 29.09 — Vita Тест0.19 опубликована с отдельным постоянным ключом
+
+Владелец выбрал отдельную тестовую игру с новым ключом, старая остаётся,
+прогресс в новую не переносится. Пакет com.crownfall90.vita.test, имя Vita Тест,
+версия0.19.0-test/code23. Оба Android-пресета и версия проекта обновлены;
+редакторские изменения владельца в project.godot не включены в коммит.
+Постоянный3072-bit RSA ключ вне Git:
+D:/tools/vita-build/signing/Vita-Test/vita-test.jks, alias vita-test,
+password.txt рядом. ACL только текущий владелец Windows+SYSTEM. Сверенная
+резервная копия ключа/пароля: C:/Users/crown/Documents/Vita signing backup.
+Секрет не печатался; private .godot/export_credentials.cfg настроен в основной
+D:/mobile-game и feedback-apk worktree. Native Godot export использовал новый
+ключ, подтверждено сертификатом обеих сборок, без нового runtime/helper.
+Сертификат SHA256:
+0af54d49f655c43ec38bcbb7eb6c63fc0623f39520cdc46afe35ff18a7eb01f0.
+Ключ/пароль/credentials не коммитить. Следующие обновления тестовой игры
+подписывать этим же ключом. В новой копии проекта настроить приватный cfg,
+иначе стандартный Godot debug-key не позволит обновить опубликованную игру.
+Комментарий vita.bat уточнён, чтобы не обещать совместимость свежего клона.
+
+Экспорт --export-debug из снимка1823e38 с этими версиями/настройками:
+https://raw.githubusercontent.com/crownfall90-dot/mobile-game/apk-builds/Vita-Test-0.19.0.apk
+arm64,98080444bytes, SHA256 e71daf2868d7def484e23cf509df00f73249dadecaa43272722904caeae212e3.
+https://raw.githubusercontent.com/crownfall90-dot/mobile-game/apk-builds/Vita-Test-0.19.0-old-phones.apk
+armv7,101816000bytes, SHA256 f0f85162a568e7c02af1a115e8a7e78365a6f0fe50ca8e48ac71dcbe541d349e.
+GitHub принял оба файла (меньше100MiB, предупреждение>50MiB); коммит5536d26
+в apk-builds с русскими Добавлено/Изменено/Убрано и README. Файлы0.18 оставлены.
+Публикация в Google Play не выполнялась; Telegram этим чатом не отправлялся.
+
+Проверено: обе подписи apksigner verify (v2), новый одинаковый сертификат,
+aapt пакет/версия/имя/INTERNET/отдельные ABI; ZIP endpoint/feedback_popup,
+отсутствие keystore/password/export_credentials, резервная копия совпадает.
+Runnable check: D:/tools/vita-build/pending-0.19.0/check_test_apks.py.
+Godot в worktree: -- --smoke OK (12opened,0missing,0errors), победа/поражение
+home_01 и форма с обработкой пустого/HTML ответа. Живая доставка и повтор
+одного ID ранее проверены настоящим Reports на компьютере; на физическом
+Android НЕ запускали. APK содержит восемь действий снимка, более новые
+незавершённые анимации другого чата не включались.
+Точный следующий шаг: установить Vita Тест рядом с0.18 на Android, проверить
+старый прогресс/новую игру, отправить отзыв из настроек и сверить GitHub #5;
+для следующего выпуска переиспользовать новый ключ и code>23. До28.10 заменить
+серверный GITHUB_TOKEN. Исходный облачный ключ остаётся недоступен и нужен
+только для совместимого обновления прежнего com.crownfall90.vita.
+
+Ссылки обоих новых APK после push проверены: HTTP200, Content-Length
+98080444/101816000 соответствует локальным подписанным файлам.

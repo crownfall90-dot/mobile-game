@@ -3,8 +3,8 @@ setlocal
 title Vita
 rem Vita for Windows: one file. Double-click it anywhere.
 rem   1 = play: downloads/updates the game and Godot 4.5.1, then runs Vita.
-rem   2 = build APK: builds the Android test APK with this laptop's Godot settings
-rem       (same signing key as before, so the update keeps the player's progress).
+rem   2 = build Vita Test APK. Reuse its permanent key in .godot/export_credentials.cfg.
+rem       A fresh clone needs that private config; the default debug key cannot update published APKs.
 
 set "BRANCH=claude/project-thread-x4ht8m"
 set "ZIP_URL=https://github.com/crownfall90-dot/mobile-game/archive/refs/heads/%BRANCH%.zip"

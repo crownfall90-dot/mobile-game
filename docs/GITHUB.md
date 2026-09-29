@@ -28,6 +28,24 @@ Actions → Vita checks → Run workflow → рабочая ветка → Full 
 
 ## Коммит каждого нового APK
 
+С 29.09 отдельная тестовая игра — **Vita Тест**, пакет
+`com.crownfall90.vita.test`. Она устанавливается рядом с прежней Vita и начинает
+с нового прогресса. Старые APK с `com.crownfall90.vita` сохраняются в `apk-builds`;
+удалять старую игру для установки тестовой не требуется.
+
+Постоянный новый ключ — `D:/tools/vita-build/signing/Vita-Test/vita-test.jks`,
+алиас `vita-test`, пароль в соседнем `password.txt`; оба файла вне Git, доступ
+только владельцу Windows и SYSTEM. Резервная копия —
+`C:/Users/crown/Documents/Vita signing backup`. Ключ не менять для следующих
+обновлений Vita Тест. Сертификат SHA256:
+`0af54d49f655c43ec38bcbb7eb6c63fc0623f39520cdc46afe35ff18a7eb01f0`.
+
+На этом компьютере основная папка и worktree сборки используют ключ через
+приватный `.godot/export_credentials.cfg`. Это штатный
+[файл секретов экспорта Godot](https://github.com/godotengine/godot-docs/blob/master/tutorials/export/exporting_projects.rst#configuration-files).
+Новая копия проекта требует настройки этого файла с тем же ключом; обычный
+debug-ключ Godot не обновит опубликованную Vita Тест. Секреты не коммитить.
+
 Публикацию версии в `apk-builds` сопровождает короткий коммит с изменениями
 относительно предыдущей опубликованной APK, а не относительно рабочей ветки.
 Заголовок: `apk: Vita <версия>`. В теле — только непустые строки «Добавлено: …»,
