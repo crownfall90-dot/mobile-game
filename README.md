@@ -6,6 +6,8 @@
 
 **[Скачать APK 0.19.2 для 64-битного телефона, включая Honor 400](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.2/Vita-Test-0.19.2.apk)** — около110МБ.
 
+[APK 0.19.2 для старых 32-битных телефонов](https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.2/Vita-Test-0.19.2-old-phones.apk) — около114МБ.
+
 Ставьте поверх Vita Тест0.19.0 без удаления, её прогресс сохранится.
 Прежнюю Vita0.18 эта сборка не заменяет.
 
