@@ -27,4 +27,3 @@ func _run() -> void:
 	await RenderingServer.frame_post_draw
 	assert(root.get_texture().get_image().save_png("res://art/act1/reviews/2026-09-29-bath/teddy-" + ratio + ".png") == OK)
 	quit()
-
