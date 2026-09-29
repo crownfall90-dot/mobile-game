@@ -2034,3 +2034,14 @@ com.crownfall90.vita.test/versionCode25/0.19.2-test/arm64/INTERNET.
 Сохранён D:/tools/vita-build/Vita-Test-0.19.2.apk. Worker72bb55eb-cd8b-4d26-9113-348870797eb4
 поддерживает увеличенный пакет. GitHub Release399277193 создан draft,
 APK загружается; это ещё не подтверждение публичного скачивания.
+
+
+0.19.2 опубликована29.09 в15:23:57UTC: release399277193,
+https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.2
+Прямой APK (arm64, в том числе Honor400):
+https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.2/Vita-Test-0.19.2.apk
+Публичный HEAD после редиректа HTTP200, Content-Length109905528 совпал.
+Ссылка передана владельцу; попросили обновить Vita Тест без удаления,
+вернуться с уровня домой, после вылета перезапустить с интернетом.
+На данный момент реальных автоматических задач после установки0.19.2 ещё
+не было; подтверждение исправления Honor400 ждём от устройства.
