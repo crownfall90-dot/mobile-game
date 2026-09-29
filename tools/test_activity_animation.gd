@@ -38,7 +38,7 @@ func _run() -> void:
 			assert(not view.activity_hidden)
 			assert(home.completed() == before, "Activities must not grant repair progress")
 			count += 1
-	assert(count == 7)
+	assert(count == 8)
 	assert(view.activity_light and view.activity_curtains == 1.0)
 	# No front drawer is offered when the owner selects a back-view cabinet.
 	for item: Dictionary in home.location("room")["props"]:
@@ -97,6 +97,25 @@ func _run() -> void:
 		await player.finished
 		assert(not view.activity_hidden)
 		await process_frame
+	# Sitting uses a floor pivot: breathing/rotating the rug cannot lift the feet.
+	var rug: Dictionary = view.activity_item("room/room_rug")
+	rug["rot"] = 0.3
+	player = player_script.new()
+	view.add_child(player)
+	player.run.call_deferred(view, "room/room_rug", activities.animation("room/room_rug", 0))
+	while player.get("phase") != "action":
+		await process_frame
+	await create_timer(0.8).timeout
+	var rest: Sprite2D = player.get_node("Rest")
+	assert(rest.texture == load("res://art/act1/family/actions/daughter_sit0.png"))
+	assert(rest.rotation == 0.0, "The child stays upright on a rotated rug")
+	assert(player.get("_actor").position.is_equal_approx(player.get("contact")), "Walk to the seat, not a hand stance")
+	assert(rest.position.is_equal_approx(player.get("contact")))
+	var foot := rest.position + Vector2(0, rest.offset.y + rest.texture.get_height() * 0.475) * rest.scale
+	assert(foot.is_equal_approx(player.get("contact")), "Breathing must keep the floor pivot")
+	player.queue_free()
+	await player.finished
+	assert(not view.activity_hidden)
 	view.queue_free()
 	await process_frame
 	await process_frame
@@ -108,7 +127,7 @@ func _run() -> void:
 		await process_frame
 	var hub: Node = router.current_screen()
 	var marks: Array = hub.call("_mark_list")
-	assert(marks.size() == 8, "Only repairs/replays and four animated props get markers")
+	assert(marks.size() == 9, "Only repairs/replays and five animated props get markers")
 	var offered := false
 	for mark: Dictionary in marks:
 		var callback: Callable = mark["do"]
@@ -127,5 +146,5 @@ func _run() -> void:
 	assert(hub.get("_marks").visible)
 	assert(home.completed() == before)
 	assert(await load("res://tools/test_dialogue.gd").run())
-	print("ANIMATED ACTIVITIES: 7 clips, anchors, cancellation, progress and actual menu callback OK")
+	print("ANIMATED ACTIVITIES: 8 clips, anchors, cancellation, progress and actual menu callback OK")
 	quit()

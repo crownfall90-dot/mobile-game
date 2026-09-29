@@ -96,7 +96,7 @@ static func location_paths(loc_id: String) -> Array:
 		for who in ["mother", "daughter"]:
 			for i in 4:
 				out.append("%sfamily/actions/%s_%d.png" % [ART, who, i])
-		out.append_array([ART + "family/actions/daughter_sleep.png", ART + "room/room_curtains_closed.png"])
+		out.append_array([ART + "family/actions/daughter_sleep.png", ART + "family/actions/daughter_sit0.png", ART + "room/room_curtains_closed.png"])
 	return out
 
 

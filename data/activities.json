@@ -32,7 +32,7 @@
    {"say": "mother", "text": "А я двадцать один. Вот этот, у двери, спрятался.", "mood": "smile"},
    {"say": "daughter", "text": "Нечестно, он маленький!", "mood": "happy"}]}]},
  "room/room_rug": {"name": "Коврик", "acts": [
-  {"label": "Посидеть на коврике", "scene": [
+  {"label": "Посидеть на коврике", "animation": {"kind": "sit", "actor": "daughter", "contact": [0.64, 0.7]}, "scene": [
    {"bg": "room"}, {"show": ["family"]},
    {"text": "Мама и Вита сидят на круглом коврике."},
    {"say": "daughter", "text": "Он тёплый, как кошка.", "mood": "smile"},

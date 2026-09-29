@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit"]
 
 var _view: LocationView
 var _actor: Node2D
@@ -59,6 +59,8 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	var approach := contact - hand
 	if kind in ["sleep", "jump"]:
 		approach = view.activity_point(item, Vector2(0.12, 1.1))
+	if kind == "sit":
+		approach = contact
 	if item.has("approach"):
 		var at: Array = item["approach"]
 		approach = view.activity_point(item, Vector2(at[0], at[1]))
@@ -136,15 +138,18 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 				if _complete:
 					return
 			await _walk_to(approach)
-		"sleep":
+		"sleep", "sit":
 			var sleep := Sprite2D.new()
-			sleep.texture = load(ART + "daughter_sleep.png")
+			sleep.name = "Rest"
+			sleep.texture = load(ART + ("daughter_sleep.png" if kind == "sleep" else "daughter_sit0.png"))
 			sleep.centered = true
 			sleep.flip_h = bool(item.get("flip", false))
-			var w := r.size.x * 0.56
+			var w := r.size.x * 0.56 if kind == "sleep" else height * 0.74 * sleep.texture.get_width() / sleep.texture.get_height()
 			sleep.scale = Vector2.ONE * w / sleep.texture.get_width()
-			sleep.position = view.activity_point(item, Vector2(0.55, 0.38))
-			sleep.rotation = float(item.get("rot", 0.0))
+			sleep.position = view.activity_point(item, Vector2(0.55, 0.38)) if kind == "sleep" else contact
+			sleep.rotation = float(item.get("rot", 0.0)) if kind == "sleep" else 0.0
+			if kind == "sit":
+				sleep.offset.y = -sleep.texture.get_height() * 0.475
 			sleep.modulate.a = 0.0
 			add_child(sleep)
 			var settle := create_tween().set_parallel(true)

@@ -263,6 +263,7 @@
    "props": [
     {
      "img": "room/room_rug",
+     "approach": [0.64, 0.7],
      "rect": [
       -60,
       1060,
