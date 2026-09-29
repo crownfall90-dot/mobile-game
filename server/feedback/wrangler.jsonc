@@ -1,5 +1,6 @@
 {
   "name": "vita-feedback",
+  "account_id": "6e1a6a9c9b368975e3f280b3f6152d56",
   "main": "worker.mjs",
   "compatibility_date": "2026-09-28",
   "workers_dev": true,
