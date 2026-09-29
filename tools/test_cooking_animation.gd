@@ -21,7 +21,7 @@ func _run() -> void:
 	assert(not activities.locked_reason(key).is_empty())
 	for task: Dictionary in home.tasks():
 		profile.set_flag("home." + task["id"])
-	assert(activities.available(key) == [[0, "Вскипятить чайник" if is_kettle else "Сварить кашу"]])
+	assert(activities.available(key) == ([[0, "Вскипятить чайник"], [1, "Налить чай Вите"]] if is_kettle else [[0, "Сварить кашу"]]))
 	var before: Dictionary = profile.data.duplicate(true)
 	var clip: Dictionary = activities.animation(key, 0)
 	for mode in ["finish", "cancel", "moved"]:

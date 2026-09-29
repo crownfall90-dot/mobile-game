@@ -1,8 +1,8 @@
 extends RefCounted
 ## Каталог бытовых сценок (data/activities.json) согласован с квартирой: ключ — существующая
 ## вещь, предмет своей локации или мама с дочкой («локация/family»), у каждого действия есть
-## подпись и сценка с понятными шагами, условия after/need ссылаются на настоящие вещи и покупки,
-## новелла находит каждую сценку.
+## подпись и анимация либо архивная сценка, условия after/need ссылаются на
+## настоящие вещи и покупки; новелла находит прежние сценки.
 
 const ACTIVITIES := preload("res://scripts/core/activities.gd")
 const SPEAKERS := ["mother", "daughter"]
@@ -49,8 +49,8 @@ static func run() -> bool:
 						errors.append("%s[%d]: unknown speaker %s" % [key, i, st["say"]])
 				if st.has("bg") and Home.location(str(st["bg"])).is_empty():
 					errors.append("%s[%d]: bg '%s' is not a location" % [key, i, st["bg"]])
-			if lines == 0:
-				errors.append("%s[%d]: scene has no lines" % [key, i])
+			if lines == 0 and a.get("animation", {}).is_empty():
+				errors.append("%s[%d]: no animation or scene lines" % [key, i])
 	var scenes := ACTIVITIES.scenes()
 	for key: String in all:
 		for i in all[key].get("acts", []).size():

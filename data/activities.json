@@ -145,7 +145,8 @@
    {"bg": "kitchen"}, {"show": ["family"]},
    {"text": "Чайник тихонько засвистел."},
    {"say": "mother", "text": "Чай с мятой — и сразу теплее.", "mood": "smile"},
-   {"say": "daughter", "text": "Мне в чашку с котиком!", "mood": "happy"}]}]},
+   {"say": "daughter", "text": "Мне в чашку с котиком!", "mood": "happy"}]},
+  {"label": "Налить чай Вите", "after": "kitchen_stove", "actor": "mother", "animation": {"kind": "pour", "contact": [0.35, 0.55]}}]},
  "kitchen/kitchen_table": {"name": "Стол", "acts": [
   {"label": "Позавтракать вместе", "animation": {"kind": "meal", "tabletop": {"kitchen_breadbox": [-0.03, -0.37, 0.31], "plate_mother": [-0.125, -0.21, 0.23], "cup_mother": [-0.23, -0.35, 0.09], "plate_daughter": [0.17, -0.21, 0.23], "cup_daughter": [0.32, -0.3, 0.09]}, "poses": [{"actor": "Mother", "sheet": "mother_breakfast_v1", "regions": [[200, 0, 540, 1024], [872, 0, 540, 1024]], "foot": [351, 995], "front": [[130, 355, 300, 160], [170, 200, 210, 280]], "at": [0.32, 0.98], "height": 1.32}, {"actor": "Daughter", "sheet": "daughter_breakfast_v1", "regions": [[40, 0, 710, 1024], [739, 0, 710, 1024]], "foot": [341, 1005], "front": [[35, 320, 430, 175], [150, 210, 360, 285]], "at": [0.9, 0.8], "height": 0.85}]}, "scene": [
    {"bg": "kitchen"}, {"show": ["family"]},

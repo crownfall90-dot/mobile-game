@@ -7,7 +7,7 @@ signal finished
 signal step_finished
 
 const ART := "res://art/act1/family/actions/"
-const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook", "kettle", "meal"]
+const KINDS := ["light", "sleep", "jump", "curtains", "drawer", "sit", "blocks", "toy", "cook", "kettle", "meal", "pour"]
 const TOYS := "res://art/act1/room/toys/"
 const CARRY_HAND := [Vector2(433, 476), Vector2(491, 443), Vector2(479, 368), Vector2(507, 214)]
 
@@ -55,8 +55,22 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	_sprite = _actor.get_child(0)
 	# Общую пару заменяем двумя отдельными фигурами: второй герой остаётся на месте.
 	var other := "daughter" if _who == "mother" else "mother"
-	var still := view.activity_actor(other)
-	_make_actor(other, Vector2(still["pos"][0], still["pos"][1]), float(still["height"]))
+	if kind == "pour":
+		var seated := view.activity_item("kitchen/daughter_kitchen_seated_v2")
+		if seated.is_empty():
+			_finish()
+			return
+		var chair_pose := Sprite2D.new()
+		chair_pose.name = "SeatedDaughter"
+		chair_pose.centered = false
+		chair_pose.texture = load(LocationView.ART + str(seated["img"]) + ".png")
+		var seat_rect := view.activity_rect(seated)
+		chair_pose.position = seat_rect.position
+		chair_pose.scale = seat_rect.size / chair_pose.texture.get_size()
+		add_child(chair_pose)
+	else:
+		var still := view.activity_actor(other)
+		_make_actor(other, Vector2(still["pos"][0], still["pos"][1]), float(still["height"]))
 	move_child(_actor, get_child_count() - 1)
 	view.set_activity_hidden(true)
 	var r := view.activity_rect(item)
@@ -92,6 +106,76 @@ func run(view: LocationView, key: String, clip: Dictionary) -> void:
 	_sprite.texture = _frames[3]
 	_sprite.flip_h = bool(item.get("flip", false))
 	match kind:
+		"pour":
+			var cup := view.activity_item("kitchen/cup_daughter")
+			if cup.is_empty():
+				_finish()
+				return
+			var kettle := Sprite2D.new()
+			kettle.name = "CarriedKettle"
+			kettle.texture = load(LocationView.ART + str(item["img"]) + ".png")
+			kettle.scale = r.size / kettle.texture.get_size()
+			kettle.flip_h = bool(item.get("flip", false))
+			var angle := float(item.get("rot", 0.0))
+			kettle.rotation = angle
+			add_child(kettle)
+			_held = kettle
+			view.activity_prop = str(item["img"])
+			view.queue_redraw()
+			await _pause(0.2)
+			if _complete:
+				return
+			var cup_lip := view.activity_point(cup, Vector2(0.5, 0.15))
+			var facing_left := not kettle.flip_h
+			var palm: Vector2 = CARRY_HAND[3]
+			if facing_left:
+				palm.x = _sprite.texture.get_width() - palm.x
+			var hold_offset := _sprite.position + palm * _sprite.scale
+			var pour_at := cup_lip + Vector2(14.0 if facing_left else -14.0, -48.0)
+			phase = "carry"
+			await _walk_to(pour_at - hold_offset)
+			if _complete:
+				return
+			_sprite.texture = _frames[3]
+			_sprite.flip_h = facing_left
+			await _pause(0.1)
+			if _complete:
+				return
+			var tilt := create_tween()
+			tilt.tween_property(kettle, "rotation", angle + (-0.48 if facing_left else 0.48), 0.35)
+			await _play(tilt)
+			if _complete:
+				return
+			var stream := Line2D.new()
+			stream.name = "TeaStream"
+			var spout := Vector2(-r.size.x * 0.30 if facing_left else r.size.x * 0.30, 0.0)
+			stream.points = PackedVector2Array([kettle.position + spout.rotated(kettle.rotation), cup_lip])
+			stream.default_color = Color("80512d")
+			stream.width = 0.0
+			stream.begin_cap_mode = Line2D.LINE_CAP_ROUND
+			stream.end_cap_mode = Line2D.LINE_CAP_ROUND
+			add_child(stream)
+			phase = "pour"
+			var flow := create_tween()
+			flow.tween_property(stream, "width", 5.5, 0.18)
+			flow.tween_interval(0.8)
+			flow.tween_property(stream, "width", 0.0, 0.22)
+			await _play(flow)
+			if _complete:
+				return
+			stream.queue_free()
+			var upright := create_tween()
+			upright.tween_property(kettle, "rotation", angle, 0.3)
+			await _play(upright)
+			if _complete:
+				return
+			await _walk_to(stance)
+			if _complete:
+				return
+			_held = null
+			kettle.queue_free()
+			view.activity_prop = ""
+			view.queue_redraw()
 		"toy":
 			var box := Sprite2D.new()
 			box.name = "Toybox"
