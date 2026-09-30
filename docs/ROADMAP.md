@@ -28,6 +28,13 @@
   [Кандидат 0.19.5/code28](https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.5)
   опубликован для arm64/armv7 и требует обязательного ретеста на DNY-NX9; #24/#25
   остаются `investigate` до него.
+- **VITA-DEVICE-RETEST-01 — в работе:** исправленный asset 0.19.5-test/code28
+  проверен по package, ABI и SHA256; ADB устройств не видит. DNY-NX9 прислал
+  [#26](https://github.com/crownfall90-dot/mobile-game/issues/26): подтверждённый
+  `native_crash`/status 11 внутри `home_06` до результата, без перехода в Hub
+  перед закрытием. Для #24/#25 число повторённых ремонтов и 10 дополнительных
+  переходов пока неизвестны; они остаются `investigate`. SM-A556E и RMX3709:
+  0.19.5 не проверено. Honor400: не проверено.
 - **Новые отзывы:** GitHub #13–22 — 10 автоматических отчётов 0.19.4 с
   уникальными ID и `ApplicationExitInfo`: 9 `native_crash`, 1 `java_crash`
   на SM-A556E/DNY-NX9. Это подтверждённые системные закрытия; стеков и общей
@@ -65,6 +72,11 @@
 - **ID:** VITA-CRASH-HUB-01. **Статус:** исправление узкой общей lifecycle-зоны,
   stress regression и две APK готовы; требуется реальная проверка DNY-NX9.
   До неё #24/#25 не закрывать и окончательно исправленными не называть.
+- **ID:** VITA-DEVICE-RETEST-01. **Статус:** активно; нужен результат физических
+  сценариев DNY-NX9, SM-A556E и доступного RMX3709. #26 — отдельная точка
+  закрытия во время home_06, не доказательство повторения #24/#25.
+- **ID:** VITA-ANDROID-GAME-01. **Статус:** investigate по #26; получить
+  logcat/tombstone и шаги внутри home_06, сверить с другими game crash.
 - **ID:** VITA-ANDROID-02. **Статус:** активно, новая версия 0.19.4 дала
   `ApplicationExitInfo` для #13–22. Нужны logcat/tombstone или Java stack и
   шаги на SM-A556E/DNY-NX9; для RMX3709 — автоматический отчёт/шаги.
