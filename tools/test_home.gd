@@ -10,6 +10,8 @@ static func run() -> void:
 	profile.reset_progress()
 	assert(Home.completed() == 0)
 	assert(Home.total() == 19)
+	# QA: this obsolete refrigerator hint loses with both verifier seeds.
+	assert(not Game.winning_orders("home_07").has(["cw", "cw", "ccw", "ccw"]))
 	assert(Home.unlocked_count() == 1 and Home.current_location() == "room")
 	# всё нажимаемое — в safe-области сцены (рамка картинки может выйти за край на пару
 	# пикселей: 90 % площади внутри), у каждой цели свой уровень
