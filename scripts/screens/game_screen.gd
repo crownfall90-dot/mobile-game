@@ -83,6 +83,11 @@ func _ready() -> void:
 			_hud.hint_rotate(0))
 
 	get_viewport().size_changed.connect(_layout)
+	Profile.changed.connect(func(key: StringName) -> void:
+		if key == &"settings" and level:
+			level.camera = null if _setting(&"low_fx", false) else _camera
+			_camera.offset = Vector2.ZERO
+			_hud.refresh_fx())
 	_layout()
 
 

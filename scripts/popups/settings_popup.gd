@@ -9,6 +9,8 @@ func open(_args: Dictionary) -> void:
 		var toggle := UiKit.toggle(entry[1], bool(Profile.setting(key)), func(on: bool) -> void: Profile.set_setting(key, on))
 		toggle.custom_minimum_size.x = 470
 		content.add_child(toggle)
+		if key == "low_fx":
+			content.add_child(UiKit.body("Уменьшает тряску, вспышки и декоративные анимации", 19))
 	var note := UiKit.label("Vita %s · прогресс сохраняется сам" % ProjectSettings.get_setting("application/config/version", ""),21)
 	content.add_child(note)
 	var feedback := UiKit.button("Написать разработчикам", &"secondary")

@@ -166,15 +166,20 @@ func set_level(title: String, hint: String) -> void:
 	_title.text = title
 	_hint.text = hint
 	_hint.visible = hint != ""
-	_hint.modulate.a = 1.0
+	refresh_fx()
+	_overlay.visible = false
+
+
+func refresh_fx() -> void:
 	if _hint_tween:
 		_hint_tween.kill()
-	if _hint.visible:
+		_hint_tween = null
+	_hint.modulate.a = 1.0
+	if _hint.visible and not UiKit.low_fx():
 		_hint_tween = create_tween().set_loops()
 		# мягкое «дыхание», но не бледнее 80%: на светлых фонах подсказка должна читаться
 		_hint_tween.tween_property(_hint, "modulate:a", 0.8, 0.9).set_trans(Tween.TRANS_SINE)
 		_hint_tween.tween_property(_hint, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
-	_overlay.visible = false
 
 
 ## Что считает счётчик: монеты, воду, камни или огонь (приёмник уровня внутри вещи).

@@ -16,6 +16,8 @@ var _dirty := false
 
 
 func burst(at: Vector2, color: Color, count: int, speed: float, size: float, gravity := 0.0, life := 0.6) -> void:
+	if UiKit.low_fx():
+		count = maxi(1, count / 2)
 	for i in count:
 		_pos.append(at)
 		_vel.append(Vector2.from_angle(_rng.randf() * TAU) * speed * _rng.randf_range(0.35, 1.0))
@@ -74,13 +76,14 @@ func _remove(i: int) -> void:
 
 
 func _draw() -> void:
+	var brightness := 0.45 if UiKit.low_fx() else 1.0
 	for i in _pos.size():
 		var k := _life[i] / _max[i]
 		var c := _col[i]
-		c.a *= k
+		c.a *= k * brightness
 		draw_circle(_pos[i], _size[i] * (0.4 + 0.6 * k), c)
 	for r in _rings:
 		var p: float = r[1] / r[2]
 		var c: Color = r[4]
-		c.a *= 1.0 - p
+		c.a *= (1.0 - p) * brightness
 		draw_arc(r[0], r[3] * ease(p, 0.4), 0.0, TAU, 40, c, 4.0 * (1.0 - p) + 1.0, true)

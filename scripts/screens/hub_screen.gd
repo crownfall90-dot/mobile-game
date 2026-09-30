@@ -407,7 +407,7 @@ func _show_bought(id: String) -> void:
 func _process(delta: float) -> void:
 	_time += delta
 	if _tip:
-		_tip.modulate.a = 0.75 + 0.25 * sin(_time * 3.0)
+		_tip.modulate.a = 1.0 if UiKit.low_fx() else 0.75 + 0.25 * sin(_time * 3.0)
 	if _busy or _talking or Router.is_busy():
 		_idle = 0.0
 		return
