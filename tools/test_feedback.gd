@@ -47,7 +47,7 @@ static func run() -> bool:
 	var queued: Variant = JSON.parse_string(FileAccess.get_file_as_string(crash_file))
 	var automatic: bool = queued is Dictionary and queued.get("automatic") == true and queued.get("kind") == "crash" and not str(queued.get("diagnostics")).contains("Tester")
 	Reports._crash_file = crash_file
-	Reports._on_crash_sent(HTTPRequest.RESULT_TIMEOUT, 0, [], '{}'.to_utf8_buffer())
+	Reports._on_crash_sent(HTTPRequest.RESULT_TIMEOUT, 0, [], PackedByteArray())
 	automatic = automatic and FileAccess.file_exists(crash_file)
 	Reports._crash_file = crash_file
 	Reports._on_crash_sent(HTTPRequest.RESULT_SUCCESS, 201, [], '{"ok":true,"url":"https://example.com/issues/123"}'.to_utf8_buffer())

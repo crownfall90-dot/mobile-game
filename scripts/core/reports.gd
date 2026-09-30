@@ -344,7 +344,11 @@ func _send_crash() -> void:
 
 
 func _on_crash_sent(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var parsed: Variant = null
+	if result == HTTPRequest.RESULT_SUCCESS and code in [200, 201]:
+		var json := JSON.new()
+		if json.parse(body.get_string_from_utf8()) == OK:
+			parsed = json.data
 	var accepted: bool = result == HTTPRequest.RESULT_SUCCESS and code in [200, 201] and parsed is Dictionary and parsed.get("ok") == true
 	var url := str(parsed.get("url", "")) if parsed is Dictionary else ""
 	var prefix := "https://github.com/crownfall90-dot/mobile-game/issues/"
