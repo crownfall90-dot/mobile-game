@@ -457,32 +457,36 @@ func _kettle(item: Dictionary, clip: Dictionary) -> void:
 
 func _meal(item: Dictionary, clip: Dictionary) -> void:
 	var r := _view.activity_rect(item)
-	var chair := _view.activity_item("kitchen/kitchen_chair")
-	if r.size.x <= 0 or chair.is_empty():
+	var chair_key := str(clip.get("chair", "kitchen/kitchen_chair"))
+	var chair := _view.activity_item(chair_key) if chair_key != "" else {}
+	if r.size.x <= 0 or (chair_key != "" and chair.is_empty()):
 		_finish()
 		return
 	var mount := Node2D.new()
-	mount.name = "Breakfast"
+	mount.name = str(clip.get("mount", "Breakfast"))
 	mount.position = r.get_center()
 	mount.rotation = float(item.get("rot", 0.0))
 	mount.scale = Vector2(-r.size.x if item.get("flip", false) else r.size.x, r.size.x)
 	add_child(mount)
 	var furnishings: Array[Dictionary] = [item]
 	for key: String in clip["tabletop"]:
-		var prop := _view.activity_item("kitchen/" + key)
+		var prop := _view.activity_item(key if key.contains("/") else "kitchen/" + key)
+		if prop.is_empty() and key.contains("/") and ResourceLoader.exists(LocationView.ART + key + ".png"):
+			prop = {"img": key}
 		if prop.is_empty():
 			_finish()
 			return
 		furnishings.append(prop)
 	# Fixed dining composition relative to the editable table; existing furniture PNGs.
-	for side in [-1, 1]:
+	for side in ([-1, 1] if not chair.is_empty() else []):
 		var seat := Sprite2D.new()
 		seat.texture = load(LocationView.ART + str(chair["img"]) + ".png")
 		seat.position = Vector2(-0.24 if side < 0 else 0.38, 0.14)
 		seat.scale = Vector2.ONE * 0.55 / seat.texture.get_width()
 		seat.flip_h = side < 0
 		mount.add_child(seat)
-	_view.activity_props.append(str(chair["img"]))
+	if not chair.is_empty():
+		_view.activity_props.append(str(chair["img"]))
 	var bodies: Array[Sprite2D] = []
 	var hands: Array[Sprite2D] = []
 	var frames: Array = []
@@ -532,7 +536,8 @@ func _meal(item: Dictionary, clip: Dictionary) -> void:
 			prop.position = Vector2.ZERO
 			prop.scale = r.size / prop.texture.get_size() / r.size.x
 		else:
-			var at: Array = clip["tabletop"][str(pr["img"]).get_file()]
+			var prop_key := str(pr["img"])
+			var at: Array = clip["tabletop"].get(prop_key, clip["tabletop"].get(prop_key.get_file(), []))
 			prop.position = Vector2(at[0], at[1])
 			prop.scale = Vector2.ONE * float(at[2]) / prop.texture.get_width()
 		mount.add_child(prop)
@@ -541,8 +546,33 @@ func _meal(item: Dictionary, clip: Dictionary) -> void:
 		mount.move_child(hand, mount.get_child_count() - 1)
 	_view.set_activity_hidden(true)
 	_view.activity_prop = str(item["img"])
-	phase = "eat"
-	# ponytail: two authored eating poses; smoother reaches need extra aligned frames.
+	if clip.get("walk_in", false):
+		var walkers: Array[Node2D] = []
+		for spec: Dictionary in clip["poses"]:
+			var who := str(spec["actor"]).to_lower()
+			var origin := _view.activity_actor(who)
+			walkers.append(_make_actor(who, Vector2(origin["pos"][0], origin["pos"][1]), float(spec["walk_height"]) * r.size.x))
+		for i in bodies.size():
+			bodies[i].hide()
+			hands[i].hide()
+		for i in walkers.size():
+			_actor = walkers[i]
+			_sprite = _actor.get_child(0)
+			_frames.clear()
+			for frame in 4:
+				_frames.append(load(ART + str(clip["poses"][i]["actor"]).to_lower() + "_%d.png" % frame))
+			await _walk_to(to_local(bodies[i].global_position))
+			if _complete:
+				return
+		for i in walkers.size():
+			walkers[i].queue_free()
+			bodies[i].show()
+			hands[i].show()
+		_frames.clear()
+	for key: String in clip.get("held_props", []):
+		mount.get_node(key.get_file()).hide()
+	phase = str(clip.get("phase", "eat"))
+	# ponytail: two authored meal/drink poses; smoother reaches need extra aligned frames.
 	for bite in 4:
 		for frame in 2:
 			for i in bodies.size():

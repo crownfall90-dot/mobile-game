@@ -314,7 +314,7 @@
    {"bg": "living"}, {"show": ["family"]},
    {"say": "daughter", "text": "Цветочек, пей! Расти большой.", "mood": "smile"},
    {"say": "mother", "text": "Ему нравится, когда с ним разговаривают.", "mood": "smile"}]},
-  {"label": "Попить чаю", "scene": [
+  {"label": "Попить чаю", "animation": {"kind": "meal", "mount": "Tea", "phase": "drink", "chair": "", "walk_in": true, "tabletop": {"kitchen/v2/cup_mother": [-0.23, -0.25, 0.18], "kitchen/v2/cup_daughter": [0.23, -0.25, 0.15]}, "held_props": ["kitchen/v2/cup_mother", "kitchen/v2/cup_daughter"], "poses": [{"actor": "Mother", "sheet": "mother_tea_v1", "regions": [[0, 0, 768, 1024], [768, 0, 768, 1024]], "foot": [388, 970], "front": [[290, 310, 335, 390], [290, 210, 335, 400]], "at": [-0.35, 1.4], "height": 1.65, "walk_height": 2.4}, {"actor": "Daughter", "sheet": "daughter_tea_v1", "regions": [[0, 0, 768, 1024], [768, 0, 768, 1024]], "foot": [388, 970], "front": [[70, 310, 335, 390], [70, 210, 335, 400]], "at": [1.1, 1.4], "height": 1.24, "walk_height": 1.7}]}, "scene": [
    {"bg": "living"}, {"show": ["family"]},
    {"say": "mother", "text": "Чай на двоих за маленьким столиком.", "mood": "smile"},
    {"say": "daughter", "text": "И печенье на двоих!", "mood": "happy"}]}]},
