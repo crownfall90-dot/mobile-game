@@ -138,7 +138,7 @@ func _input(event: InputEvent) -> void:
 
 func note_feedback(action: String) -> void:
 	feedback_events.append("%.1fs %s: %s" % [Time.get_ticks_msec() / 1000.0, Router.current(), action.left(180)])
-	if feedback_events.size() > 20:
+	if feedback_events.size() > 32:
 		feedback_events.pop_front()
 
 

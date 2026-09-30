@@ -252,6 +252,7 @@ func _on_won(stars: int) -> void:
 	if _result_recorded:
 		return
 	_result_recorded = true
+	Reports.note_feedback("game result begin " + level_id)
 	var res := level.result()
 	res["first_try"] = _attempt == 1 and (not _tracks_progress() or Profile.fails(level_id) == 0)
 	var task := Home.task_for_level(level_id)
@@ -259,10 +260,12 @@ func _on_won(stars: int) -> void:
 	var best_before := Profile.best_stars(level_id)
 	if _tracks_progress():
 		res.merge(Profile.record_result(level_id, stars), true)
+		Reports.note_feedback("game result saved " + level_id)
 		# разбивка награды пригодится окну итога
 		res["reward"] = Economy.level_reward(level_id, res, mods)
 		Profile.reset_fails(level_id)
 		_repair = Home.finish(level_id, true)
+		Reports.note_feedback("Home.finish complete " + _repair)
 	Sfx.play(&"win")
 	level_finished.emit(res)
 	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
@@ -377,6 +380,7 @@ func _show_result_later(won: bool, stars: int, text: String, coins := "", title 
 
 func _go_next() -> void:
 	if not dev and not Home.task_for_level(level_id).is_empty():
+		Reports.note_feedback("result exit to hub " + _repair)
 		Router.go(&"hub", {"repaired": _repair})
 		return
 	var next := ""

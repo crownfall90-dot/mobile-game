@@ -39,6 +39,9 @@ var show_targets := true          # мягкая пульсация вокруг
 
 # ponytail: eight background edge samples cover the current four rooms; evict oldest for more rooms.
 static var _edge_cache: Dictionary = {}
+## NoiseTexture2D renders on a worker thread. Keep one process-wide instance so a fast
+## Hub -> Game -> Hub cycle never destroys its RID while that worker is still filling it.
+static var _wear_noise: NoiseTexture2D
 var _edge_colors := PackedColorArray()
 var _side_tex: Array[Texture2D] = []   # левый и правый край фона, усреднённые в пятна по высоте
 var _bg: Texture2D
@@ -190,6 +193,7 @@ func play_repair(id: String) -> void:
 	var t := _target(id)
 	if t.is_empty():
 		return
+	Reports.note_feedback("repair animation begin " + id)
 	_anim[id] = 0.0
 	var tw := create_tween()
 	tw.tween_method(func(v: float) -> void: _anim[id] = v, 0.0, 1.0, 1.1)
@@ -197,6 +201,7 @@ func play_repair(id: String) -> void:
 		_anim.erase(id)
 		_done[id] = true
 		_update_family()
+		Reports.note_feedback("repair fixed layer ready " + id)
 		repair_finished.emit(id))
 	var fx := Fx.new()
 	add_child(fx)
@@ -296,20 +301,25 @@ func _setup_wear() -> void:
 	_bg_sprite.scale = Vector2(k, k)
 	_bg_sprite.position = (size - _bg.get_size() * k) * 0.5
 	_bg_sprite.show_behind_parent = true
-	var noise := FastNoiseLite.new()
-	noise.frequency = 0.02
-	noise.fractal_octaves = 3
-	var tex := NoiseTexture2D.new()
-	tex.width = 256
-	tex.height = 256
-	tex.seamless = true
-	tex.noise = noise
 	var mat := ShaderMaterial.new()
 	mat.shader = WEAR_SHADER
-	mat.set_shader_parameter("stains", tex)
+	mat.set_shader_parameter("stains", _shared_wear_noise())
 	mat.set_shader_parameter("aspect", Vector2(1.0, size.y / size.x))
 	_bg_sprite.material = mat
 	add_child(_bg_sprite)
+
+
+static func _shared_wear_noise() -> NoiseTexture2D:
+	if _wear_noise == null:
+		var noise := FastNoiseLite.new()
+		noise.frequency = 0.02
+		noise.fractal_octaves = 3
+		_wear_noise = NoiseTexture2D.new()
+		_wear_noise.width = 256
+		_wear_noise.height = 256
+		_wear_noise.seamless = true
+		_wear_noise.noise = noise
+	return _wear_noise
 
 
 ## Общий износ = доля несделанных целей локации; пятна у целей гаснут после их ремонта.
@@ -326,7 +336,7 @@ func _update_wear(delta: float) -> void:
 	var goal := float(left) / targets.size()
 	var first := _wear < 0.0
 	_wear = goal if first else move_toward(_wear, goal, delta * WEAR_SPEED)
-	var spots: Array[Vector4] = []
+	var spots := PackedVector4Array()
 	for t: Dictionary in targets.slice(0, 8):
 		var id: String = t["id"]
 		var want := 0.0 if _done.get(id, false) else 1.0
@@ -826,8 +836,8 @@ func speaker_point(who: String) -> Vector2:
 
 ## Радость: подпрыгнуть (вся пара или отдельные мама и дочка), дважды.
 func cheer() -> void:
-	var tw := create_tween()
 	if _family.visible:
+		var tw := create_tween()
 		var base := _family.position
 		for i in 2:
 			tw.tween_property(_family, "position:y", base.y - 34.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

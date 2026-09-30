@@ -298,6 +298,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 		_screens.remove_child(_stack.back())
 	else:
 		for s in _stack:
+			Reports.note_feedback("screen teardown begin " + s.name)
 			_drop(s)
 		_stack.clear()
 		_names.clear()
@@ -311,6 +312,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 	_names.append(screen)
 	if node.has_method(&"open"):
 		node.call(&"open", args)
+	Reports.note_feedback("screen open complete " + str(screen))
 	screen_changed.emit(screen)
 	Reports.note_feedback("Открыт экран " + str(screen))
 	if Reports._tracking:
@@ -321,6 +323,7 @@ func _swap(mode: StringName, screen: StringName, args: Dictionary) -> void:
 func _drop(s: Node) -> void:
 	if s.is_inside_tree():
 		_screens.remove_child(s)
+	Reports.note_feedback("old screen exit " + s.name)
 	s.queue_free()
 
 

@@ -38,6 +38,7 @@ var _bubbles := {}           # кто говорит -> SpeechBubble
 
 
 func open(args: Dictionary) -> void:
+	Reports.note_feedback("Hub open begin")
 	_delay = Timer.new()
 	_delay.one_shot = true
 	add_child(_delay)
@@ -58,6 +59,7 @@ func open(args: Dictionary) -> void:
 	_view = LocationView.new()
 	_view.setup(Home.location(_loc_id), _scene_size())
 	holder.add_child(_view)
+	Reports.note_feedback("LocationView setup complete " + _loc_id)
 	if _repair != "":
 		_view.hold_broken(_repair)
 	_build_ui()
@@ -316,6 +318,7 @@ static func _free_spot(p: Vector2, placed: Array[Vector2], area: Rect2, gap: flo
 
 func _play_repair() -> void:
 	_busy = true
+	Reports.note_feedback("repair flow begin " + _repair)
 	# пока вещь чинится — без кнопок поверх анимации
 	_marks.visible = false
 	_delay.start(0.5)
@@ -323,12 +326,14 @@ func _play_repair() -> void:
 	if _leaving:
 		return
 	_view.play_repair(_repair)
+	Reports.note_feedback("repair broken layer hidden " + _repair)
 	Sfx.play(&"restore")
 	Sfx.haptic(40)
 	await _view.repair_finished
 	if _leaving:
 		return
 	Sfx.ambience(_view.ambience())
+	Reports.note_feedback("repair tween complete " + _repair)
 	# радость: подпрыгнули, искры над головами, «Ура!» и реплика про починенную вещь
 	_view.cheer()
 	Sfx.play(&"win")
@@ -350,6 +355,7 @@ func _play_repair() -> void:
 ## Локация готова: радостная сцена семьи и переход в следующую открывшуюся локацию.
 func _celebrate() -> void:
 	_busy = true
+	Reports.note_feedback("celebrate begin " + _loc_id)
 	var loc := Home.location(_loc_id)
 	var shade := ColorRect.new()
 	shade.color = Color(0.05, 0.04, 0.08, 0.0)

@@ -74,6 +74,7 @@ var _fade: ColorRect
 
 func open(args: Dictionary) -> void:
 	_scene_id = str(args.get("scene", "prologue"))
+	Reports.note_feedback("novel begin " + _scene_id)
 	_next = args.get("next", {}) if args.get("next", {}) is Dictionary else {}
 	_auto = args.has("auto")
 	_start = int(args.get("step", 0))
@@ -380,6 +381,7 @@ func _finish() -> void:
 	if _finished:
 		return
 	_finished = true
+	Reports.note_feedback("novel end " + _scene_id)
 	# просмотрена (или пропущена) сцена и все, что идут в ней продолжением: living_done → act1_end
 	for id in _chain(_scene_id, []):
 		Profile.set_flag("seen.novel." + id)

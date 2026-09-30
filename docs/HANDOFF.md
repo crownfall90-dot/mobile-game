@@ -2640,3 +2640,39 @@ status 11 в 16:13:58 UTC во время `room_wall`, когда hub был `bu
 Godot в журналах нет. Это свежие падения 0.19.4 с интервалом 34 секунды;
 ApplicationExitInfo подтверждает SIGSEGV, но native stack/tombstone не приложен,
 поэтому конкретную строку и общую причину пока не утверждать.
+
+## 30.09 — VITA-CRASH-HUB-01: кандидат исправления #24/#25
+
+#24/#25 разобраны как общий поток `Game → Hub → LocationView → repair`, а не как
+ошибки home_04/home_05. Защита результата и кнопки уже была idempotent; Router
+удаляет старый экран до создания Hub. Узкая общая lifecycle-зона найдена в
+`LocationView`: каждый Hub создавал новый `NoiseTexture2D`, который Godot заполняет
+в worker thread, а быстрый переход снова уничтожал связанный render RID. Native
+stack отсутствует, поэтому это доказанная опасная зона потока, но не доказанная
+точная строка SIGSEGV.
+
+Исправление: texture износа одна на процесс, shader uniform пятен использует
+`PackedVector4Array`; пустой Tween семейной анимации больше не создаётся. Добавлены
+короткие breadcrumbs результата, teardown/open Router, Hub/repair/celebrate и
+Novel. История расширена до 32 событий.
+
+Новая regression `test_hub_crash_stress.gd`: 20 циклов `home_04 → room_wall →
+completion novel → kitchen` и 20 циклов `home_05 → kitchen_sink → Hub`. PASS:
+один экран/LocationView, старый GameScreen вне дерева, очередь Router пуста,
+Node 35→35, один RID noise, без ObjectDB warning. Также PASS: home-selfcheck,
+smoke 12/0, feedback-selfcheck, system stress 36→36, low FX, ActivityPlayer,
+cooking, kettle, breakfast, tea, pouring и layout kitchen/bath/living.
+
+Физический DNY-NX9 и adb на этой машине недоступны; Godot native symbols/ndk-stack
+не найдены. Кандидат 0.19.5/code28 нельзя считать окончательно проверенным до
+установки поверх 0.19.4 и повторения room_wall, kitchen_sink и 5–10 переходов.
+#24/#25 остаются открытыми и `investigate`; комментарии/закрытие — только после
+реального ретеста.
+
+Собраны отдельные подписанные APK `com.crownfall90.vita.test`: arm64
+111002186 байт, SHA256 `b785fb49e9ab7668379a46a13bf58a31ad3801b75fc14b6178ba91e7d1218580`;
+armv7 114737742 байт, SHA256
+`8f9f5bfc30cd9dcf6dd8387b5a067c61b6e0767e800b04759db0e568906f8179`.
+Обе: 0.19.5-test/code28, minSDK24/targetSDK35, только своя ABI, v2/v3,
+сертификат SHA256 `0af54d49…01f0`; секретов в ZIP нет. ADB не увидел устройств,
+поэтому установка поверх 0.19.4 и фактический Android-запуск не выполнены.
