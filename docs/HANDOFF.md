@@ -2545,3 +2545,24 @@ minSDK24/targetSDK35 как в0.19.3. Совместимость идентич�
 Android ApplicationExitInfo, клавиатура и аппаратный Back остаются физическими
 проверками. Чужие редакторские изменения project.godot и review-imports сохранены.
 Публикация релиза и единственного Telegram-поста выполняется после этого коммита.
+
+Публикация завершена: GitHub Release399895635 из15fbb425,
+https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.4.
+Релиз0.19.3 сохранён с обеими APK. Незавершённый дубль черновика, возникший
+после timeout upload, удалён; опубликован один новый релиз. GitHub asset SHA-256
+совпадают с локальными: arm64 `1fb5245c75e33dbc634adbf3fc2cb55b127a8c8f5645b69c28a99dcfcad71fac`,
+armv7 `3983c4f7766022fb7d6cba39a54fcd5fdc445f21fe9d6ea644ae66f70862a1dc`.
+Обе прямые публичные ссылки после редиректа проверены HTTP200 и точным размером:
+
+- https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.4/Vita-Test-0.19.4.apk
+- https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.4/Vita-Test-0.19.4-old-phones.apk
+
+Один новый пост Vita отправлен: https://t.me/vita_mobile/23. Telegram API
+подтвердил исходный текст и ID23, arm64 ссылка первая. Публичная страница
+показывает канал и ссылку на пост, но вместо текста предлагает открыть Telegram;
+полный текст через веб-превью не подтверждён. Отправку не повторяли, предыдущие
+посты не меняли. Локальная защита от дублей обновлена атомарно сразу после
+подтверждения API; version0.19.4 записана объявленной, статус sent,
+public_preview_status=requires_telegram. Монитор остаётся на паузе, токен/внутренний
+ID канала не выводились и не попадали в Git. Оставшиеся физические проверки
+перечислены выше, никакое закрытие Honor400 не объявлено исправленным.
