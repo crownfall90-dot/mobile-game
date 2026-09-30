@@ -2631,3 +2631,12 @@ VITA-ANDROID-02 требует logcat/tombstone или Java stack и реаль�
 10:18:49 UTC, home_01. Это доставка старого события, не доказательство
 нового закрытия при входе. #15 — та же модель/GPU и уровень на 0.19.4,
 но иной запуск; общую причину без стека не утверждать. Детали — в backlog.
+
+Следующий вход с 0.19.4 дал два новых автоматических отчёта DNY-NX9:
+[#24](https://github.com/crownfall90-dot/mobile-game/issues/24) — `native_crash`
+status 11 в 16:13:58 UTC во время `room_wall`, когда hub был `busy/talking`;
+[#25](https://github.com/crownfall90-dot/mobile-game/issues/25) — такой же
+системный тип в 16:14:32 UTC возле `kitchen_sink`. ID уникальны, пустых ошибок
+Godot в журналах нет. Это свежие падения 0.19.4 с интервалом 34 секунды;
+ApplicationExitInfo подтверждает SIGSEGV, но native stack/tombstone не приложен,
+поэтому конкретную строку и общую причину пока не утверждать.
