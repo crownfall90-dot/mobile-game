@@ -6,6 +6,9 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	create_timer(20.0).timeout.connect(func() -> void:
+		push_error("Location layout check timed out")
+		quit(1))
 	var home = load("res://scripts/core/home.gd")
 	var profile := root.get_node("Profile")
 	profile.volatile = true
@@ -41,12 +44,16 @@ func _run() -> void:
 		await create_timer(0.4).timeout
 		var hub: Node = router.current_screen()
 		var marks: Array = hub._mark_list()
-		assert(marks.size() == (7 if loc_id == "kitchen" else 5))
+		var expected: int = {"kitchen": 7, "bath": 5, "living": 6}[loc_id]
+		assert(marks.size() == expected)
 		if loc_id == "kitchen":
 			assert(marks[5]["kind"] == "act")
 			assert(marks[6]["kind"] == ("act" if repaired else "lock"))
 			for mark: Dictionary in marks.slice(5):
 				assert(Rect2(60, 110, 600, 1260).has_point(mark["at"]))
+		elif loc_id == "living":
+			assert(marks[5]["kind"] == "act")
+			assert(Rect2(60, 110, 600, 1260).has_point(marks[5]["at"]))
 		for i in loc["targets"].size():
 			var task: Dictionary = loc["targets"][i]
 			assert(task["level"] == "home_%02d" % (({"kitchen": 5, "bath": 10, "living": 15}[loc_id]) + i))
