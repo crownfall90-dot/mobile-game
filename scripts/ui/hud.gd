@@ -30,6 +30,7 @@ var _hint_tween: Tween
 var _overlay: ColorRect
 var _panel: PanelContainer
 var _res_title: Label
+var _res_family: TextureRect
 var _res_sub: Label
 var _res_coins: Label      # «+80 монет» и из чего сложилось
 var _stars: StarRow
@@ -229,14 +230,18 @@ func hide_hint() -> void:
 
 
 ## coins — строка награды («+80 монет · первый ремонт 50, звёзды 30»), пусто — не показывать.
-func show_result(won: bool, stars: int, text: String, title := "", coins := "") -> void:
+func show_result(won: bool, stars: int, text: String, title := "", coins := "", action := "Продолжить") -> void:
 	_won = won
 	_res_coins.text = coins
 	_res_coins.visible = coins != ""
 	_res_title.text = title if title != "" else (Loc.t("level.won") if won else Loc.t("level.lost"))
 	_res_title.label_settings.font_color = ACCENT if won else Color("ff8a8a")
 	_res_sub.text = text
-	_res_button.text = "Хорошо" if won else Loc.t("common.retry")
+	_res_button.text = action if won else Loc.t("common.retry")
+	_res_family.visible = won
+	if won:
+		_res_family.texture = load("res://art/home/family_clothed.png" if Profile.owns("vita_clothes") else "res://art/act1/family/family_mood3.png")
+	(_panel.get_theme_stylebox("panel") as StyleBoxFlat).border_color = ACCENT if won else Color("ff8a8a")
 	_res_home.visible = not won
 	_stars.visible = won
 	_stars.set_stars(0)
@@ -346,7 +351,8 @@ func _build_hint() -> void:
 
 func _build_overlay() -> void:
 	_overlay = ColorRect.new()
-	_overlay.color = Color(0.04, 0.02, 0.1, 0.65)
+	_overlay.color = Color(0.04, 0.02, 0.1, 0.82)
+	_overlay.z_index = 10 # Transient place labels are added later; results must cover them.
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_overlay.visible = false
@@ -366,13 +372,20 @@ func _build_overlay() -> void:
 	center.add_child(_panel)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 22)
+	col.add_theme_constant_override("separation", 16)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	_panel.add_child(col)
+	_res_family = TextureRect.new()
+	_res_family.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_res_family.custom_minimum_size = Vector2(200, 250)
+	_res_family.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_res_family.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	col.add_child(_res_family)
 
 	_res_title = Label.new()
 	_res_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_res_title.label_settings = _label_settings(60, ACCENT, 0)
+	_res_title.label_settings = _label_settings(48, ACCENT, 0)
+	_res_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_res_title)
 
 	_stars = StarRow.new()
@@ -387,26 +400,25 @@ func _build_overlay() -> void:
 	_res_coins.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_res_coins.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_res_coins.label_settings = _label_settings(26, Color("ffd66e"), 0)
+	_res_coins.add_theme_stylebox_override("normal", UiKit.panel_box(&"gold"))
 	col.add_child(_res_coins)
 
-	_res_button = Button.new()
+	_res_button = UiKit.button("Продолжить")
 	_res_button.custom_minimum_size = Vector2(0, 100)
-	_res_button.focus_mode = Control.FOCUS_NONE
-	_res_button.add_theme_font_size_override("font_size", 36)
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		_res_button.add_theme_color_override(state, Color("2a1a05"))
-	_res_button.add_theme_stylebox_override("normal", _box(ACCENT, 50, Color("fff1b8"), 0, 3))
-	_res_button.add_theme_stylebox_override("hover", _box(ACCENT.lightened(0.1), 50, Color("fff1b8"), 0, 3))
-	_res_button.add_theme_stylebox_override("pressed", _box(ACCENT.darkened(0.15), 50, Color("fff1b8"), 0, 3))
-	_res_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_res_button.add_theme_font_size_override("font_size", 30)
 	_res_button.pressed.connect(_on_result_button)
 	col.add_child(_res_button)
 	_res_home = UiKit.button("Домой", &"secondary")
 	col.add_child(_res_home)
-	_res_home.pressed.connect(func() -> void: home_requested.emit())
+	_res_home.pressed.connect(func() -> void:
+		if _overlay.visible:
+			_overlay.hide()
+			home_requested.emit())
 
 
 func _on_result_button() -> void:
+	if not _overlay.visible:
+		return
 	_overlay.visible = false
 	if _won:
 		next_requested.emit()

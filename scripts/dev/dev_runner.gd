@@ -571,7 +571,14 @@ func _smoke_level(router: Node, errors: ErrorCounter, win: bool) -> bool:
 	await _wait(SMOKE_RESULT_WAIT)
 	var action := &"_go_next" if win else &"restart"
 	if is_instance_valid(gs) and gs.has_method(action):
-		gs.call(action)
+		assert(gs._hud._overlay.visible and gs._hud._res_family.visible == win)
+		if win:
+			assert(gs._hud._res_button.text == "Вернуться домой")
+		var progress := Profile.data.duplicate(true)
+		gs._hud._res_button.pressed.emit()
+		gs._hud._res_button.pressed.emit()
+		assert(Profile.data == progress, "Result buttons must not grant rewards again")
+		assert(not gs._hud._overlay.visible)
 		await _frames(SMOKE_SCREEN_FRAMES)
 	var won := bool(res.get("won", false))
 	var outcome := "WON %d stars" % int(res.get("stars", 0)) if won else "LOST " + str(res.get("reason", ""))

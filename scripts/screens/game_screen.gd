@@ -273,7 +273,7 @@ func _on_won(stars: int) -> void:
 		_hud.show_place("Готово!")
 	elif _data.has("receiver"):
 		var thing := str(task.get("name", "")).to_lower()
-		win_text = ("Ремонт: %s — готово!\nВернёмся домой и посмотрим." % thing) if thing != "" \
+		win_text = ("Теперь дома уютнее.\nГотово: %s." % thing) if thing != "" \
 			else "Вернёмся домой и посмотрим."
 		_hud.show_place("Починено!")
 	elif _data.get("family", false):
@@ -371,7 +371,8 @@ func _show_result_later(won: bool, stars: int, text: String, coins := "", title 
 	_result_tween.tween_interval(RESULT_DELAY)
 	if title == "":
 		title = "Починено!" if won and _data.has("receiver") else ""
-	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title, coins))
+	var action := "Вернуться домой" if not Home.task_for_level(level_id).is_empty() else "Продолжить"
+	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title, coins, action))
 
 
 func _go_next() -> void:

@@ -181,10 +181,10 @@ func is_busy() -> bool:
 
 ## Открывает попап на слое 50. null, если его скрипта ещё нет.
 func popup(popup_name: StringName, args := {}) -> Node:
+	for opened in _popups.get_children():
+		if opened.name == String(popup_name).to_pascal_case() + "Popup" and not opened.is_queued_for_deletion():
+			return opened
 	if popup_name == &"feedback":
-		for opened in _popups.get_children():
-			if opened.name == "FeedbackPopup" and not opened.is_queued_for_deletion():
-				return opened
 		args = args.duplicate()
 		args["captured"] = Reports.capture_feedback()
 	var path := _popup_path(popup_name)
@@ -200,11 +200,25 @@ func popup(popup_name: StringName, args := {}) -> Node:
 	if popup_name == &"feedback":
 		var was_paused := get_tree().paused
 		get_tree().paused = true
-		node.closed.connect(func(_result: Variant) -> void: get_tree().paused = was_paused)
+		var previous: Array[Node] = []
+		for opened in _popups.get_children():
+			if opened is Control and opened.visible and not opened.is_queued_for_deletion():
+				previous.append(opened)
+				opened.hide()
+		node.tree_exiting.connect(_restore_feedback.bind(previous, was_paused), CONNECT_ONE_SHOT)
 	_popups.add_child(node)
 	if node.has_method(&"open"):
 		node.call(&"open", args)
 	return node
+
+
+func _restore_feedback(previous: Array[Node], was_paused: bool) -> void:
+	if _busy:
+		return # A screen transition owns the pause state and removes old popups.
+	get_tree().paused = was_paused
+	for opened in previous:
+		if is_instance_valid(opened) and not opened.is_queued_for_deletion():
+			opened.show()
 
 
 ## Верхний открытый попап или null.

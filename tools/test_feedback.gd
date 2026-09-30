@@ -73,11 +73,51 @@ static func context_checks() -> bool:
 	var captured: Dictionary = Reports.feedback_draft.context.duplicate(true)
 	assert(captured.screen == "novel" and JSON.parse_string(captured.context).scene == "prologue")
 	assert(tree.paused)
+	assert(Router.popup(&"feedback") == popup)
+	var connections := Reports.feedback_finished.get_connections().size()
+	assert(not popup._success.visible and popup._send.visible)
+	popup._text.text = "Черновик при ошибке"
+	popup._save()
+	Reports.feedback_busy = true
+	popup._update()
+	assert(popup._send.disabled and popup._send.text == "Отправляем…")
+	var draft := Reports.feedback_draft.duplicate(true)
+	popup._submit()
+	assert(Reports.feedback_draft == draft and Reports._feedback_http == null)
+	Reports._on_feedback_sent(HTTPRequest.RESULT_TIMEOUT, 0, [], PackedByteArray())
+	assert(popup._text.text == "Черновик при ошибке" and Reports.feedback_draft.text == popup._text.text)
+	assert(not popup._success.visible and not popup._send.disabled)
+	Reports._on_feedback_sent(HTTPRequest.RESULT_SUCCESS, 201, [], JSON.stringify({"ok": true,
+		"url": Reports.FEEDBACK_THREAD + "#issuecomment-123"}).to_utf8_buffer())
+	assert(popup._success.visible and not popup._scroll.visible and not popup._send.visible)
+	assert(popup._success.get_child(1).text == "Сообщение отправлено")
+	popup._write_again()
+	assert(not popup._success.visible and popup._send.visible and popup._text.text.is_empty())
+	captured = Reports.feedback_draft.context.duplicate(true)
 	await tree.create_timer(0.3).timeout
 	assert(Reports.feedback_draft.context == captured)
 	popup.close()
 	await tree.create_timer(0.3).timeout
 	assert(not tree.paused)
+	assert(Reports.feedback_finished.get_connections().size() == connections - 1)
+	var settings := Router.popup(&"settings")
+	assert(Router.popup(&"settings") == settings)
+	popup = Router.popup(&"feedback")
+	assert(not settings.visible)
+	Reports.feedback_busy = true
+	Router._on_back_request()
+	await tree.create_timer(0.3).timeout
+	assert(settings.visible and Router.top_popup() == settings and not tree.paused)
+	assert(Reports.feedback_finished.get_connections().size() == connections - 1)
+	popup = Router.popup(&"feedback")
+	assert(popup._send.disabled and popup._status.text != "Текст пока только в памяти. Освободи место на телефоне.")
+	popup.queue_free() # Also restore the parent on forced disposal, not only closed.
+	await tree.process_frame
+	Reports._on_feedback_sent(HTTPRequest.RESULT_TIMEOUT, 0, [], PackedByteArray())
+	assert(settings.visible and not tree.paused)
+	assert(Reports.feedback_finished.get_connections().size() == connections - 1)
+	settings.close()
+	await tree.create_timer(0.3).timeout
 	var edge_ids := []
 	for i in 4:
 		Router.go(&"game", {"id": "home_01"})
