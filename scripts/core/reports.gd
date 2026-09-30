@@ -176,12 +176,14 @@ func capture_feedback() -> Dictionary:
 
 func begin_feedback(captured: Dictionary) -> void:
 	if not feedback_busy and (not feedback_draft.has("context") or (str(feedback_draft.get("text", "")).is_empty() and not feedback_draft.has("packet"))):
+		feedback_message = ""
 		feedback_draft["context"] = captured.duplicate(true)
 		feedback_draft["device"] = true
 
 
 func new_feedback(captured: Dictionary) -> void:
 	if not feedback_busy:
+		feedback_message = ""
 		feedback_draft = {"context": captured.duplicate(true), "kind": "bug", "text": "", "device": true}
 		save_feedback("bug", "", true)
 

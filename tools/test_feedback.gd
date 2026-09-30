@@ -30,6 +30,7 @@ static func run() -> bool:
 	var first := {"summary": "Пролог", "context": "Первая реплика"}
 	var second := {"summary": "Уровень", "context": "Засов a"}
 	Reports.begin_feedback(first)
+	assert(Reports.feedback_message.is_empty(), "A fresh draft must not show an earlier delivery message")
 	Reports.save_feedback("crash", "", true)
 	Reports.begin_feedback(second)
 	var moment: bool = Reports.feedback_draft.context == second # Empty unopened drafts don't pin an old moment.
@@ -92,6 +93,7 @@ static func context_checks() -> bool:
 	assert(popup._success.visible and not popup._scroll.visible and not popup._send.visible)
 	assert(popup._success.get_child(1).text == "Сообщение отправлено")
 	popup._write_again()
+	assert(Reports.feedback_message.is_empty())
 	assert(not popup._success.visible and popup._send.visible and popup._text.text.is_empty())
 	captured = Reports.feedback_draft.context.duplicate(true)
 	await tree.create_timer(0.3).timeout
