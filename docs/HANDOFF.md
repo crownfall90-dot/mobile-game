@@ -2676,3 +2676,8 @@ armv7 114737742 байт, SHA256
 Обе: 0.19.5-test/code28, minSDK24/targetSDK35, только своя ABI, v2/v3,
 сертификат SHA256 `0af54d49…01f0`; секретов в ZIP нет. ADB не увидел устройств,
 поэтому установка поверх 0.19.4 и фактический Android-запуск не выполнены.
+Pre-release опубликован: https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.5.
+GitHub API подтвердил размеры и оба SHA256. Прямые APK:
+https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.5/Vita-Test-0.19.5.apk
+и https://github.com/crownfall90-dot/mobile-game/releases/download/vita-test-0.19.5/Vita-Test-0.19.5-old-phones.apk.
+Telegram-пост не создавался: аппаратный результат ещё неизвестен.

@@ -25,7 +25,8 @@
   переходах. Текстура износа теперь одна на процесс; uniform пятен передаётся
   точным `PackedVector4Array`. Компьютерный stress прошёл 20 завершений комнаты
   и 20 ремонтов кухни без старых GameScreen, роста Router Node и ObjectDB warning.
-  Кандидат 0.19.5/code28 собран для arm64/armv7 и требует обязательного ретеста на DNY-NX9; #24/#25
+  [Кандидат 0.19.5/code28](https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.5)
+  опубликован для arm64/armv7 и требует обязательного ретеста на DNY-NX9; #24/#25
   остаются `investigate` до него.
 - **Новые отзывы:** GitHub #13–22 — 10 автоматических отчётов 0.19.4 с
   уникальными ID и `ApplicationExitInfo`: 9 `native_crash`, 1 `java_crash`
