@@ -39,6 +39,7 @@ static func run() -> bool:
 	Reports.save_feedback("idea", "Моя идея", false)
 	moment = moment and Reports.feedback_draft.context == second
 	var prior := Reports.previous_run
+	assert(Reports._android_exit_info().is_empty(), "Desktop must not invent an Android exit reason")
 	var crash_file := Reports.CRASH_QUEUE + "/" + "e".repeat(32) + ".json"
 	Reports.previous_run = {"id": "e".repeat(32), "version": "test", "screen": "game", "location": "room", "level": "home_01", "viewport": "720x1280", "os": "test", "model": "test", "context": "Возвращение домой", "diagnostics": "GPU test", "log": "D:/Users/Tester/log.txt"}
 	Reports._queue_previous_run()

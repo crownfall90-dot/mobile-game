@@ -20,6 +20,12 @@ Godot 4.5.1, GDScript, GL Compatibility, Android, вертикальный эк�
   по правилам AGENTS.md. Причина: сокращение расхода лимита. Ограничение:
   нужные проверки сохраняются, точная экономия не измерена.
 
+- **30.09.2026 · принято владельцем:** автоматический отчёт следующего запуска
+  на Android 11+ дополняется `ApplicationExitInfo` последнего процесса: причиной,
+  статусом и памятью. Причина: обычный журнал Godot не переживает нативный сбой.
+  Ограничение: доступность данных зависит от прошивки; физический Android ещё
+  не проверен, полный logcat и расшифрованный tombstone это не заменяет.
+
 - **30.09.2026 · принято владельцем:** отдельный ChatGPT планирует, Codex
   выполняет переданный этап. Общие данные — репозиторий; инструкция планировщика
   в CHATGPT.md, задание/статус в ROADMAP. Причина: не объяснять проект заново.
@@ -55,7 +61,7 @@ Godot 4.5.1, GDScript, GL Compatibility, Android, вертикальный эк�
 | Старт / загрузка / назад | `Router.boot`, `loading_screen.gd`, `Assets` | `project.godot`, `boot.gd`, `DevRunner` |
 | Кнопки / итог / подсказка / обучение | `scripts/ui/kit.gd`, `hud.gd`, `howto_popup.gd` | `game_screen.gd`, `scripts/popups/` |
 | Звук / музыка / дождь | `scripts/audio/sfx.gd`, `music.gd`, `ambience.gd` | `LocationView.ambience`, настройки `Profile` |
-| Отчёты о сбоях | `scripts/core/reports.gd`, `data/telemetry.json` | Выключены без DSN; Android либо явный тестовый режим |
+| Отчёты о сбоях | `scripts/core/reports.gd`, `data/telemetry.json` | Контекст/очередь в GitHub; Android 11+ добавляет системную причину прошлого завершения |
 | Сборка / версия / состав APK | `project.godot`, `export_presets.cfg` | Инструкция в `HANDOFF.md`, прежний ключ подписи вне Git |
 
 Пути в таблицах — от корня репозитория; короткие имена скриптов раскрыты в разделах модулей.

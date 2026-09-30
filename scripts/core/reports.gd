@@ -270,14 +270,49 @@ func _queue_previous_run() -> void:
 	# A native crash and a foreground OS kill both leave a marker; don't claim certainty.
 	packet["text"] = "Автоматический отчёт: предыдущий запуск неожиданно оборвался на экране. Возможен вылет или завершение системой."
 	packet["context"] = (str(packet.get("context", "")) + "\nМомент: " + str(packet.get("captured_at", ""))).left(12288)
+	var system_exit := _android_exit_info()
 	var redact := RegEx.new()
 	redact.compile(r"(?i)([A-Z]:[\\/]Users[\\/]|/home/|/Users/)[^\\/\n]+")
-	packet["diagnostics"] = redact.sub(("Последний журнал:\n" + str(packet.get("log", "")) + "\n" + str(packet.get("diagnostics", ""))).left(32000), "$1<user>", true)
+	packet["diagnostics"] = redact.sub(("Причина завершения Android:\n" + JSON.stringify(system_exit) +
+		"\nПоследний журнал:\n" + str(packet.get("log", "")) + "\n" + str(packet.get("diagnostics", ""))).left(32000), "$1<user>", true)
 	packet.erase("log")
 	packet.erase("captured_at")
 	DirAccess.make_dir_recursive_absolute(CRASH_QUEUE)
 	if _atomic_json(CRASH_QUEUE + "/" + packet.id + ".json", packet):
 		DirAccess.remove_absolute(RUNNING)
+
+
+## Android 11+ knows why our previous process died, even when Godot had no time to log it.
+func _android_exit_info() -> Dictionary:
+	if not OS.has_feature("android") or not Engine.has_singleton("AndroidRuntime"):
+		return {}
+	if int(JavaClassWrapper.wrap("android.os.Build$VERSION").SDK_INT) < 30:
+		return {}
+	var runtime := Engine.get_singleton("AndroidRuntime")
+	var context: Object = runtime.call("getApplicationContext")
+	if context == null:
+		return {}
+	var manager: Object = context.call("getSystemService", "activity")
+	if manager == null:
+		return {}
+	var history: Object = manager.call("getHistoricalProcessExitReasons", context.call("getPackageName"), 0, 1)
+	if JavaClassWrapper.get_exception() != null or history == null or int(history.call("size")) == 0:
+		return {}
+	var entry: Object = history.call("get", 0)
+	if entry == null:
+		return {}
+	var reason := int(entry.call("getReason"))
+	var reasons := ["unknown", "exit_self", "signaled", "low_memory", "java_crash",
+		"native_crash", "anr", "initialization_failure", "permission_change",
+		"excessive_resource_usage", "user_requested", "user_stopped", "dependency_died",
+		"other", "freezer", "package_state_change", "package_updated", "memory_limiter"]
+	var info := {"reason": reasons[reason] if reason >= 0 and reason < reasons.size() else "code_%d" % reason,
+		"reason_code": reason, "status": entry.call("getStatus"),
+		"time_ms": entry.call("getTimestamp"), "pss_kb": entry.call("getPss"),
+		"rss_kb": entry.call("getRss"), "importance": entry.call("getImportance"),
+		"pid": entry.call("getPid"), "process": str(entry.call("getProcessName")).left(200),
+		"description": str(entry.call("getDescription")).left(500)}
+	return {} if JavaClassWrapper.get_exception() != null else info
 
 
 func _send_crash() -> void:
