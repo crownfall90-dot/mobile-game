@@ -29,6 +29,14 @@ var _tip: Label
 var _repair := ""
 var _busy := false
 var _energy: Button
+var _arrange := false             # режим «Расстановка»
+var _arrange_btn: Button
+var _arrange_bar: Control        # «Готово» и «Сбросить» в режиме расстановки
+var _arrange_layer: Control      # рамки вещей и подсветка перетаскиваемой
+var _drag_key := ""
+var _drag_grab := Vector2.ZERO
+var _drag_from := Rect2()
+var _drag_ok := true
 var _energy_tick := 0.0
 var _time := 0.0
 var _idle := 0.0
@@ -50,6 +58,7 @@ func open(args: Dictionary) -> void:
 		_loc_id = str(Home.task(_repair).get("loc", ""))
 	if _loc_id == "" or not Home.is_unlocked(_loc_id):
 		_loc_id = Home.current_location()
+	Rearrange.apply(Home.location(_loc_id))
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
 	bg.color = Color("203b42")
@@ -83,6 +92,8 @@ func open(args: Dictionary) -> void:
 		_show_bought(str(args["bought"]))
 	else:
 		_greet.call_deferred(args.get("unlocked", false))
+	if str(args.get("arrange", "")) in ["1", "true"]:
+		get_tree().create_timer(1.2).timeout.connect(_set_arrange.bind(true))
 
 
 func _exit_tree() -> void:
@@ -151,6 +162,7 @@ func _build_ui() -> void:
 			Router.popup(&"energy", {"level": ""}))
 	_ui.add_child(_energy)
 	_refresh_energy()
+	_build_arrange()
 	# Переход между открытыми локациями.
 	var locs := Home.locations()
 	var i := _loc_index()
@@ -187,6 +199,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if _arrange:
+		_arrange_input(event)
+		return
 	if _busy or not (event is InputEventScreenTouch and event.pressed):
 		return
 	var p: Vector2 = (event.position - _offset) / _k
@@ -435,12 +450,14 @@ func _show_bought(id: String) -> void:
 func _process(delta: float) -> void:
 	_time += delta
 	_energy_tick += delta
+	if _arrange:
+		_arrange_layer.queue_redraw()
 	if _energy_tick >= 1.0:
 		_energy_tick = 0.0
 		_refresh_energy()
 	if _tip:
 		_tip.modulate.a = 1.0 if UiKit.low_fx() else 0.75 + 0.25 * sin(_time * 3.0)
-	if _busy or _talking or Router.is_busy():
+	if _busy or _talking or _arrange or Router.is_busy():
 		_idle = 0.0
 		return
 	_idle += delta
@@ -638,11 +655,132 @@ func _layout() -> void:
 		_tip.scale = Vector2(ui_k, ui_k)
 		_tip.size = Vector2(620, 80)
 		_tip.position = Vector2(50 * ui_k, bottom - 100 * ui_k)
+	if _arrange_btn:
+		_arrange_btn.scale = Vector2(ui_k, ui_k)
+		_arrange_btn.size = _arrange_btn.get_combined_minimum_size()
+		_arrange_btn.position = Vector2(18 * ui_k, top + 92 * ui_k)
+	if _arrange_bar:
+		_arrange_bar.scale = Vector2(ui_k, ui_k)
+		_arrange_bar.size = _arrange_bar.get_combined_minimum_size()
+		_arrange_bar.position = Vector2((view.x - _arrange_bar.size.x * ui_k) * 0.5, bottom - 40 * ui_k)
 	if _energy:
 		_energy.scale = Vector2(ui_k, ui_k)
 		_energy.size = _energy.get_combined_minimum_size()
 		_energy.position = Vector2((view.x - _energy.size.x * ui_k) * 0.5, bottom)
 	_rebuild_marks()
+
+
+# --- расстановка -------------------------------------------------------------
+
+class ArrangeLayer extends Control:
+	var hub: Node
+
+	func _draw() -> void:
+		hub.call(&"_draw_arrange", self)
+
+
+func _build_arrange() -> void:
+	_arrange_btn = UiKit.button("Расставить", &"glass")
+	_arrange_btn.add_theme_font_size_override("font_size", 24)
+	_arrange_btn.custom_minimum_size = Vector2(190, 64)
+	_arrange_btn.pressed.connect(func() -> void: _set_arrange(true))
+	_ui.add_child(_arrange_btn)
+	_arrange_layer = ArrangeLayer.new()
+	_arrange_layer.set(&"hub", self)
+	_arrange_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrange_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_arrange_layer.visible = false
+	add_child(_arrange_layer)
+	_arrange_bar = HBoxContainer.new()
+	_arrange_bar.add_theme_constant_override("separation", 14)
+	var done := UiKit.button("Готово", &"primary")
+	done.pressed.connect(func() -> void: _set_arrange(false))
+	_arrange_bar.add_child(done)
+	var reset := UiKit.button("Сбросить", &"secondary")
+	reset.pressed.connect(_reset_arrange)
+	_arrange_bar.add_child(reset)
+	_arrange_bar.visible = false
+	_ui.add_child(_arrange_bar)
+
+
+func _set_arrange(on: bool) -> void:
+	if _busy or _leaving or Router.is_busy() or on == _arrange:
+		return
+	_arrange = on
+	_drag_key = ""
+	Sfx.play(&"ui_tap")
+	_marks.visible = not on
+	_arrange_layer.visible = on
+	_arrange_bar.visible = on
+	for c: Control in [_arrange_btn, _energy, _prev, _next, _acts, _shop, _album, _settings, _tip]:
+		if c:
+			c.visible = not on
+	if on:
+		_hide_hand()
+		Router.toast("Перетащи вещь на новое место")
+	else:
+		Profile.flush()
+		_rebuild_marks()
+
+
+func _reset_arrange() -> void:
+	if _drag_key != "":
+		return
+	Rearrange.reset(Home.location(_loc_id))
+	Sfx.play(&"ui_tap")
+	_arrange_layer.queue_redraw()
+
+
+func _arrange_input(event: InputEvent) -> void:
+	var loc := Home.location(_loc_id)
+	if event is InputEventScreenTouch:
+		var p: Vector2 = (event.position - _offset) / _k
+		if event.pressed:
+			var key := Rearrange.hit(loc, p)
+			if key == "":
+				return
+			accept_event()
+			_drag_key = key
+			_drag_from = Rearrange.rect_of(Rearrange.raw_item(loc, key))
+			_drag_grab = p - _drag_from.position
+			_drag_ok = true
+			Sfx.haptic(12)
+		elif _drag_key != "":
+			accept_event()
+			_finish_drag(loc)
+	elif event is InputEventScreenDrag and _drag_key != "":
+		accept_event()
+		var p: Vector2 = (event.position - _offset) / _k
+		var r := Rearrange.clamp_rect(_loc_id, _drag_key, Rect2(p - _drag_grab, _drag_from.size))
+		Rearrange.place(Rearrange.raw_item(loc, _drag_key), r)
+		_drag_ok = Rearrange.fits(loc, _drag_key, r)
+
+
+func _finish_drag(loc: Dictionary) -> void:
+	var key := _drag_key
+	_drag_key = ""
+	var it := Rearrange.raw_item(loc, key)
+	if Rearrange.fits(loc, key, Rearrange.rect_of(it)):
+		Rearrange.save(loc, key)
+		Sfx.play(&"ui_tap")
+		Sfx.haptic(20)
+	else:
+		Rearrange.place(it, _drag_from)
+		Router.toast("Здесь не поставить")
+
+
+func _draw_arrange(layer: Control) -> void:
+	var loc := Home.location(_loc_id)
+	var ui_k := minf(layer.size.x / 720.0, layer.size.y / 1280.0)
+	for key in Rearrange.movable(loc):
+		var r := Rearrange.rect_of(Rearrange.raw_item(loc, key))
+		var sr := Rect2(r.position * _k + _offset, r.size * _k)
+		var color := Color(1, 1, 1, 0.55)
+		var width := 2.0 * ui_k
+		if key == _drag_key:
+			color = Color("5fd26a") if _drag_ok else Color("e8574a")
+			width = 5.0 * ui_k
+		layer.draw_rect(sr, color, false, width)
 
 
 func _refresh_energy() -> void:
