@@ -73,7 +73,7 @@ func _ready() -> void:
 	add_child(ui)
 	_hud = Hud.new()
 	ui.add_child(_hud)
-	_hud.restart_requested.connect(restart)
+	_hud.restart_requested.connect(_try_restart)
 	_hud.next_requested.connect(_go_next)
 	_hud.home_requested.connect(func() -> void: Router.go(&"hub", {"repaired": _repair}))
 	_hud.pause_requested.connect(func() -> void: _open_pause(false))
@@ -105,6 +105,18 @@ func open(args: Dictionary) -> void:
 	if not is_node_ready():
 		await ready
 	restart()
+
+
+## Повтор попытки: в обычной игре нужна энергия; без неё — окно энергии.
+func _try_restart() -> void:
+	if not _tracks_progress() or Energy.can_play(level_id):
+		restart()
+		return
+	var popup := Router.popup(&"energy", {"level": level_id})
+	if popup:
+		popup.closed.connect(func(result: Variant) -> void:
+			if result == &"refilled" and is_inside_tree():
+				restart())
 
 
 func restart() -> void:
@@ -210,11 +222,11 @@ func _open_pause(restart_fallback: bool) -> void:
 		info["reward"] = Economy.reward_rule(level_id)
 	_pause = router.call(&"popup", &"pause", info) if router else null
 	if _pause == null and restart_fallback:
-		restart()
+		_try_restart()
 	elif _pause:
 		_pause.closed.connect(func(result: Variant) -> void:
 			if result == "restart":
-				restart())
+				_try_restart())
 
 
 func _on_pin_pulled(_pin: Pin) -> void:
@@ -266,6 +278,7 @@ func _on_won(stars: int) -> void:
 		Profile.reset_fails(level_id)
 		_repair = Home.finish(level_id, true)
 		Reports.note_feedback("Home.finish complete " + _repair)
+		_spend_energy()
 	Sfx.play(&"win")
 	level_finished.emit(res)
 	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
@@ -295,6 +308,7 @@ func _on_lost(reason: String) -> void:
 	if _tracks_progress():
 		Profile.add_fail(level_id)
 		Economy.level_lost(level_id, reason)
+		_spend_energy()
 	level_finished.emit(res)
 	_show_result_later(false, 0, _item_lose_text(res) if _data.has("receiver") else Loc.t(lose_key(res)))
 
@@ -376,6 +390,14 @@ func _show_result_later(won: bool, stars: int, text: String, coins := "", title 
 		title = "Починено!" if won and _data.has("receiver") else ""
 	var action := "Вернуться домой" if not Home.task_for_level(level_id).is_empty() else "Продолжить"
 	_result_tween.tween_callback(_hud.show_result.bind(won, stars, text, title, coins, action))
+
+
+## Итог попытки стоит энергии (после победы или поражения, не при старте).
+func _spend_energy() -> void:
+	var spent := Energy.spend(level_id)
+	Reports.note_feedback("energy -%d -> %d" % [spent, Energy.current()])
+	if spent > 0:
+		Router.toast("Энергия: %d из %d" % [Energy.current(), Energy.MAX], &"bolt")
 
 
 func _go_next() -> void:

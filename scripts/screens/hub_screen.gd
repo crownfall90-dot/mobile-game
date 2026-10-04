@@ -28,6 +28,8 @@ var _next: Button
 var _tip: Label
 var _repair := ""
 var _busy := false
+var _energy: Button
+var _energy_tick := 0.0
 var _time := 0.0
 var _idle := 0.0
 var _talking := false
@@ -141,6 +143,14 @@ func _build_ui() -> void:
 	_acts.tooltip_text = "Занятия"
 	_acts.pressed.connect(_offer_list)
 	_ui.add_child(_acts)
+	# энергия: сколько осталось и когда вернётся; нажатие — подробности
+	_energy = UiKit.button("", &"secondary")
+	_energy.custom_minimum_size = Vector2(300, 84)
+	_energy.pressed.connect(func() -> void:
+		if not Router.is_busy():
+			Router.popup(&"energy", {"level": ""}))
+	_ui.add_child(_energy)
+	_refresh_energy()
 	# Переход между открытыми локациями.
 	var locs := Home.locations()
 	var i := _loc_index()
@@ -211,7 +221,19 @@ func _open_repair(t: Dictionary) -> void:
 		return
 	if not Router.is_busy():
 		Sfx.play(&"ui_tap")
-		Router.go(&"game", {"id": t["level"]})
+		_start_level(str(t["level"]))
+
+
+## В уровень, если хватает энергии; иначе окно энергии (после рекламы — сразу в уровень).
+func _start_level(level: String) -> void:
+	if Energy.can_play(level):
+		Router.go(&"game", {"id": level})
+		return
+	var popup := Router.popup(&"energy", {"level": level})
+	if popup:
+		popup.closed.connect(func(result: Variant) -> void:
+			if result == &"refilled" and not _leaving:
+				Router.go(&"game", {"id": level}))
 
 
 ## Круглые кнопки у всего, что можно нажать: сломанное (ремонт), занятия у вещей, предметов и
@@ -412,6 +434,10 @@ func _show_bought(id: String) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_energy_tick += delta
+	if _energy_tick >= 1.0:
+		_energy_tick = 0.0
+		_refresh_energy()
 	if _tip:
 		_tip.modulate.a = 1.0 if UiKit.low_fx() else 0.75 + 0.25 * sin(_time * 3.0)
 	if _busy or _talking or Router.is_busy():
@@ -471,7 +497,7 @@ func _offer_actions(key: String, item_name: String, level: String) -> void:
 	if popup:
 		popup.closed.connect(func(choice: Variant) -> void:
 			if choice is String and choice == "replay":
-				Router.go(&"game", {"id": level})
+				_start_level(level)
 			elif choice is int:
 				var clip := ACTIVITIES.animation(key, choice)
 				if not clip.is_empty():
@@ -612,7 +638,18 @@ func _layout() -> void:
 		_tip.scale = Vector2(ui_k, ui_k)
 		_tip.size = Vector2(620, 80)
 		_tip.position = Vector2(50 * ui_k, bottom - 100 * ui_k)
+	if _energy:
+		_energy.scale = Vector2(ui_k, ui_k)
+		_energy.size = _energy.get_combined_minimum_size()
+		_energy.position = Vector2((view.x - _energy.size.x * ui_k) * 0.5, bottom)
 	_rebuild_marks()
+
+
+func _refresh_energy() -> void:
+	if _energy == null:
+		return
+	var next := Energy.seconds_to_next()
+	_energy.text = "Энергия %d/%d" % [Energy.current(), Energy.MAX] + ("" if next == 0 else "  " + Energy.format_wait(next))
 
 
 func _safe_top(_view: Vector2) -> float:

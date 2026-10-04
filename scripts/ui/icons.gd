@@ -12,7 +12,7 @@ const VIEWBOX := 48.0
 const NAMES: Array[StringName] = [
 	&"coin", &"star", &"gem", &"hint", &"gear", &"pause", &"restart", &"home", &"map",
 	&"book", &"hanger", &"calendar", &"chest", &"lock", &"play", &"back", &"close",
-	&"check", &"sound_on", &"sound_off", &"music", &"vibration", &"flame", &"relic", &"hand",
+	&"check", &"sound_on", &"sound_off", &"music", &"vibration", &"flame", &"relic", &"hand", &"bolt",
 ]
 # запасная иконка, если файла нет: знак вопроса без текста (ThorVG не рисует текст)
 const _MISSING := "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><circle cx=\"24\" cy=\"24\" r=\"20\" fill=\"#ff4fd8\" stroke=\"#1b1236\" stroke-width=\"3\"/><path d=\"M17,18 A7,7 0 1 1 24,25 V29\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"24\" cy=\"36\" r=\"3\" fill=\"#ffffff\"/></svg>"
@@ -21,7 +21,7 @@ const _MISSING := "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48
 # (52 — круглые кнопки и тосты, 56 — кнопки и летящие монеты, 64 — счётчики,
 # 43 — компактные кнопки, 48/80/120 — ряды звёзд и переключатели)
 const WARM: PackedStringArray = [
-	"coin@64", "star@64", "hint@64", "gem@64",
+	"coin@64", "star@64", "hint@64", "gem@64", "bolt@43", "bolt@56",
 	"coin@56", "star@56", "gem@56", "play@56", "check@56", "lock@56", "restart@56",
 	"map@56", "home@56", "hint@56", "back@56", "coin@43", "check@43",
 	"star@48", "star@80", "star@120", "sound_on@48", "music@48", "vibration@48",
