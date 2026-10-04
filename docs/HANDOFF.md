@@ -2815,3 +2815,16 @@ ApplicationExitInfo, чтобы получить native stack tombstone (нуж�
 (`user_flip`). Проверено: `test_rearrange` (z перед семьёй, сторона стены, угол), `test_rearrange_ui`,
 `--smoke`, `--home-selfcheck`, оба stress; снимок комнаты (коробка перед семьёй, полка на левой
 стене развёрнута, чемодан у зрителя). На телефоне не запускалось.
+
+## 04.10 — сборка 0.19.6-test (локально, не опубликована)
+
+Версия поднята до 0.19.6-test/code29 (project + оба пресета, `check_release_version.py` PASS).
+Собран arm64 `build/release-0.19.6/Vita-Test-0.19.6.apk` (копия в `D:/tools/vita-build/`),
+109056592 байт, SHA256 `2296f9888641bc6dd11a40febf61c9b7fb33e24854a8b3f419b4507db402f74b`;
+`com.crownfall90.vita.test`, min24/target35, только arm64, сертификат `0af54d49…01f0` — тот же,
+что у 0.19.5 (обновление поверх). Внутри: энергия, расстановка мебели (глубина, отражение, слои),
+безопасное чтение exit info. Для сборки восстановлены локальные настройки Godot: android_debug
+шаблон из `D:/tools/vita-build/clean-template.apk`, SDK `D:/tools/vita-build/sdk`, JDK
+`D:/tools/vita-build/jdk/jdk-17.0.18+8` (резервная копия editor_settings — `.bak-20261004`).
+armv7 не собирался; GitHub Release и Telegram не делались. Исправления вылетов #27–#30 нет.
+На телефоне не запускалось.
