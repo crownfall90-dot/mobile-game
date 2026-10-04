@@ -1,7 +1,7 @@
 extends SceneTree
 ## VITA-CRASH-HUB-01: repeated Game -> Hub repair teardown, including room completion.
 
-const CYCLES := 20
+const CYCLES := 25
 
 
 func _initialize() -> void:
@@ -54,11 +54,33 @@ func _run() -> void:
 			baseline = count
 		else:
 			assert(count == baseline, "Router nodes changed after identical repair cycles: %d != %d" % [count, baseline])
+	# Cover every repair layer and all four completion scenes once, in story order.
+	profile.data = profile.defaults()
+	for loc in home.locations():
+		profile.set_flag("seen." + str(loc.id))
+	for target in home.tasks():
+		profile.set_setting(&"low_fx", home.completed() % 2 == 0)
+		await _open_game(router, str(target.level))
+		var old_id: int = router.current_screen().get_instance_id()
+		assert(home.finish(str(target.level), true) == str(target.id))
+		router.go(&"hub", {"repaired": target.id})
+		await _wait_current(router, &"hub")
+		_assert_single(router, &"hub", old_id)
+		var until := Time.get_ticks_msec() + 30000
+		while true:
+			assert(Time.get_ticks_msec() < until, "Repair/completion timed out")
+			if not router.is_busy() and router.current() == &"hub" and not router.current_screen()._busy:
+				break
+			if router.current() == &"novel" and not router.is_busy():
+				router.current_screen().call(&"_skip_all")
+			await process_frame
+		assert(router.current() == &"hub" and instance_from_id(old_id) == null)
+	assert(home.completed() == 19)
 	profile.data = saved
 	profile.volatile = was_volatile
 	Engine.time_scale = 1.0
 	print("HUB CRASH STRESS OK: ", CYCLES, " room completion + ", CYCLES,
-		" kitchen repair cycles; Router nodes ", baseline, "; one shared wear texture RID")
+		" kitchen repair cycles + all 19 repairs/completions; Router nodes ", baseline, "; one shared wear texture RID")
 	await process_frame
 	quit()
 

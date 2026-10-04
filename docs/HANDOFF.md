@@ -2736,3 +2736,22 @@ VITA-ANDROID-GAME-01; #24/#25 остаются `investigate`. Владелец �
 специально вызывать второй crash не нужно; после естественного закрытия хватает
 одного перезапуска с интернетом. Результаты SM-A556E, RMX3709 и Honor400 ещё
 не получены. Новую APK и Telegram-пост не делали.
+
+## 04.10 — VITA-ANDROID-COMPAT-01: проверки на компьютере
+
+Закоммичены: безопасное чтение Android exit info в `reports.gd` (остановка на первой
+ошибке Java, каждый из 9 getter проверяется отдельно), матрица
+[ANDROID_COMPATIBILITY](ANDROID_COMPATIBILITY.md), `tools/check_android_compat.py`,
+расширенные stress-тесты и `tools/test_home06_restart.gd`. Godot 4.5.1 headless: PASS
+check_android_compat (verify19, layouts), test_android_reports, test_home06_restart
+(50 проигрышей/рестартов, 20 пауз, orphans 0), test_hub_crash_stress (25+25 циклов и
+все 19 ремонтов), test_system_stress (Router 37→37). `project.godot` пересохранён
+редактором (порядок секций; убраны значения по умолчанию).
+
+Ограничения: JNI, драйвер, телефоны, эмулятор, lifecycle ОС и armv7 не проверены.
+Правка не доказана как причина #14/#26; #24/#25/#26 остаются `investigate`. APK и
+пост не создавались, версия по-прежнему 0.19.5-test.
+
+Следующий шаг: ждать от владельца отчёт после естественного закрытия игры и одного
+перезапуска с интернетом (SM-A556E, RMX3709, Honor400, DNY-NX9); native stack — только
+с устройства. Новую сборку делать, когда будет что выпускать.

@@ -288,33 +288,57 @@ func _queue_previous_run() -> void:
 func _android_exit_info() -> Dictionary:
 	if not OS.has_feature("android") or not Engine.has_singleton("AndroidRuntime"):
 		return {}
-	if int(JavaClassWrapper.wrap("android.os.Build$VERSION").SDK_INT) < 30:
+	var version_class := JavaClassWrapper.wrap("android.os.Build$VERSION")
+	if JavaClassWrapper.get_exception() != null or version_class == null:
+		return {}
+	var sdk: Variant = version_class.get("SDK_INT")
+	if JavaClassWrapper.get_exception() != null or sdk == null or int(sdk) < 30:
 		return {}
 	var runtime := Engine.get_singleton("AndroidRuntime")
 	var context: Object = runtime.call("getApplicationContext")
-	if context == null:
+	if JavaClassWrapper.get_exception() != null or context == null:
 		return {}
 	var manager: Object = context.call("getSystemService", "activity")
-	if manager == null:
+	if JavaClassWrapper.get_exception() != null or manager == null:
 		return {}
-	var history: Object = manager.call("getHistoricalProcessExitReasons", context.call("getPackageName"), 0, 1)
-	if JavaClassWrapper.get_exception() != null or history == null or int(history.call("size")) == 0:
+	var package: Variant = context.call("getPackageName")
+	if JavaClassWrapper.get_exception() != null or package == null:
+		return {}
+	var history: Object = manager.call("getHistoricalProcessExitReasons", package, 0, 1)
+	if JavaClassWrapper.get_exception() != null or history == null:
+		return {}
+	var count: Variant = history.call("size")
+	if JavaClassWrapper.get_exception() != null or count == null or int(count) == 0:
 		return {}
 	var entry: Object = history.call("get", 0)
-	if entry == null:
+	if JavaClassWrapper.get_exception() != null or entry == null:
 		return {}
-	var reason := int(entry.call("getReason"))
+	return _read_exit_entry(entry, JavaClassWrapper.get_exception)
+
+
+## Stop on the first failed JNI call: a later successful call can replace its exception.
+func _read_exit_entry(entry: Object, exception: Callable) -> Dictionary:
+	var info := {}
+	var methods := {"reason_code": "getReason", "status": "getStatus",
+		"time_ms": "getTimestamp", "pss_kb": "getPss", "rss_kb": "getRss",
+		"importance": "getImportance", "pid": "getPid", "process": "getProcessName",
+		"description": "getDescription"}
+	for key in methods:
+		var value: Variant = entry.call(methods[key])
+		if exception.call() != null:
+			return {}
+		if value == null and key not in ["process", "description"]:
+			return {}
+		info[key] = value
+	var reason := int(info.reason_code)
 	var reasons := ["unknown", "exit_self", "signaled", "low_memory", "java_crash",
 		"native_crash", "anr", "initialization_failure", "permission_change",
 		"excessive_resource_usage", "user_requested", "user_stopped", "dependency_died",
 		"other", "freezer", "package_state_change", "package_updated", "memory_limiter"]
-	var info := {"reason": reasons[reason] if reason >= 0 and reason < reasons.size() else "code_%d" % reason,
-		"reason_code": reason, "status": entry.call("getStatus"),
-		"time_ms": entry.call("getTimestamp"), "pss_kb": entry.call("getPss"),
-		"rss_kb": entry.call("getRss"), "importance": entry.call("getImportance"),
-		"pid": entry.call("getPid"), "process": str(entry.call("getProcessName")).left(200),
-		"description": str(entry.call("getDescription")).left(500)}
-	return {} if JavaClassWrapper.get_exception() != null else info
+	info.reason = reasons[reason] if reason >= 0 and reason < reasons.size() else "code_%d" % reason
+	info.process = str(info.process).left(200) if info.process != null else ""
+	info.description = str(info.description).left(500) if info.description != null else ""
+	return info
 
 
 func _send_crash() -> void:

@@ -37,6 +37,10 @@ Sfx="*res://scripts/audio/sfx.gd"
 Monetization="*res://scripts/core/monetization.gd"
 Router="*res://scripts/core/router.gd"
 
+[debug]
+
+file_logging/enable_file_logging=true
+
 [display]
 
 window/size/viewport_width=720
@@ -47,26 +51,9 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=5
 
-[input_devices]
+[editor_plugins]
 
-pointing/emulate_touch_from_mouse=true
-
-[physics]
-
-common/physics_ticks_per_second=60
-2d/default_gravity=1800.0
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=1
-textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.07058824, 0.047058824, 0.14117648, 1)
-
-[debug]
-
-file_logging/enable_file_logging=true
+enabled=PackedStringArray("res://addons/vita_layout/plugin.cfg")
 
 [importer_defaults]
 
@@ -75,6 +62,17 @@ texture={
 "mipmaps/generate": false
 }
 
-[editor_plugins]
+[input_devices]
 
-enabled=PackedStringArray("res://addons/vita_layout/plugin.cfg")
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+2d/default_gravity=1800.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.07058824, 0.047058824, 0.14117648, 1)
