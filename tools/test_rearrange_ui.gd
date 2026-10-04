@@ -26,18 +26,25 @@ func _run() -> void:
 	var room: Dictionary = HOME.location("room")
 	var toy: Dictionary = RA.raw_item(room, "room/room_toybox")
 	var base: Rect2 = RA.rect_of(toy)
-	var goal := Vector2(520, 1330)                 # свободный пол справа внизу
+	var goal := Vector2(230, 1330)                 # свободный пол слева внизу, на коврике
 	await _drag(hub, base.get_center(), goal)
 	var now: Rect2 = RA.rect_of(toy)
 	assert(now.position.distance_to(base.position) > 100.0, "toybox did not move")
-	assert(profile.data["layout"]["room"]["room/room_toybox"] == [now.position.x, now.position.y])
+	assert(now.size.y > base.size.y, "moved closer: must grow")
+	var foot := Vector2(now.position.x + now.size.x * 0.5, now.end.y)
+	assert(profile.data["layout"]["room"]["room/room_toybox"] == [foot.x, foot.y, false])
 	# на кровать (ремонтируемая вещь) поставить нельзя: возврат
 	var bed: Dictionary = HOME.location("room")["targets"][1]
 	var bed_r: Rect2 = RA.rect_of(bed)
 	var before: Rect2 = RA.rect_of(toy)
 	await _drag(hub, before.get_center(), bed_r.get_center())
 	assert(RA.rect_of(toy) == before, "drop on the bed must revert")
-	assert(profile.data["layout"]["room"]["room/room_toybox"] == [before.position.x, before.position.y])
+	var bf := Vector2(before.position.x + before.size.x * 0.5, before.end.y)
+	assert(profile.data["layout"]["room"]["room/room_toybox"] == [bf.x, bf.y, false])
+	# нажатие без перетаскивания отражает вещь, место не меняется
+	await _drag(hub, before.get_center(), before.get_center())
+	assert(RA.rect_of(toy) == before and toy["flip"] == true)
+	assert(profile.data["layout"]["room"]["room/room_toybox"] == [bf.x, bf.y, true])
 	# сброс
 	hub._reset_arrange()
 	assert(RA.rect_of(toy) == base and not profile.data["layout"].has("room"))
@@ -45,7 +52,7 @@ func _run() -> void:
 	assert(not hub._arrange)
 	profile.volatile = was
 	profile.data = saved
-	print("REARRANGE UI OK: drag saves, bed drop reverts, reset restores")
+	print("REARRANGE UI OK: drag saves and scales, bed drop reverts, tap flips, reset restores")
 	quit()
 
 

@@ -3,7 +3,7 @@ extends RefCounted
 ## Расстановка: игрок двигает лёгкие вещи (коврики, коробки, полки, купленный декор) по полу
 ## и стенам комнаты. Тяжёлые вещи (кровать, плита, ванна…), семья и всё, что нужно для
 ## ремонтов, остаются на местах. Позиции хранятся в Profile.data["layout"][локация][ключ] = [x, y]
-## (левый верх rect). Ключ — img вещи или "decor:<id>" у декора. Размер и z не меняются.
+## (середина низа rect) и необязательный третий элемент — отражение. Ключ — img вещи или "decor:<id>" у декора. Размер на полу зависит от глубины, z не меняется.
 
 ## Пол: «ноги» вещи (середина низа rect) должны быть здесь. Стены: rect целиком.
 const FLOOR := Rect2(60, 1060, 600, 340)
@@ -72,6 +72,13 @@ static func movable(loc: Dictionary) -> Array[String]:
 	return out
 
 
+## Глубина пола: вещь у дальней стены меньше, у зрителя — больше (относительно исходного места).
+const HORIZON := 420.0
+const DEPTH_MIN := 0.8
+const DEPTH_MAX := 1.25
+
+
+## Сохранённое место: {foot: Vector2, flip: bool} или null.
 static func _saved(loc_id: String, key: String) -> Variant:
 	var profile := _profile()
 	var layout: Variant = profile.data.get("layout") if profile else null
@@ -81,9 +88,53 @@ static func _saved(loc_id: String, key: String) -> Variant:
 	if not room is Dictionary:
 		return null
 	var p: Variant = room.get(key)
-	if p is Array and p.size() == 2 and (p[0] is float or p[0] is int) and (p[1] is float or p[1] is int):
-		return Vector2(float(p[0]), float(p[1]))
-	return null
+	if not p is Array or p.size() < 2 or p.size() > 3:
+		return null
+	for v: Variant in p:
+		if not (v is float or v is int or v is bool):
+			return null
+	return {"foot": Vector2(float(p[0]), float(p[1])), "flip": p.size() == 3 and bool(p[2])}
+
+
+static func base_rect(it: Dictionary) -> Rect2:
+	var b: Array = it.get("base_rect", it.get("rect", [0, 0, 0, 0]))
+	return Rect2(b[0], b[1], b[2], b[3])
+
+
+static func foot_of(r: Rect2) -> Vector2:
+	return Vector2(r.position.x + r.size.x * 0.5, r.end.y)
+
+
+## Масштаб вещи на полу в точке foot_y относительно исходного места; стены — 1.
+static func depth_k(loc_id: String, key: String, it: Dictionary, foot_y: float) -> float:
+	if kind(loc_id, key) != &"floor":
+		return 1.0
+	var b := foot_of(base_rect(it)).y - HORIZON
+	if b <= 1.0:
+		return 1.0
+	return clampf((foot_y - HORIZON) / b, DEPTH_MIN, DEPTH_MAX)
+
+
+## Rect вещи, стоящей «ногами» в foot (середина низа).
+static func rect_at(loc_id: String, key: String, it: Dictionary, foot: Vector2) -> Rect2:
+	var sz := (base_rect(it).size * depth_k(loc_id, key, it, foot.y)).round()
+	return Rect2(Vector2(roundf(foot.x - sz.x * 0.5), foot.y - sz.y), sz)
+
+
+## Подтягивает точку в допустимую зону: пол — ноги в FLOOR, стена — rect внутри WALL.
+## Целые координаты (так они хранятся), с запасом в 1–2 px от краёв зоны.
+static func clamp_foot(loc_id: String, key: String, it: Dictionary, foot: Vector2) -> Vector2:
+	match kind(loc_id, key):
+		&"floor":
+			return Vector2(clampf(foot.x, FLOOR.position.x + 2, FLOOR.end.x - 2),
+				clampf(foot.y, FLOOR.position.y + 2, FLOOR.end.y - 2)).round()
+		&"wall":
+			var sz := base_rect(it).size
+			var pos := Vector2(foot.x - sz.x * 0.5, foot.y - sz.y)
+			pos = Vector2(clampf(pos.x, WALL.position.x + 2, maxf(WALL.position.x + 2, WALL.end.x - sz.x - 2)),
+				clampf(pos.y, WALL.position.y + 2, maxf(WALL.position.y + 2, WALL.end.y - sz.y - 2)))
+			return Vector2(pos.x + sz.x * 0.5, pos.y + sz.y).round()
+	return foot.round()
 
 
 ## Ставит вещи локации на сохранённые места; без записи — расстановка по умолчанию.
@@ -95,47 +146,38 @@ static func apply(loc: Dictionary) -> void:
 			continue
 		if not it.has("base_rect"):
 			it["base_rect"] = it["rect"].duplicate()
+			it["base_flip"] = bool(it.get("flip", false))
 			if it.has("shadow"):
 				it["base_shadow"] = it["shadow"].duplicate(true)
-		var b: Array = it["base_rect"]
-		var base := Rect2(b[0], b[1], b[2], b[3])
-		var at: Variant = _saved(loc_id, key)
+		var base := base_rect(it)
+		var flip := bool(it["base_flip"])
 		var r := base
-		if at != null and zone_ok(loc_id, key, Rect2(at, base.size)):
-			r = Rect2(at, base.size)
-		place(it, r)
+		var at: Variant = _saved(loc_id, key)
+		if at != null:
+			var moved := rect_at(loc_id, key, it, at.foot)
+			if zone_ok(loc_id, key, moved):
+				r = moved
+				flip = at.flip != bool(it["base_flip"])
+		place(it, r, flip)
 
 
-static func place(it: Dictionary, r: Rect2) -> void:
+## Ставит вещь в rect; flip — отражение относительно картинки. Тень едет, растёт и отражается.
+static func place(it: Dictionary, r: Rect2, flip: bool) -> void:
 	it["rect"] = [roundi(r.position.x), roundi(r.position.y), roundi(r.size.x), roundi(r.size.y)]
+	it["flip"] = flip
 	if it.has("base_shadow"):
-		var b: Array = it["base_rect"]
-		it["shadow"] = Home.moved_poly(it["base_shadow"], Vector2(b[0] + b[2] * 0.5, b[1] + b[3]),
-			Vector2(r.position.x + r.size.x * 0.5, r.end.y), 1.0, false)
+		var b := base_rect(it)
+		it["shadow"] = Home.moved_poly(it["base_shadow"], foot_of(b), foot_of(r),
+			r.size.y / maxf(1.0, b.size.y), flip != bool(it.get("base_flip", false)))
 
 
 static func zone_ok(loc_id: String, key: String, r: Rect2) -> bool:
 	match kind(loc_id, key):
 		&"floor":
-			return FLOOR.has_point(Vector2(r.position.x + r.size.x * 0.5, r.end.y))
+			return FLOOR.has_point(foot_of(r))
 		&"wall":
 			return WALL.encloses(r)
 	return false
-
-
-## Подтягивает rect в допустимую зону: пол — ноги в FLOOR, стена — rect внутри WALL.
-## Позиция целая (так она хранится), с запасом в 1 px от краёв зоны.
-static func clamp_rect(loc_id: String, key: String, r: Rect2) -> Rect2:
-	var pos := r.position
-	match kind(loc_id, key):
-		&"floor":
-			var foot := Vector2(clampf(r.position.x + r.size.x * 0.5, FLOOR.position.x + 1, FLOOR.end.x - 2),
-				clampf(r.end.y, FLOOR.position.y + 1, FLOOR.end.y - 2))
-			pos = foot - Vector2(r.size.x * 0.5, r.size.y)
-		&"wall":
-			pos = Vector2(clampf(r.position.x, WALL.position.x + 1, maxf(WALL.position.x + 1, WALL.end.x - r.size.x - 1)),
-				clampf(r.position.y, WALL.position.y + 1, maxf(WALL.position.y + 1, WALL.end.y - r.size.y - 1)))
-	return Rect2(pos.round(), r.size)
 
 
 static func _core(r: Rect2, k: float) -> Rect2:
@@ -195,8 +237,10 @@ static func save(loc: Dictionary, key: String) -> void:
 	var loc_id := str(loc.get("id", ""))
 	if not layout.get(loc_id) is Dictionary:
 		layout[loc_id] = {}
-	var r := rect_of(raw_item(loc, key))
-	layout[loc_id][key] = [r.position.x, r.position.y]
+	var it := raw_item(loc, key)
+	var foot := foot_of(rect_of(it))
+	var flip := bool(it.get("flip", false)) != bool(it.get("base_flip", false))
+	layout[loc_id][key] = [foot.x, foot.y, flip]
 	profile.mark_changed(&"layout")
 
 

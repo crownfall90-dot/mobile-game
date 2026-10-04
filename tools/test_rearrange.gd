@@ -30,7 +30,8 @@ func _run() -> void:
 			while y < 1420.0:
 				var x := 0.0
 				while x < 720.0:
-					var r: Rect2 = RA.clamp_rect(str(loc.id), key, Rect2(Vector2(x, y), base.size))
+					var foot: Vector2 = RA.clamp_foot(str(loc.id), key, it, Vector2(x, y))
+					var r: Rect2 = RA.rect_at(str(loc.id), key, it, foot)
 					assert(RA.zone_ok(str(loc.id), key, r), "clamp left zone: %s %s" % [loc.id, key])
 					if RA.fits(loc, key, r):
 						fits_n += 1
@@ -43,19 +44,23 @@ func _run() -> void:
 	var toy: Dictionary = RA.raw_item(room, "room/room_toybox")
 	var base: Rect2 = RA.rect_of(toy)
 	var shadow0: Array = toy["shadow"].duplicate(true)
-	var target := Rect2(Vector2(base.position.x + 140, base.position.y + 150), base.size)
-	target = RA.clamp_rect("room", "room/room_toybox", target)
-	RA.place(toy, target)
-	assert(RA.rect_of(toy) == target and toy["shadow"] != shadow0)
+	var foot: Vector2 = RA.clamp_foot("room", "room/room_toybox", toy, RA.foot_of(base) + Vector2(140, 250))
+	var target: Rect2 = RA.rect_at("room", "room/room_toybox", toy, foot)
+	assert(target.size.y > base.size.y, "closer to the viewer must be bigger")
+	var far: Rect2 = RA.rect_at("room", "room/room_toybox", toy, Vector2(foot.x, 1062))
+	assert(far.size.y < base.size.y, "farther must be smaller")
+	RA.place(toy, target, true)
+	assert(RA.rect_of(toy) == target and toy["shadow"] != shadow0 and toy["flip"] == true)
 	RA.save(room, "room/room_toybox")
-	RA.place(toy, base)
+	assert(profile.data["layout"]["room"]["room/room_toybox"] == [foot.x, foot.y, true])
+	RA.place(toy, base, false)
 	RA.apply(room)
-	assert(RA.rect_of(toy) == target, "saved place not applied")
+	assert(RA.rect_of(toy) == target and toy["flip"] == true, "saved place/flip not applied")
 	RA.reset(room)
-	assert(RA.rect_of(toy) == base and toy["shadow"] == shadow0, "reset must restore rect and shadow")
+	assert(RA.rect_of(toy) == base and toy["shadow"] == shadow0 and toy["flip"] == false, "reset must restore rect, shadow, flip")
 	assert(not profile.data["layout"].has("room"))
 	# мусор и недопустимые позиции в сохранении игнорируются
-	profile.data["layout"] = {"room": {"room/room_toybox": [5, 5], "room/room_rug": "x", "room/room_blocks": [1]}, "bath": 7}
+	profile.data["layout"] = {"room": {"room/room_toybox": [5, 5], "room/room_rug": "x", "room/room_blocks": [1], "room/room_suitcase": [1, 2, 3, 4]}, "bath": 7}
 	for loc: Dictionary in HOME.locations():
 		RA.apply(loc)
 	assert(RA.rect_of(toy) == base)

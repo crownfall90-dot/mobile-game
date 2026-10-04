@@ -37,6 +37,8 @@ var _drag_key := ""
 var _drag_grab := Vector2.ZERO
 var _drag_from := Rect2()
 var _drag_ok := true
+var _drag_moved := false          # палец сдвинулся: иначе это нажатие — отразить вещь
+var _drag_start := Vector2.ZERO
 var _energy_tick := 0.0
 var _time := 0.0
 var _idle := 0.0
@@ -717,7 +719,7 @@ func _set_arrange(on: bool) -> void:
 			c.visible = not on
 	if on:
 		_hide_hand()
-		Router.toast("Перетащи вещь на новое место")
+		Router.toast("Перетащи вещь; нажми — повернётся другим боком")
 	else:
 		Profile.flush()
 		_rebuild_marks()
@@ -742,17 +744,24 @@ func _arrange_input(event: InputEvent) -> void:
 			accept_event()
 			_drag_key = key
 			_drag_from = Rearrange.rect_of(Rearrange.raw_item(loc, key))
-			_drag_grab = p - _drag_from.position
+			_drag_grab = p - Rearrange.foot_of(_drag_from)
 			_drag_ok = true
+			_drag_moved = false
+			_drag_start = event.position
 			Sfx.haptic(12)
 		elif _drag_key != "":
 			accept_event()
 			_finish_drag(loc)
 	elif event is InputEventScreenDrag and _drag_key != "":
 		accept_event()
+		if not _drag_moved and event.position.distance_to(_drag_start) < 14.0:
+			return
+		_drag_moved = true
 		var p: Vector2 = (event.position - _offset) / _k
-		var r := Rearrange.clamp_rect(_loc_id, _drag_key, Rect2(p - _drag_grab, _drag_from.size))
-		Rearrange.place(Rearrange.raw_item(loc, _drag_key), r)
+		var it := Rearrange.raw_item(loc, _drag_key)
+		var foot := Rearrange.clamp_foot(_loc_id, _drag_key, it, p - _drag_grab)
+		var r := Rearrange.rect_at(_loc_id, _drag_key, it, foot)
+		Rearrange.place(it, r, bool(it.get("flip", false)))
 		_drag_ok = Rearrange.fits(loc, _drag_key, r)
 
 
@@ -760,12 +769,18 @@ func _finish_drag(loc: Dictionary) -> void:
 	var key := _drag_key
 	_drag_key = ""
 	var it := Rearrange.raw_item(loc, key)
+	if not _drag_moved:
+		# нажатие без перетаскивания — повернуть вещь другим боком (отражение)
+		Rearrange.place(it, _drag_from, not bool(it.get("flip", false)))
+		Rearrange.save(loc, key)
+		Sfx.play(&"ui_tap")
+		return
 	if Rearrange.fits(loc, key, Rearrange.rect_of(it)):
 		Rearrange.save(loc, key)
 		Sfx.play(&"ui_tap")
 		Sfx.haptic(20)
 	else:
-		Rearrange.place(it, _drag_from)
+		Rearrange.place(it, _drag_from, bool(it.get("flip", false)))
 		Router.toast("Здесь не поставить")
 
 
