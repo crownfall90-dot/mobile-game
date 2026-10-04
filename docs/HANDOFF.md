@@ -2828,3 +2828,15 @@ ApplicationExitInfo, чтобы получить native stack tombstone (нуж�
 `D:/tools/vita-build/jdk/jdk-17.0.18+8` (резервная копия editor_settings — `.bak-20261004`).
 armv7 не собирался; GitHub Release и Telegram не делались. Исправления вылетов #27–#30 нет.
 На телефоне не запускалось.
+
+## 04.10 — релиз 0.19.6-test опубликован
+
+С разрешения владельца `build/release-0.19.6/publish.py` (вне git) создал pre-release
+https://github.com/crownfall90-dot/mobile-game/releases/tag/vita-test-0.19.6 от `0150fff` с двумя APK:
+arm64 `Vita-Test-0.19.6.apk` 109056592 байт SHA256 `2296f988…f74b`, armv7
+`Vita-Test-0.19.6-old-phones.apk` 111067732 байт SHA256 `5a627496…8966` (подпись `0af54d49…01f0`).
+Размеры и SHA256 сверены через GitHub API, прямые ссылки — HTTP 200 и точная длина.
+Пост в канале: https://t.me/vita_mobile/26 (обе ссылки); состояние защиты от дублей обновлено
+(0.19.6 объявлена). Личное сообщение владельцу через `vita_reliz_bot` НЕ отправлено: chat_id
+владельца нигде не сохранён, getUpdates пуст — нужен /start боту от владельца, затем сохранить
+chat_id в состоянии (`owner_chat_id`). На телефоне 0.19.6 не запускалась.
