@@ -76,6 +76,12 @@ static func movable(loc: Dictionary) -> Array[String]:
 const HORIZON := 420.0
 const DEPTH_MIN := 0.8
 const DEPTH_MAX := 1.25
+## Угол комнаты: левее — левая стена, правее — правая. Вещь, перевешенная на другую стену,
+## разворачивается отражением, чтобы смотреть в комнату; через угол вещь не вешается.
+const CORNER_X := 370.0
+const CORNER_GAP := 6.0
+## Плоские вещи всегда лежат под остальными: их z не пересчитывается по глубине.
+const FLAT := ["room/room_rug", "kitchen/kitchen_rug"]
 
 
 ## Сохранённое место: {foot: Vector2, flip: bool} или null.
@@ -133,6 +139,9 @@ static func clamp_foot(loc_id: String, key: String, it: Dictionary, foot: Vector
 			var pos := Vector2(foot.x - sz.x * 0.5, foot.y - sz.y)
 			pos = Vector2(clampf(pos.x, WALL.position.x + 2, maxf(WALL.position.x + 2, WALL.end.x - sz.x - 2)),
 				clampf(pos.y, WALL.position.y + 2, maxf(WALL.position.y + 2, WALL.end.y - sz.y - 2)))
+			# через угол не вешается: к той стене, где больше вещи
+			if pos.x + sz.x > CORNER_X + CORNER_GAP and pos.x < CORNER_X - CORNER_GAP:
+				pos.x = CORNER_X + CORNER_GAP - sz.x - 1 if pos.x + sz.x * 0.5 < CORNER_X else CORNER_X - CORNER_GAP + 1
 			return Vector2(pos.x + sz.x * 0.5, pos.y + sz.y).round()
 	return foot.round()
 
@@ -147,28 +156,84 @@ static func apply(loc: Dictionary) -> void:
 		if not it.has("base_rect"):
 			it["base_rect"] = it["rect"].duplicate()
 			it["base_flip"] = bool(it.get("flip", false))
+			it["base_z"] = float(it.get("z", 0.0))
+			it["move_kind"] = kind(loc_id, key)
 			if it.has("shadow"):
 				it["base_shadow"] = it["shadow"].duplicate(true)
 		var base := base_rect(it)
-		var flip := bool(it["base_flip"])
+		var flip := false
 		var r := base
 		var at: Variant = _saved(loc_id, key)
 		if at != null:
 			var moved := rect_at(loc_id, key, it, at.foot)
 			if zone_ok(loc_id, key, moved):
 				r = moved
-				flip = at.flip != bool(it["base_flip"])
+				flip = at.flip
 		place(it, r, flip)
+		settle_z(loc, key)
 
 
-## Ставит вещь в rect; flip — отражение относительно картинки. Тень едет, растёт и отражается.
-static func place(it: Dictionary, r: Rect2, flip: bool) -> void:
+static func _wall_side(r: Rect2) -> int:
+	return -1 if r.get_center().x < CORNER_X else 1
+
+
+## Ставит вещь в rect; user_flip — поворот игроком. Итоговое отражение учитывает исходное и
+## смену стены. Тень едет, растёт и отражается.
+static func place(it: Dictionary, r: Rect2, user_flip: bool) -> void:
 	it["rect"] = [roundi(r.position.x), roundi(r.position.y), roundi(r.size.x), roundi(r.size.y)]
-	it["flip"] = flip
+	it["user_flip"] = user_flip
+	var turn := user_flip
+	if it.get("move_kind", &"") == &"wall" and _wall_side(r) != _wall_side(base_rect(it)):
+		turn = not turn
+	it["flip"] = bool(it.get("base_flip", false)) != turn
 	if it.has("base_shadow"):
 		var b := base_rect(it)
 		it["shadow"] = Home.moved_poly(it["base_shadow"], foot_of(b), foot_of(r),
-			r.size.y / maxf(1.0, b.size.y), flip != bool(it.get("base_flip", false)))
+			r.size.y / maxf(1.0, b.size.y), turn)
+
+
+## Слой по глубине: вещь на полу оказывается перед тем, что стоит дальше (выше по экрану), и за
+## тем, что ближе, среди пересекающихся по ширине слоёв. Семья комнаты — граница z = 2.
+static func settle_z(loc: Dictionary, key: String) -> void:
+	var it := raw_item(loc, key)
+	if it.is_empty() or not it.has("base_z"):
+		return
+	var r := rect_of(it)
+	if kind(str(loc.get("id", "")), key) != &"floor" or key in FLAT or r == base_rect(it):
+		it["z"] = it["base_z"]
+		return
+	var foot_y := r.end.y
+	var lower := -INF
+	var upper := INF
+	var span := Vector2(r.position.x + r.size.x * 0.15, r.end.x - r.size.x * 0.15)
+	for other: Dictionary in loc.get("targets", []) + loc.get("props", []) + loc.get("decor", []):
+		if other == it or str(other.get("img", "")) in FLAT or not other.has("rect"):
+			continue
+		var o := rect_of(other)
+		if minf(span.y, o.end.x) <= maxf(span.x, o.position.x):
+			continue
+		var z := float(other.get("z", 0.0))
+		if o.end.y <= foot_y:
+			lower = maxf(lower, z)
+		else:
+			upper = minf(upper, z)
+	var fam: Dictionary = loc.get("family", {})
+	if fam.has("pos"):
+		var h := float(fam.get("height", 500.0))
+		var fx := float(fam["pos"][0])
+		if minf(span.y, fx + h * 0.3) > maxf(span.x, fx - h * 0.3):
+			if foot_y > float(fam["pos"][1]):
+				lower = maxf(lower, 2.0)
+			else:
+				upper = minf(upper, 1.99)
+	var z := float(it["base_z"])
+	if lower > -INF and upper < INF:
+		z = (lower + upper) * 0.5 if upper > lower else lower + 0.005
+	elif lower > -INF:
+		z = maxf(z, lower + 0.005)
+	elif upper < INF:
+		z = minf(z, upper - 0.005)
+	it["z"] = z
 
 
 static func zone_ok(loc_id: String, key: String, r: Rect2) -> bool:
@@ -176,7 +241,7 @@ static func zone_ok(loc_id: String, key: String, r: Rect2) -> bool:
 		&"floor":
 			return FLOOR.has_point(foot_of(r))
 		&"wall":
-			return WALL.encloses(r)
+			return WALL.encloses(r) and (r.end.x <= CORNER_X + CORNER_GAP or r.position.x >= CORNER_X - CORNER_GAP)
 	return false
 
 
@@ -239,8 +304,7 @@ static func save(loc: Dictionary, key: String) -> void:
 		layout[loc_id] = {}
 	var it := raw_item(loc, key)
 	var foot := foot_of(rect_of(it))
-	var flip := bool(it.get("flip", false)) != bool(it.get("base_flip", false))
-	layout[loc_id][key] = [foot.x, foot.y, flip]
+	layout[loc_id][key] = [foot.x, foot.y, bool(it.get("user_flip", false))]
 	profile.mark_changed(&"layout")
 
 

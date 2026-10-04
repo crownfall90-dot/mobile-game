@@ -59,6 +59,27 @@ func _run() -> void:
 	RA.reset(room)
 	assert(RA.rect_of(toy) == base and toy["shadow"] == shadow0 and toy["flip"] == false, "reset must restore rect, shadow, flip")
 	assert(not profile.data["layout"].has("room"))
+	# глубина: перед семьёй — поверх неё (z >= 2), у дальней стены — за ней
+	var front: Vector2 = RA.clamp_foot("room", "room/room_toybox", toy, Vector2(200, 1390))
+	RA.place(toy, RA.rect_at("room", "room/room_toybox", toy, front), false)
+	RA.settle_z(room, "room/room_toybox")
+	assert(float(toy["z"]) >= 2.0, "toybox in front of the family must draw over it")
+	RA.place(toy, base, false)
+	RA.settle_z(room, "room/room_toybox")
+	assert(float(toy["z"]) == float(toy["base_z"]))
+	# стена: на другой стене вещь разворачивается, через угол не вешается
+	var shelf: Dictionary = RA.raw_item(room, "room/room_shelf_books")
+	var sb: Rect2 = RA.base_rect(shelf)
+	var left: Vector2 = RA.clamp_foot("room", "room/room_shelf_books", shelf, Vector2(200, 600))
+	var lr: Rect2 = RA.rect_at("room", "room/room_shelf_books", shelf, left)
+	RA.place(shelf, lr, false)
+	assert(shelf["flip"] == true and shelf["user_flip"] == false, "other wall must mirror")
+	RA.place(shelf, lr, true)
+	assert(shelf["flip"] == false)
+	var across := Rect2(Vector2(RA.CORNER_X - sb.size.x * 0.5, 600 - sb.size.y), sb.size)
+	assert(not RA.zone_ok("room", "room/room_shelf_books", across), "must not hang across the corner")
+	RA.place(shelf, sb, false)
+	assert(shelf["flip"] == shelf["base_flip"])
 	# мусор и недопустимые позиции в сохранении игнорируются
 	profile.data["layout"] = {"room": {"room/room_toybox": [5, 5], "room/room_rug": "x", "room/room_blocks": [1], "room/room_suitcase": [1, 2, 3, 4]}, "bath": 7}
 	for loc: Dictionary in HOME.locations():
@@ -74,5 +95,5 @@ func _run() -> void:
 	profile.data = saved
 	for loc: Dictionary in HOME.locations():
 		RA.apply(loc)
-	print("REARRANGE OK: ", total, " items with free spots, zones, save/apply/reset, junk save")
+	print("REARRANGE OK: ", total, " items with free spots, zones, depth z, wall sides, save/apply/reset, junk save")
 	quit()

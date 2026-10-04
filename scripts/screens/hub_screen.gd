@@ -761,7 +761,8 @@ func _arrange_input(event: InputEvent) -> void:
 		var it := Rearrange.raw_item(loc, _drag_key)
 		var foot := Rearrange.clamp_foot(_loc_id, _drag_key, it, p - _drag_grab)
 		var r := Rearrange.rect_at(_loc_id, _drag_key, it, foot)
-		Rearrange.place(it, r, bool(it.get("flip", false)))
+		Rearrange.place(it, r, bool(it.get("user_flip", false)))
+		Rearrange.settle_z(loc, _drag_key)
 		_drag_ok = Rearrange.fits(loc, _drag_key, r)
 
 
@@ -771,7 +772,7 @@ func _finish_drag(loc: Dictionary) -> void:
 	var it := Rearrange.raw_item(loc, key)
 	if not _drag_moved:
 		# нажатие без перетаскивания — повернуть вещь другим боком (отражение)
-		Rearrange.place(it, _drag_from, not bool(it.get("flip", false)))
+		Rearrange.place(it, _drag_from, not bool(it.get("user_flip", false)))
 		Rearrange.save(loc, key)
 		Sfx.play(&"ui_tap")
 		return
@@ -780,7 +781,8 @@ func _finish_drag(loc: Dictionary) -> void:
 		Sfx.play(&"ui_tap")
 		Sfx.haptic(20)
 	else:
-		Rearrange.place(it, _drag_from, bool(it.get("flip", false)))
+		Rearrange.place(it, _drag_from, bool(it.get("user_flip", false)))
+		Rearrange.settle_z(loc, key)
 		Router.toast("Здесь не поставить")
 
 
