@@ -10,6 +10,7 @@ const COST := 2
 const HARD_COST := 3
 const REGEN := 600.0
 const AD_GRANT := 2
+const PERFECT_BONUS := 1
 
 
 static func _autoload(name: String) -> Node:

@@ -278,7 +278,7 @@ func _on_won(stars: int) -> void:
 		Profile.reset_fails(level_id)
 		_repair = Home.finish(level_id, true)
 		Reports.note_feedback("Home.finish complete " + _repair)
-		_spend_energy()
+		_spend_energy(stars >= 3)
 	Sfx.play(&"win")
 	level_finished.emit(res)
 	var win_text := Loc.t("level.gold", [res["pieces"], res["pieces_total"]])
@@ -393,8 +393,11 @@ func _show_result_later(won: bool, stars: int, text: String, coins := "", title 
 
 
 ## Итог попытки стоит энергии (после победы или поражения, не при старте).
-func _spend_energy() -> void:
+## Идеальный ремонт (3 звезды) возвращает единицу энергии.
+func _spend_energy(perfect := false) -> void:
 	var spent := Energy.spend(level_id)
+	if perfect and spent > 0:
+		Energy.grant(Energy.PERFECT_BONUS)
 	Reports.note_feedback("energy -%d -> %d" % [spent, Energy.current()])
 	if spent > 0:
 		Router.toast("Энергия: %d из %d" % [Energy.current(), Energy.MAX], &"bolt")
