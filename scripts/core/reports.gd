@@ -58,7 +58,8 @@ func _ready() -> void:
 			previous_run = json.data
 			previous_run["log"] = _previous_log_tail()
 		_checkpoint = Timer.new()
-		_checkpoint.wait_time = 5
+		# часто: время закрытия по последнему снимку точнее (вылеты #24–#30 — через 22–27 с)
+		_checkpoint.wait_time = 2
 		_checkpoint.timeout.connect(func() -> void: _mark_running(true))
 		add_child(_checkpoint)
 		_checkpoint.start()
@@ -153,7 +154,7 @@ func capture_feedback() -> Dictionary:
 		"gpu": RenderingServer.get_video_adapter_name(), "gpu_vendor": RenderingServer.get_video_adapter_vendor(),
 		"cpu": OS.get_processor_name(), "cpu_count": OS.get_processor_count(),
 		"physics_fps": Engine.physics_ticks_per_second, "nodes": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
-		"router_busy": Router.is_busy(), "run_id": _run_id, "driver": str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")),
+		"router_busy": Router.is_busy(), "music_started_s": Sfx.music_started_ms / 1000.0, "run_id": _run_id, "driver": str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")),
 		"screen_pixels": str(DisplayServer.window_get_size()), "locale": OS.get_locale(),
 		"events": feedback_events.duplicate(), "errors": feedback_errors.duplicate(),
 		"progress": Profile.data.duplicate(true)}
@@ -313,7 +314,153 @@ func _android_exit_info() -> Dictionary:
 	var entry: Object = history.call("get", 0)
 	if JavaClassWrapper.get_exception() != null or entry == null:
 		return {}
-	return _read_exit_entry(entry, JavaClassWrapper.get_exception)
+	var info := _read_exit_entry(entry, JavaClassWrapper.get_exception)
+	# Android 12+: native crash/ANR keep a trace (tombstone); readAllBytes needs API 33.
+	if not info.is_empty() and int(sdk) >= 33 and int(info.reason_code) in [5, 6]:
+		var trace := _read_trace(entry, JavaClassWrapper.get_exception)
+		if trace != "":
+			info["trace"] = trace
+	return info
+
+
+## Сырые байты trace из ApplicationExitInfo; любая ошибка Java — пустая строка.
+func _read_trace(entry: Object, exception: Callable) -> String:
+	var stream: Variant = entry.call("getTraceInputStream")
+	if exception.call() != null or not stream is Object or stream == null:
+		return ""
+	var bytes: Variant = stream.call("readAllBytes")
+	var failed: bool = exception.call() != null
+	stream.call("close")
+	exception.call()
+	if failed or not bytes is PackedByteArray:
+		return ""
+	return trace_summary(bytes)
+
+
+## Краткая выжимка tombstone: сигнал, сообщение abort, кадры упавшего потока.
+## Tombstone Android 12+ — protobuf (tombstone.proto); текстовый trace (ANR) — печатные строки.
+static func trace_summary(bytes: PackedByteArray, max_frames := 40) -> String:
+	var top := _pb_fields(bytes, 0, bytes.size())
+	if top.is_empty():
+		return _printable(bytes).left(4000)
+	var tid := -1
+	var lines: Array[String] = []
+	for f: Array in top:
+		match int(f[0]):
+			6:
+				tid = int(f[2])
+			2:
+				lines.append("build " + _pb_str(bytes, f))
+			10:
+				var sig := {}
+				for g: Array in _pb_fields(bytes, f[2].x, f[2].y):
+					sig[int(g[0])] = _pb_str(bytes, g) if int(g[1]) == 2 else g[2]
+				lines.append("signal %s %s fault 0x%x" % [sig.get(2, sig.get(1, "?")), sig.get(4, sig.get(3, "")), int(sig.get(9, 0))])
+			14:
+				lines.append("abort " + _pb_str(bytes, f).left(400))
+	for f: Array in top:
+		if int(f[0]) != 16 or int(f[1]) != 2:
+			continue
+		var key := -1
+		var thread := Vector2i(-1, -1)
+		for g: Array in _pb_fields(bytes, f[2].x, f[2].y):
+			if int(g[0]) == 1 and int(g[1]) == 0:
+				key = int(g[2])
+			elif int(g[0]) == 2 and int(g[1]) == 2:
+				thread = g[2]
+		if key != tid or thread.x < 0:
+			continue
+		var n := 0
+		for g: Array in _pb_fields(bytes, thread.x, thread.y):
+			if int(g[0]) == 2 and int(g[1]) == 2:
+				lines.append("thread " + _pb_str(bytes, g))
+			elif int(g[0]) == 4 and int(g[1]) == 2 and n < max_frames:
+				var fr := {}
+				for h: Array in _pb_fields(bytes, g[2].x, g[2].y):
+					fr[int(h[0])] = _pb_str(bytes, h) if int(h[1]) == 2 else h[2]
+				var fn := str(fr.get(4, ""))
+				lines.append("#%02d pc %x %s%s%s" % [n, int(fr.get(1, 0)), str(fr.get(6, "?")).get_file(),
+					(" (%s+%d)" % [fn, int(fr.get(5, 0))]) if fn != "" else "",
+					(" [%s]" % str(fr.get(8, "")).left(16)) if str(fr.get(8, "")) != "" else ""])
+				n += 1
+	return "\n".join(lines).left(4000) if not lines.is_empty() else _printable(bytes).left(4000)
+
+
+## Поля protobuf в [from, to): [номер, тип, значение]; тип 2 — Vector2i(начало, конец).
+## Ошибка разбора — пустой массив (не protobuf).
+static func _pb_fields(b: PackedByteArray, from: int, to: int) -> Array:
+	var out := []
+	var i := from
+	while i < to:
+		var key := _pb_varint(b, i, to)
+		if key.y < 0:
+			return []
+		i = key.y
+		var num := key.x >> 3
+		var wt := key.x & 7
+		if num <= 0:
+			return []
+		match wt:
+			0:
+				var v := _pb_varint(b, i, to)
+				if v.y < 0:
+					return []
+				out.append([num, 0, v.x])
+				i = v.y
+			1:
+				if i + 8 > to:
+					return []
+				out.append([num, 1, b.decode_u64(i)])
+				i += 8
+			2:
+				var ln := _pb_varint(b, i, to)
+				if ln.y < 0 or ln.x < 0 or ln.y + ln.x > to:
+					return []
+				out.append([num, 2, Vector2i(ln.y, ln.y + ln.x)])
+				i = ln.y + ln.x
+			5:
+				if i + 4 > to:
+					return []
+				out.append([num, 5, b.decode_u32(i)])
+				i += 4
+			_:
+				return []
+	return out
+
+
+## Varint с позиции i: Vector2i(значение, следующая позиция); y = -1 — ошибка.
+static func _pb_varint(b: PackedByteArray, i: int, to: int) -> Vector2i:
+	var v := 0
+	var shift := 0
+	while i < to and shift < 64:
+		var c := b[i]
+		i += 1
+		v |= (c & 0x7f) << shift
+		if c < 0x80:
+			return Vector2i(v, i)
+		shift += 7
+	return Vector2i(0, -1)
+
+
+static func _pb_str(b: PackedByteArray, f: Array) -> String:
+	if int(f[1]) != 2:
+		return str(f[2])
+	return b.slice(f[2].x, f[2].y).get_string_from_utf8().left(300)
+
+
+static func _printable(b: PackedByteArray) -> String:
+	var out := PackedStringArray()
+	var run := PackedByteArray()
+	for c in b.slice(0, mini(b.size(), 200000)):
+		if c >= 32 and c < 127:
+			run.append(c)
+			continue
+		if run.size() >= 6:
+			out.append(run.get_string_from_ascii())
+		run.clear()
+	if run.size() >= 6:
+		out.append(run.get_string_from_ascii())
+	return "\n".join(out)
 
 
 ## Stop on the first failed JNI call: a later successful call can replace its exception.

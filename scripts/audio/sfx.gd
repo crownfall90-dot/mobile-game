@@ -36,6 +36,9 @@ var _vibration_on := true
 var _suspended := false
 var _last_tick_ms := -100000
 var _music_player: AudioStreamPlayer
+## Когда музыка последний раз запустилась с начала (мс от старта), -1 — не играла.
+## Для отчётов о вылетах: петля 20 с, по времени закрытия видно, связано ли оно с ней.
+var music_started_ms := -1
 var _music_task := -1
 var _music_pcm := PackedByteArray()
 var _music_tween: Tween
@@ -190,6 +193,7 @@ func _start_music() -> void:
 	if _music_player.stream != null:
 		if not _music_player.playing:
 			_music_player.play()
+			music_started_ms = Time.get_ticks_msec()
 		_fade_music(true)
 		return
 	if _music_task == -1:
